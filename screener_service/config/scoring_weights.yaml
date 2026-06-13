@@ -1,0 +1,22 @@
+opportunity:
+  valuation: 0.22
+  growth: 0.16
+  quality: 0.16
+  momentum: 0.12
+  analyst_revision: 0.10
+  institutional_accumulation: 0.10
+  insider_activity: 0.04
+  risk: 0.10
+regime_adjustments:
+  risk_off:
+    momentum: -0.04
+    quality: 0.04
+    risk: 0.04
+  risk_on:
+    momentum: 0.04
+    growth: 0.02
+thresholds:
+  buy_score: 70
+  sell_score: 40
+  analyze_deeper_score: 70
+  watch_score: 55

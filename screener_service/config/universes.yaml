@@ -1,0 +1,67 @@
+SP500:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - META
+  - BRK-B
+  - LLY
+  - AVGO
+  - JPM
+  - V
+  - XOM
+  - UNH
+  - MA
+  - COST
+  - HD
+  - PG
+  - KO
+  - PEP
+  - MRK
+NASDAQ100:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - META
+  - AVGO
+  - COST
+  - TSLA
+  - NFLX
+DOW:
+  - AAPL
+  - AMGN
+  - AXP
+  - BA
+  - CAT
+  - CRM
+  - CSCO
+  - CVX
+  - DIS
+  - GS
+RUSSELL1000:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - JPM
+  - XOM
+  - UNH
+  - KO
+  - PEP
+RUSSELL2000:
+  - SMCI
+  - ELF
+  - CELH
+  - CROX
+  - MSTR
+  - LTH
+  - FIX
+  - UFPI
+  - FN
+  - ATI
+WATCHLIST: []
+CUSTOM: []

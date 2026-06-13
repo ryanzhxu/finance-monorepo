@@ -1,0 +1,5 @@
+min_market_cap_usd: 1000000000
+min_avg_dollar_volume_usd: 5000000
+exclude_penny_stocks: true
+exclude_otc: true
+meme_behavior_guard: true

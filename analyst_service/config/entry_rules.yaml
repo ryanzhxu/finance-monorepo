@@ -1,0 +1,15 @@
+support_window: 20
+cluster_atr_multiple: 1.0
+ideal_zone_low_atr_multiple: 0.25
+ideal_zone_high_atr_multiple: 0.5
+breakout_buffer: 0.005
+breakout_volume_ratio: 1.5
+extension_threshold_pct: 10.0
+overbought_rsi: 75.0
+mild_strength_ma20_pct: 1.03
+aggressive_max_rsi: 60.0
+oversold_reclaim_rsi: 30.0
+conservative_min_rsi: 35.0
+strong_trend_ma200_distance_pct: 5.0
+reasonable_pe_percentile: 65.0
+min_buy_now_risk_reward: 1.2

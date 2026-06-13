@@ -1,0 +1,17 @@
+RSI_14: 1.0
+MACD: 1.0
+Bollinger_Bands: 0.8
+Volume: 1.0
+MA_50_200: 1.5
+RSI_Weekly: 1.5
+Support_Resistance: 0.8
+EPS_Surprise: 2.0
+Analyst_Ratings: 1.5
+PE_Percentile: 1.0
+Institutional_13F: 1.5
+Put_Call_Ratio: 1.0
+IV_Rank: 0.5
+Short_Interest: 0.8
+FOMC_Proximity: 1.0
+Reddit_Sentiment: 0.3
+News_Sentiment: 0.5

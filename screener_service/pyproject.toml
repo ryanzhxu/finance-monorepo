@@ -1,0 +1,37 @@
+[project]
+name = "screener-service"
+version = "0.1.0"
+description = "Phase 2 screener FastAPI service."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "httpx>=0.27.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "pydantic>=2.7.0",
+    "PyYAML>=6.0.1",
+    "shared",
+    "uvicorn[standard]>=0.30.0",
+    "yfinance>=0.2.40",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "screener_service",
+    "screener_service.api",
+    "screener_service.api.routers",
+    "screener_service.core",
+]
+
+[tool.setuptools.package-dir]
+screener_service = "."
+"screener_service.api" = "api"
+"screener_service.api.routers" = "api/routers"
+"screener_service.core" = "core"
+
+[tool.setuptools.package-data]
+screener_service = ["config/*.yaml"]

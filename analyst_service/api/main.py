@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+
+from analyst_service.api.routers.analysis import router
+from analyst_service.core.settings import load_service_config
+
+app = FastAPI(title="Analyst Service", version="0.1.0")
+app.include_router(router)
+
+
+@app.on_event("startup")
+async def validate_config() -> None:
+    load_service_config()
