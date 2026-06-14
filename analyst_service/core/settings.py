@@ -32,7 +32,8 @@ REQUIRED_ENTRY_RULES = {
     "support_window",
     "cluster_atr_multiple",
     "ideal_zone_low_atr_multiple",
-    "ideal_zone_high_atr_multiple",
+    "zone_atr_mult",
+    "ma20_proximity_atr_tolerance",
     "breakout_buffer",
     "breakout_volume_ratio",
     "extension_threshold_pct",
@@ -43,7 +44,7 @@ REQUIRED_ENTRY_RULES = {
     "conservative_min_rsi",
     "strong_trend_ma200_distance_pct",
     "reasonable_pe_percentile",
-    "min_buy_now_risk_reward",
+    "rr_min",
 }
 
 
