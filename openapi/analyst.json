@@ -388,6 +388,143 @@
         "title": "EntryRequest",
         "type": "object"
       },
+      "EntryResponse": {
+        "properties": {
+          "aggressive_entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggressive Entry Price"
+          },
+          "breakout_buy_level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breakout Buy Level"
+          },
+          "breakout_volume_confirmed": {
+            "title": "Breakout Volume Confirmed",
+            "type": "boolean"
+          },
+          "conservative_entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conservative Entry Price"
+          },
+          "current_price": {
+            "title": "Current Price",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "entry_assessment": {
+            "$ref": "#/components/schemas/EntryAssessment"
+          },
+          "ideal_buy_zone": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Ideal Buy Zone",
+            "type": "array"
+          },
+          "invalidation_level": {
+            "title": "Invalidation Level",
+            "type": "number"
+          },
+          "is_overextended": {
+            "title": "Is Overextended",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resistance_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Resistance Levels",
+            "type": "array"
+          },
+          "risk_reward_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Ratio"
+          },
+          "stop_loss_suggestion": {
+            "title": "Stop Loss Suggestion",
+            "type": "number"
+          },
+          "support_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Support Levels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_price",
+          "ideal_buy_zone",
+          "support_levels",
+          "resistance_levels",
+          "stop_loss_suggestion",
+          "invalidation_level",
+          "is_overextended",
+          "breakout_volume_confirmed",
+          "entry_assessment",
+          "reason",
+          "data_freshness",
+          "data_quality_score"
+        ],
+        "title": "EntryResponse",
+        "type": "object"
+      },
       "Freshness": {
         "enum": [
           "live",
@@ -1219,7 +1356,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EntryBlock"
+                  "$ref": "#/components/schemas/EntryResponse"
                 }
               }
             },
