@@ -19,3 +19,4 @@ build/
 .DS_Store
 backtesting/recommendations.jsonl
 screener_service/cache/**/*.json
+screener_service/cache/**/*.jsonl

@@ -1,0 +1,59 @@
+sources:
+  reddit:
+    subreddits:
+      - wallstreetbets
+      - stocks
+      - investing
+    limit: 100
+  stocktwits:
+    limit: 50
+  news:
+    feeds:
+      - https://feeds.finance.yahoo.com/rss/2.0/headline
+      - https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best
+      - https://www.cnbc.com/id/100003114/device/rss/rss.html
+  yahoo_trending:
+    count_weight: 3
+sentiment:
+  finbert_model: ProsusAI/finbert
+  positive_keywords:
+    - beat
+    - upgrade
+    - raised
+    - strong
+    - bullish
+    - growth
+    - partnership
+    - approval
+    - record
+    - surge
+  negative_keywords:
+    - miss
+    - downgrade
+    - cut
+    - weak
+    - bearish
+    - investigation
+    - recall
+    - lawsuit
+    - plunge
+    - warning
+metrics:
+  baseline_days: 30
+  booster_weight: 0.20
+  retail_fomo_cap: 20.0
+  institutional_share_professional_sources:
+    - news
+    - yahoo_trending
+classification:
+  news_driven_min_sentiment: 0.15
+  news_driven_min_institutional_share: 0.20
+  earnings_window_days: 7
+  early_accumulation_min_acceleration: 1.20
+  early_accumulation_max_24h_mentions: 25
+  high_quality_min_sentiment: 0.20
+  meme_growth_5d_pct: 250.0
+  meme_sentiment_score: 0.50
+  pump_short_interest_pct: 18.0
+  overextended_acceleration: 1.20
+  strong_fundamental_score: 65.0
