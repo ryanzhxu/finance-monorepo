@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import ConfigDict
 
-from shared.models import AnalyzeRequest, AnalyzeResponse, BatchAnalyzeRequest, EntryBlock, EntryRequest, HealthResponse
+from shared.models import AnalyzeRequest, AnalyzeResponse, BatchAnalyzeRequest, EntryBlock, EntryRequest, HealthResponse, FreshnessMap
 
-from analyst_service.core.analysis import analyze_symbol, entry_for_symbol
+from analyst_service.core.analysis import analyze_symbol
 from analyst_service.core.llm_client import llm_available
 from analyst_service.core.settings import load_service_config
 
 router = APIRouter()
+
+
+class EntryResponse(EntryBlock):
+    model_config = ConfigDict(use_enum_values=True)
+
+    data_freshness: FreshnessMap
+    data_quality_score: int
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -54,9 +62,25 @@ async def batch_analyze(request: BatchAnalyzeRequest) -> list[AnalyzeResponse]:
     return responses
 
 
-@router.post("/entry", response_model=EntryBlock)
-async def entry(request: EntryRequest) -> EntryBlock:
+@router.post("/entry", response_model=EntryResponse)
+async def entry(request: EntryRequest) -> EntryResponse:
     try:
-        return await entry_for_symbol(request)
+        analysis = await analyze_symbol(
+            AnalyzeRequest(
+                symbol=request.symbol,
+                asset_type=request.asset_type,
+                horizon=request.horizon,
+                current_price=request.current_price,
+                include_narrative=False,
+                include_entry=True,
+            )
+        )
+        if analysis.entry is None:
+            raise ValueError("entry block was not generated")
+        return EntryResponse(
+            **analysis.entry.model_dump(),
+            data_freshness={"price": analysis.data_freshness.get("price")},
+            data_quality_score=analysis.data_quality_score,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
