@@ -59,6 +59,27 @@ class MarketRegime(str, Enum):
     RISK_OFF = "risk_off"
 
 
+class TrendSource(str, Enum):
+    REDDIT = "reddit"
+    STOCKTWITS = "stocktwits"
+    NEWS = "news"
+    YAHOO_TRENDING = "yahoo_trending"
+
+
+class TechnicalState(str, Enum):
+    OVERSOLD = "oversold"
+    NEUTRAL = "neutral"
+    EXTENDED = "extended"
+    OVEREXTENDED = "overextended"
+    BREAKOUT = "breakout"
+
+
+class FundamentalState(str, Enum):
+    STRONG = "strong"
+    MIXED = "mixed"
+    WEAK = "weak"
+
+
 class AssetType(str, Enum):
     STOCK = "STOCK"
 

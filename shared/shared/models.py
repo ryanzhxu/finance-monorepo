@@ -5,7 +5,20 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from shared.enums import AssetType, Direction, EntryAssessment, Freshness, Horizon, MarketRegime, ScreenType, Universe
+from shared.enums import (
+    AssetType,
+    Direction,
+    EntryAssessment,
+    Freshness,
+    FundamentalState,
+    Horizon,
+    MarketRegime,
+    ScreenType,
+    TechnicalState,
+    TrendQuality,
+    TrendSource,
+    Universe,
+)
 
 RiskFlag = str
 FreshnessMap = dict[str, Freshness | str]
@@ -204,6 +217,26 @@ class ScreenRequest(BaseModel):
         return normalized or None
 
 
+class TrendingScreenRequest(ScreenRequest):
+    lookback_days: list[int] = Field(default_factory=lambda: [3, 5])
+    sources: list[TrendSource] = Field(
+        default_factory=lambda: [
+            TrendSource.REDDIT,
+            TrendSource.STOCKTWITS,
+            TrendSource.NEWS,
+            TrendSource.YAHOO_TRENDING,
+        ]
+    )
+
+    @field_validator("lookback_days")
+    @classmethod
+    def validate_lookback_days(cls, values: list[int]) -> list[int]:
+        normalized = sorted({int(value) for value in values if int(value) > 0})
+        if not normalized:
+            raise ValueError("lookback_days must include at least one positive integer")
+        return normalized
+
+
 class ScreenResultItem(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
@@ -259,6 +292,65 @@ class RegimeResponse(BaseModel):
     reason: str
 
 
+class BuyabilityResult(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    symbol: str
+    trend_score: float = Field(ge=0.0, le=100.0)
+    sentiment_score: float = Field(ge=-1.0, le=1.0)
+    technical_state: TechnicalState
+    fundamental_state: FundamentalState
+    entry_assessment: EntryAssessment | None = None
+    ideal_buy_zone: tuple[float, float] | None = None
+    current_price: float | None = None
+    data_quality_score: int = Field(ge=0, le=100)
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str
+    risk_flags: list[RiskFlag] = Field(default_factory=list)
+
+
+class TrendingResultItem(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    symbol: str
+    screen_type: ScreenType = ScreenType.TRENDING
+    mention_count_24h: int = 0
+    mention_count_3d: int = 0
+    mention_count_5d: int = 0
+    mention_growth_3d_pct: float | None = None
+    mention_growth_5d_pct: float | None = None
+    baseline_daily_mentions_30d: float | None = None
+    acceleration: float | None = None
+    sentiment_score: float = Field(ge=-1.0, le=1.0)
+    sentiment_change: float | None = None
+    pos_neu_neg_ratio: list[float] = Field(default_factory=list)
+    retail_fomo_risk: float = Field(ge=0.0, le=100.0)
+    news_catalyst: str = "none"
+    trend_quality: TrendQuality
+    institutional_account_participation: float | None = None
+    data_freshness: FreshnessMap
+    data_quality_score: int = Field(ge=0, le=100)
+    confidence: float = Field(ge=0.0, le=1.0)
+    risk_flags: list[RiskFlag] = Field(default_factory=list)
+    reason: str
+    score_breakdown: dict[str, Any]
+    buyability: BuyabilityResult | None = None
+
+
+class TrendingScreenResponse(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    screen_type: ScreenType = ScreenType.TRENDING
+    generated_at: datetime
+    universe: Universe
+    market_regime: MarketRegime
+    data_quality_score: int = Field(ge=0, le=100)
+    confidence: float = Field(ge=0.0, le=1.0)
+    data_freshness: FreshnessMap
+    results: list[TrendingResultItem]
+    notes: list[str] = Field(default_factory=list)
+
+
 class RecommendationLogRecord(BaseModel):
     symbol: str
     timestamp: datetime
@@ -281,6 +373,22 @@ class ScreenLogRecord(BaseModel):
     confidence: float
     entry_assessment: EntryAssessment | None
     ideal_buy_zone: tuple[float, float] | None
+    scores: dict[str, Any]
+    risk_flags: list[RiskFlag]
+    regime: MarketRegime
+    data_quality_score: int
+
+
+class TrendingLogRecord(BaseModel):
+    screen_type: ScreenType
+    timestamp: datetime
+    symbol: str
+    confidence: float
+    trend_quality: TrendQuality
+    retail_fomo_risk: float
+    sentiment_score: float
+    acceleration: float | None = None
+    buyability: BuyabilityResult | None = None
     scores: dict[str, Any]
     risk_flags: list[RiskFlag]
     regime: MarketRegime

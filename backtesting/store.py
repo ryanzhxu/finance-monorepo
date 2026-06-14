@@ -4,7 +4,14 @@ import json
 import os
 from pathlib import Path
 
-from shared.models import AnalyzeResponse, RecommendationLogRecord, ScreenLogRecord, ScreenResponse
+from shared.models import (
+    AnalyzeResponse,
+    RecommendationLogRecord,
+    ScreenLogRecord,
+    ScreenResponse,
+    TrendingLogRecord,
+    TrendingScreenResponse,
+)
 
 
 def default_store_path() -> Path:
@@ -47,6 +54,29 @@ def append_screen_results(response: ScreenResponse, path: Path | None = None) ->
                 confidence=item.confidence,
                 entry_assessment=item.entry_assessment,
                 ideal_buy_zone=item.ideal_buy_zone,
+                scores=item.score_breakdown,
+                risk_flags=item.risk_flags,
+                regime=response.market_regime,
+                data_quality_score=item.data_quality_score,
+            )
+            handle.write(json.dumps(record.model_dump(mode="json"), sort_keys=True) + "\n")
+
+
+def append_trending_results(response: TrendingScreenResponse, path: Path | None = None) -> None:
+    destination = path or default_store_path()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("a", encoding="utf-8") as handle:
+        for item in response.results:
+            record = TrendingLogRecord(
+                screen_type=response.screen_type,
+                timestamp=response.generated_at,
+                symbol=item.symbol,
+                confidence=item.confidence,
+                trend_quality=item.trend_quality,
+                retail_fomo_risk=item.retail_fomo_risk,
+                sentiment_score=item.sentiment_score,
+                acceleration=item.acceleration,
+                buyability=item.buyability,
                 scores=item.score_breakdown,
                 risk_flags=item.risk_flags,
                 regime=response.market_regime,
