@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: finance-analyst
+    runtime: python
+    plan: free
+    region: oregon
+    autoDeployTrigger: commit
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn analyst_service.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: AI_PROVIDER
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: ALPHA_VANTAGE_KEY
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        value: "3600"
+      - key: FUNDAMENTAL_CACHE_TTL
+        value: "86400"
+      - key: SENTIMENT_CACHE_TTL
+        value: "900"
+
+  - type: web
+    name: finance-screener
+    runtime: python
+    plan: free
+    region: oregon
+    autoDeployTrigger: commit
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn screener_service.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /screen/health
+    envVars:
+      - key: ANALYST_BASE_URL
+        fromService:
+          type: web
+          name: finance-analyst
+          property: host
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: STOCKTWITS_API_KEY
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        value: "3600"
+      - key: FUNDAMENTAL_CACHE_TTL
+        value: "86400"
+      - key: SENTIMENT_CACHE_TTL
+        value: "900"
