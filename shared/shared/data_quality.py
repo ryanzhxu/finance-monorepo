@@ -21,8 +21,10 @@ def utc_now() -> datetime:
 
 
 def freshness_label(item: FreshValue[object]) -> str:
-    if item.as_of and item.freshness not in {Freshness.MISSING, Freshness.LIVE}:
-        return item.as_of.isoformat()
+    if item.freshness == Freshness.LAST_CLOSE and item.as_of:
+        return f"{item.freshness.value} ({item.as_of.date().isoformat()})"
+    if item.freshness == Freshness.QUARTERLY and item.as_of:
+        return item.as_of.date().isoformat()
     return item.freshness.value
 
 

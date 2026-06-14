@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Any
 
 import pandas as pd
@@ -8,6 +8,12 @@ import pandas as pd
 from shared.data_quality import FreshValue, utc_now
 from shared.enums import Freshness
 from shared.models import Fundamentals, Macro, Sentiment
+from shared.time_utils import (
+    US_EASTERN,
+    is_us_equity_market_open,
+    latest_completed_us_equity_trading_day,
+    previous_us_equity_trading_day,
+)
 
 
 def _empty_frame() -> pd.DataFrame:
@@ -30,6 +36,37 @@ def _estimated_ohlcv(current_price: float | None) -> pd.DataFrame:
     )
 
 
+def _frame_trading_date(frame: pd.DataFrame) -> date | None:
+    if frame.empty:
+        return None
+    last_index = frame.index[-1]
+    if isinstance(last_index, pd.Timestamp):
+        return last_index.date()
+    return pd.Timestamp(last_index).date()
+
+
+def _close_timestamp(trading_date: date) -> datetime:
+    return datetime.combine(trading_date, time(hour=16), tzinfo=US_EASTERN).astimezone(timezone.utc)
+
+
+def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -> tuple[Freshness, datetime | None]:
+    trading_date = _frame_trading_date(frame)
+    if trading_date is None:
+        return Freshness.MISSING, None
+
+    observed_at = now or utc_now()
+    if is_us_equity_market_open(observed_at):
+        oldest_acceptable = previous_us_equity_trading_day(observed_at)
+        if trading_date < oldest_acceptable:
+            return Freshness.STALE, _close_timestamp(trading_date)
+        return Freshness.DELAYED, observed_at
+
+    latest_close = latest_completed_us_equity_trading_day(observed_at)
+    if trading_date < latest_close:
+        return Freshness.STALE, _close_timestamp(trading_date)
+    return Freshness.LAST_CLOSE, _close_timestamp(trading_date)
+
+
 def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[pd.DataFrame]:
     try:
         import yfinance as yf
@@ -44,7 +81,9 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
         frame = frame.rename(columns=str.lower)
         frame = frame.rename(columns={"adj close": "adj_close"})
         required = ["open", "high", "low", "close", "volume"]
-        return FreshValue(frame[required].dropna(how="all"), Freshness.DELAYED, datetime.now(timezone.utc))
+        cleaned = frame[required].dropna(how="all")
+        freshness, as_of = classify_price_freshness(cleaned)
+        return FreshValue(cleaned, freshness, as_of)
     except Exception:
         estimated = _estimated_ohlcv(current_price)
         freshness = Freshness.ESTIMATED if not estimated.empty else Freshness.MISSING

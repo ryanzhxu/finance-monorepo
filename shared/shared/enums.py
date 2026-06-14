@@ -29,6 +29,7 @@ class TrendQuality(str, Enum):
 class Freshness(str, Enum):
     LIVE = "live"
     DELAYED = "delayed"
+    LAST_CLOSE = "last_close"
     QUARTERLY = "quarterly"
     STALE = "stale"
     MISSING = "missing"

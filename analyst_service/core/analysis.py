@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from shared.data_quality import FreshValue, compute_data_quality
+from shared.data_quality import FreshValue, compute_data_quality, freshness_label
 from shared.enums import Freshness
 from shared.models import (
     AnalyzeRequest,
@@ -27,9 +27,8 @@ from backtesting.store import append_recommendation
 
 
 def _freshness_value(item: FreshValue[object]) -> Freshness | str:
-    if item.as_of and item.freshness in {Freshness.QUARTERLY, Freshness.DELAYED}:
-        return item.as_of.date().isoformat() if item.freshness == Freshness.QUARTERLY else item.freshness
-    return item.freshness
+    label = freshness_label(item)
+    return item.freshness if label == item.freshness.value else label
 
 
 def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> float:
