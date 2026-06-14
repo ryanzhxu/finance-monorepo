@@ -3,8 +3,8 @@
     "schemas": {
       "AnalyzeRequest": {
         "example": {
-          "asset_type": "stock",
-          "horizon": "2_4_weeks",
+          "asset_type": "STOCK",
+          "horizon": "2-4W",
           "include_entry": true,
           "include_narrative": false,
           "symbol": "NVDA"
@@ -167,8 +167,8 @@
       },
       "BatchAnalyzeRequest": {
         "example": {
-          "asset_type": "stock",
-          "horizon": "2_4_weeks",
+          "asset_type": "STOCK",
+          "horizon": "2-4W",
           "include_entry": true,
           "include_narrative": false,
           "symbols": [
@@ -352,8 +352,8 @@
       },
       "EntryRequest": {
         "example": {
-          "asset_type": "stock",
-          "horizon": "2_4_weeks",
+          "asset_type": "STOCK",
+          "horizon": "2-4W",
           "symbol": "NVDA"
         },
         "properties": {
@@ -392,6 +392,7 @@
         "enum": [
           "live",
           "delayed",
+          "last_close",
           "quarterly",
           "stale",
           "missing",

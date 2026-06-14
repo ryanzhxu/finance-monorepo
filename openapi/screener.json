@@ -129,6 +129,7 @@
         "enum": [
           "live",
           "delayed",
+          "last_close",
           "quarterly",
           "stale",
           "missing",
@@ -246,11 +247,11 @@
       },
       "ScreenRequest": {
         "example": {
-          "horizon": "2_4_weeks",
+          "horizon": "2-4W",
           "include_analysis": false,
           "include_narrative": false,
           "limit": 10,
-          "universe": "sp500"
+          "universe": "SP500"
         },
         "properties": {
           "filters_override": {
@@ -309,7 +310,7 @@
         "type": "object",
         "x-postman-examples": {
           "custom": {
-            "horizon": "2_4_weeks",
+            "horizon": "2-4W",
             "include_analysis": false,
             "include_narrative": false,
             "limit": 10,
@@ -318,24 +319,24 @@
               "NVDA",
               "JPM"
             ],
-            "universe": "custom"
+            "universe": "CUSTOM"
           },
           "opportunities": {
-            "horizon": "2_4_weeks",
+            "horizon": "2-4W",
             "include_analysis": true,
             "include_narrative": false,
             "limit": 10,
-            "universe": "sp500"
+            "universe": "SP500"
           },
           "undervalued": {
-            "horizon": "2_4_weeks",
+            "horizon": "2-4W",
             "include_analysis": false,
             "include_narrative": false,
             "limit": 10,
-            "universe": "sp500"
+            "universe": "SP500"
           },
           "watchlist": {
-            "horizon": "2_4_weeks",
+            "horizon": "2-4W",
             "include_analysis": true,
             "include_narrative": false,
             "limit": 10,
@@ -344,7 +345,7 @@
               "NVDA",
               "JPM"
             ],
-            "universe": "watchlist"
+            "universe": "WATCHLIST"
           }
         }
       },
@@ -839,7 +840,7 @@
       },
       "TrendingScreenRequest": {
         "example": {
-          "horizon": "2_4_weeks",
+          "horizon": "2-4W",
           "include_analysis": true,
           "include_narrative": false,
           "limit": 10,
@@ -851,7 +852,7 @@
             "news",
             "yahoo_trending"
           ],
-          "universe": "sp500"
+          "universe": "SP500"
         },
         "properties": {
           "filters_override": {
