@@ -3,10 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from shared.enums import ScreenType, Universe
-from shared.models import RegimeResponse, ScreenRequest, ScreenResponse
+from shared.models import RegimeResponse, ScreenRequest, ScreenResponse, TrendingScreenRequest, TrendingScreenResponse
 
 from screener_service.core.regime import current_regime
-from screener_service.core.screening import run_screen
+from screener_service.core.screening import run_screen, run_trending_screen
 from screener_service.core.settings import load_screener_config
 
 router = APIRouter(prefix="/screen")
@@ -41,6 +41,11 @@ async def undervalued(request: ScreenRequest) -> ScreenResponse:
 @router.post("/opportunities", response_model=ScreenResponse)
 async def opportunities(request: ScreenRequest) -> ScreenResponse:
     return await run_screen(request, ScreenType.OPPORTUNITIES)
+
+
+@router.post("/trending", response_model=TrendingScreenResponse)
+async def trending(request: TrendingScreenRequest) -> TrendingScreenResponse:
+    return await run_trending_screen(request)
 
 
 @router.post("/watchlist", response_model=ScreenResponse)
