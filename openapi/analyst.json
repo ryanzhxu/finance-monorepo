@@ -1,0 +1,1260 @@
+{
+  "components": {
+    "schemas": {
+      "AnalyzeRequest": {
+        "example": {
+          "asset_type": "stock",
+          "horizon": "2_4_weeks",
+          "include_entry": true,
+          "include_narrative": false,
+          "symbol": "NVDA"
+        },
+        "properties": {
+          "asset_type": {
+            "$ref": "#/components/schemas/AssetType",
+            "default": "STOCK"
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon",
+            "default": "2-4W"
+          },
+          "include_entry": {
+            "default": true,
+            "title": "Include Entry",
+            "type": "boolean"
+          },
+          "include_narrative": {
+            "default": true,
+            "title": "Include Narrative",
+            "type": "boolean"
+          },
+          "portfolio_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "AnalyzeRequest",
+        "type": "object"
+      },
+      "AnalyzeResponse": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryBlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fundamentals": {
+            "$ref": "#/components/schemas/Fundamentals"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "macro": {
+            "$ref": "#/components/schemas/Macro"
+          },
+          "narrative": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/Recommendation"
+          },
+          "sentiment": {
+            "$ref": "#/components/schemas/Sentiment"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/Signal"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "technicals": {
+            "$ref": "#/components/schemas/Technicals"
+          }
+        },
+        "required": [
+          "symbol",
+          "generated_at",
+          "data_freshness",
+          "data_quality_score",
+          "confidence",
+          "technicals",
+          "fundamentals",
+          "sentiment",
+          "macro",
+          "signals",
+          "recommendation"
+        ],
+        "title": "AnalyzeResponse",
+        "type": "object"
+      },
+      "AssetType": {
+        "enum": [
+          "STOCK"
+        ],
+        "title": "AssetType",
+        "type": "string"
+      },
+      "BatchAnalyzeRequest": {
+        "example": {
+          "asset_type": "stock",
+          "horizon": "2_4_weeks",
+          "include_entry": true,
+          "include_narrative": false,
+          "symbols": [
+            "NVDA",
+            "KO",
+            "JPM"
+          ]
+        },
+        "properties": {
+          "asset_type": {
+            "$ref": "#/components/schemas/AssetType",
+            "default": "STOCK"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon",
+            "default": "2-4W"
+          },
+          "include_entry": {
+            "default": true,
+            "title": "Include Entry",
+            "type": "boolean"
+          },
+          "include_narrative": {
+            "default": false,
+            "title": "Include Narrative",
+            "type": "boolean"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Symbols",
+            "type": "array"
+          }
+        },
+        "required": [
+          "symbols"
+        ],
+        "title": "BatchAnalyzeRequest",
+        "type": "object"
+      },
+      "Direction": {
+        "enum": [
+          "BUY",
+          "HOLD",
+          "SELL"
+        ],
+        "title": "Direction",
+        "type": "string"
+      },
+      "EntryAssessment": {
+        "enum": [
+          "buy_now",
+          "wait_for_pullback",
+          "wait_for_breakout_confirmation",
+          "avoid",
+          "short_term_trade_only",
+          "long_term_investment_candidate"
+        ],
+        "title": "EntryAssessment",
+        "type": "string"
+      },
+      "EntryBlock": {
+        "properties": {
+          "aggressive_entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggressive Entry Price"
+          },
+          "breakout_buy_level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breakout Buy Level"
+          },
+          "breakout_volume_confirmed": {
+            "title": "Breakout Volume Confirmed",
+            "type": "boolean"
+          },
+          "conservative_entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conservative Entry Price"
+          },
+          "current_price": {
+            "title": "Current Price",
+            "type": "number"
+          },
+          "entry_assessment": {
+            "$ref": "#/components/schemas/EntryAssessment"
+          },
+          "ideal_buy_zone": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Ideal Buy Zone",
+            "type": "array"
+          },
+          "invalidation_level": {
+            "title": "Invalidation Level",
+            "type": "number"
+          },
+          "is_overextended": {
+            "title": "Is Overextended",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resistance_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Resistance Levels",
+            "type": "array"
+          },
+          "risk_reward_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Ratio"
+          },
+          "stop_loss_suggestion": {
+            "title": "Stop Loss Suggestion",
+            "type": "number"
+          },
+          "support_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Support Levels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_price",
+          "ideal_buy_zone",
+          "support_levels",
+          "resistance_levels",
+          "stop_loss_suggestion",
+          "invalidation_level",
+          "is_overextended",
+          "breakout_volume_confirmed",
+          "entry_assessment",
+          "reason"
+        ],
+        "title": "EntryBlock",
+        "type": "object"
+      },
+      "EntryRequest": {
+        "example": {
+          "asset_type": "stock",
+          "horizon": "2_4_weeks",
+          "symbol": "NVDA"
+        },
+        "properties": {
+          "asset_type": {
+            "$ref": "#/components/schemas/AssetType",
+            "default": "STOCK"
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon",
+            "default": "2-4W"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "EntryRequest",
+        "type": "object"
+      },
+      "Freshness": {
+        "enum": [
+          "live",
+          "delayed",
+          "quarterly",
+          "stale",
+          "missing",
+          "estimated"
+        ],
+        "title": "Freshness",
+        "type": "string"
+      },
+      "Fundamentals": {
+        "properties": {
+          "analyst_downgrades_30d": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Downgrades 30D"
+          },
+          "analyst_upgrades_30d": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Upgrades 30D"
+          },
+          "eps_surprise_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eps Surprise Pct"
+          },
+          "fcf_trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fcf Trend"
+          },
+          "gross_margin_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Margin Pct"
+          },
+          "pe_percentile_5y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pe Percentile 5Y"
+          },
+          "revenue_growth_yoy_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Growth Yoy Pct"
+          }
+        },
+        "title": "Fundamentals",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "cache_backend": {
+            "title": "Cache Backend",
+            "type": "string"
+          },
+          "config_valid": {
+            "title": "Config Valid",
+            "type": "boolean"
+          },
+          "llm_available": {
+            "title": "Llm Available",
+            "type": "boolean"
+          },
+          "providers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "object"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "config_valid",
+          "providers",
+          "llm_available",
+          "cache_backend"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "Horizon": {
+        "enum": [
+          "1D",
+          "1W",
+          "2-4W",
+          "3-6M"
+        ],
+        "title": "Horizon",
+        "type": "string"
+      },
+      "MacdBlock": {
+        "properties": {
+          "histogram": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Histogram"
+          },
+          "macd_line": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd Line"
+          },
+          "signal_line": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Line"
+          }
+        },
+        "title": "MacdBlock",
+        "type": "object"
+      },
+      "Macro": {
+        "properties": {
+          "days_to_next_fomc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days To Next Fomc"
+          },
+          "market_regime": {
+            "$ref": "#/components/schemas/MarketRegime",
+            "default": "neutral"
+          },
+          "rate_cut_probability_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Cut Probability Pct"
+          },
+          "treasury_10y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Treasury 10Y"
+          },
+          "vix": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vix"
+          }
+        },
+        "title": "Macro",
+        "type": "object"
+      },
+      "MarketRegime": {
+        "enum": [
+          "risk_on",
+          "neutral",
+          "risk_off"
+        ],
+        "title": "MarketRegime",
+        "type": "string"
+      },
+      "PortfolioContext": {
+        "properties": {
+          "avg_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Cost"
+          },
+          "held": {
+            "default": false,
+            "title": "Held",
+            "type": "boolean"
+          },
+          "position_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Pct"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          }
+        },
+        "title": "PortfolioContext",
+        "type": "object"
+      },
+      "Recommendation": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/Direction"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon"
+          },
+          "review_action": {
+            "title": "Review Action",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "signal_vote": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Signal Vote",
+            "type": "object"
+          },
+          "stop_loss_suggestion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss Suggestion"
+          },
+          "technical_target_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical Target High"
+          },
+          "technical_target_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical Target Low"
+          },
+          "weighted_score": {
+            "title": "Weighted Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "direction",
+          "confidence",
+          "signal_vote",
+          "weighted_score",
+          "horizon",
+          "review_action"
+        ],
+        "title": "Recommendation",
+        "type": "object"
+      },
+      "Sentiment": {
+        "properties": {
+          "institutional_net_shares_last_13f": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional Net Shares Last 13F"
+          },
+          "iv_rank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iv Rank"
+          },
+          "put_call_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Put Call Ratio"
+          },
+          "reddit_mention_spike_24h_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reddit Mention Spike 24H Pct"
+          },
+          "reddit_positive_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reddit Positive Pct"
+          },
+          "short_interest_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Interest Pct"
+          }
+        },
+        "title": "Sentiment",
+        "type": "object"
+      },
+      "Signal": {
+        "properties": {
+          "dimension": {
+            "title": "Dimension",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "signal": {
+            "$ref": "#/components/schemas/Direction"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "dimension",
+          "signal",
+          "weight",
+          "note"
+        ],
+        "title": "Signal",
+        "type": "object"
+      },
+      "Technicals": {
+        "properties": {
+          "atr_14": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr 14"
+          },
+          "bb_lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bb Lower"
+          },
+          "bb_mid": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bb Mid"
+          },
+          "bb_upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bb Upper"
+          },
+          "breakout_state": {
+            "default": "none",
+            "title": "Breakout State",
+            "type": "string"
+          },
+          "dist_from_ma200_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dist From Ma200 Pct"
+          },
+          "dist_from_ma20_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dist From Ma20 Pct"
+          },
+          "dist_from_ma50_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dist From Ma50 Pct"
+          },
+          "ma_20": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma 20"
+          },
+          "ma_200": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma 200"
+          },
+          "ma_50": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma 50"
+          },
+          "macd": {
+            "$ref": "#/components/schemas/MacdBlock"
+          },
+          "recent_earnings_gap_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Earnings Gap Pct"
+          },
+          "recent_gap_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Gap Pct"
+          },
+          "resistance_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Resistance Levels",
+            "type": "array"
+          },
+          "rsi_14": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi 14"
+          },
+          "rsi_weekly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi Weekly"
+          },
+          "support_levels": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Support Levels",
+            "type": "array"
+          },
+          "volume_ratio_90d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Ratio 90D"
+          }
+        },
+        "required": [
+          "macd"
+        ],
+        "title": "Technicals",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Analyst Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/analyze": {
+      "post": {
+        "operationId": "analyze_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze"
+      }
+    },
+    "/batch": {
+      "post": {
+        "operationId": "batch_analyze_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyzeResponse"
+                  },
+                  "title": "Response Batch Analyze Batch Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Analyze"
+      }
+    },
+    "/entry": {
+      "post": {
+        "operationId": "entry_entry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryBlock"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entry"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

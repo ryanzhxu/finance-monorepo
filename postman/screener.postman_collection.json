@@ -1,0 +1,928 @@
+{
+  "event": [],
+  "info": {
+    "description": {
+      "content": "",
+      "type": "text/plain"
+    },
+    "name": "finance-monorepo screener",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "description": "",
+      "item": [
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "80862e15-a8e1-46d4-bc2c-c70a3a42b36c",
+              "name": "Custom",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\n  \"horizon\": \"2_4_weeks\",\n  \"include_analysis\": false,\n  \"include_narrative\": false,\n  \"limit\": 10,\n  \"tickers\": [\n    \"KO\",\n    \"NVDA\",\n    \"JPM\"\n  ],\n  \"universe\": \"custom\"\n}"
+                },
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "name": "Custom",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "custom"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/custom",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"screen_type\": \"undervalued\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"quarterly\",\n    \"key_1\": \"quarterly\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"watchlist\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\"\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\",\n        \"key_1\": \"live\",\n        \"key_2\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 406.31345230920715,\n        \"key_1\": 8145\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"avoid\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "a7e780ca-3f93-422a-b0e5-f2aa931af473",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "custom"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                },
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    },\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    }\n  ]\n}",
+                  "code": 422,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "e2ebd647-ba0c-40bf-98be-89f3a50e81c0",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "custom"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)"
+                }
+              ]
+            }
+          ],
+          "name": "custom"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "5c08e7ae-5ce1-43d9-84e9-5fb6839a602f",
+              "name": "Health",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {},
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "name": "Health",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "health"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/health",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"key_0\": 9528.266287042667\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "40505f4b-50b5-4a4f-a0f4-7d23e4f54354",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {},
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "GET",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "health"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                }
+              ]
+            }
+          ],
+          "name": "health"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "1bd5680d-7a71-4e7c-992b-93fe67226ca4",
+              "name": "Opportunities",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\n  \"horizon\": \"2_4_weeks\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 10,\n  \"universe\": \"sp500\"\n}"
+                },
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "name": "Opportunities",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "opportunities"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/opportunities",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"screen_type\": \"undervalued\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"quarterly\",\n    \"key_1\": \"quarterly\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"watchlist\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\"\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\",\n        \"key_1\": \"live\",\n        \"key_2\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 406.31345230920715,\n        \"key_1\": 8145\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"avoid\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "cdd998b0-995e-4098-9371-e1c4d2edae45",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "opportunities"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                },
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    },\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    }\n  ]\n}",
+                  "code": 422,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "d03910b9-4a83-4485-806b-274a8769a545",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "opportunities"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)"
+                }
+              ]
+            }
+          ],
+          "name": "opportunities"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "9b3a5236-cab8-4cee-8b4d-361b145283bf",
+              "name": "Regime",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {},
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "name": "Regime",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "regime"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/regime",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"market_regime\": \"neutral\",\n  \"generated_at\": \"<dateTime>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"quarterly\",\n    \"key_2\": \"stale\"\n  },\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"reason\": \"<string>\",\n  \"sector_laggards\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"sector_leaders\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "f0d100b2-e2d9-44f4-a740-44379b357278",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {},
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "GET",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "regime"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                }
+              ]
+            }
+          ],
+          "name": "regime"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "e68c0c5c-4c3c-4d8e-affb-37153f1d053c",
+              "name": "Trending",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\n  \"horizon\": \"2_4_weeks\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 10,\n  \"lookback_days\": [\n    3,\n    5\n  ],\n  \"sources\": [\n    \"news\",\n    \"yahoo_trending\"\n  ],\n  \"universe\": \"sp500\"\n}"
+                },
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "name": "Trending",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "trending"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/trending",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\"\n  },\n  \"results\": [\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"earnings_driven_trend\",\n      \"data_freshness\": {\n        \"key_0\": \"estimated\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": 182.92327260849282\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"extended\",\n        \"fundamental_state\": \"strong\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"wait_for_breakout_confirmation\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"custom\",\n      \"sentiment_change\": \"<number>\"\n    },\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"likely_pump_risk\",\n      \"data_freshness\": {\n        \"key_0\": \"quarterly\",\n        \"key_1\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": 810.2752667605772,\n        \"key_1\": \"string\"\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"oversold\",\n        \"fundamental_state\": \"mixed\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"avoid\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"watchlist\",\n      \"sentiment_change\": \"<number>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"screen_type\": \"custom\"\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "4e23d962-b1ac-40d7-b925-92660690d29d",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3301.615924812602,\n    \"key_1\": true,\n    \"key_2\": 6407.70615196625,\n    \"key_3\": 8257.33167663102\n  },\n  \"horizon\": \"3-6M\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"news\",\n    \"reddit\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"NASDAQ100\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "trending"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                },
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    },\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    }\n  ]\n}",
+                  "code": 422,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "58ee47c7-61f8-4d4e-bed0-1ad15b09cb9e",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3301.615924812602,\n    \"key_1\": true,\n    \"key_2\": 6407.70615196625,\n    \"key_3\": 8257.33167663102\n  },\n  \"horizon\": \"3-6M\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"news\",\n    \"reddit\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"NASDAQ100\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "trending"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)"
+                }
+              ]
+            }
+          ],
+          "name": "trending"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "3c773159-acb1-4270-aa5a-6cbbb004202c",
+              "name": "Undervalued",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\n  \"horizon\": \"2_4_weeks\",\n  \"include_analysis\": false,\n  \"include_narrative\": false,\n  \"limit\": 10,\n  \"universe\": \"sp500\"\n}"
+                },
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "name": "Undervalued",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "undervalued"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/undervalued",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"screen_type\": \"undervalued\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"quarterly\",\n    \"key_1\": \"quarterly\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"watchlist\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\"\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\",\n        \"key_1\": \"live\",\n        \"key_2\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 406.31345230920715,\n        \"key_1\": 8145\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"avoid\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "c0637e28-9021-4806-b1c8-63da59fa7125",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "undervalued"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                },
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    },\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    }\n  ]\n}",
+                  "code": 422,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "735d2893-e1f2-4bea-862f-6d68ded14504",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "undervalued"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)"
+                }
+              ]
+            }
+          ],
+          "name": "undervalued"
+        },
+        {
+          "description": "",
+          "item": [
+            {
+              "event": [],
+              "id": "0e179328-1730-4b51-a30b-7e7b26d55c62",
+              "name": "Watchlist",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": null,
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\n  \"horizon\": \"2_4_weeks\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 10,\n  \"tickers\": [\n    \"KO\",\n    \"NVDA\",\n    \"JPM\"\n  ],\n  \"universe\": \"watchlist\"\n}"
+                },
+                "description": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "name": "Watchlist",
+                "url": {
+                  "host": [
+                    "{{screener_base_url}}"
+                  ],
+                  "path": [
+                    "screen",
+                    "watchlist"
+                  ],
+                  "query": [],
+                  "raw": "{{screener_base_url}}/screen/watchlist",
+                  "variable": []
+                }
+              },
+              "response": [
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"screen_type\": \"undervalued\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"quarterly\",\n    \"key_1\": \"quarterly\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"watchlist\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\"\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\",\n        \"key_1\": \"live\",\n        \"key_2\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 406.31345230920715,\n        \"key_1\": 8145\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"avoid\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "code": 200,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "b7d60967-9c03-4e2e-9725-7c882ca19b48",
+                  "name": "Successful Response",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "watchlist"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "OK"
+                },
+                {
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    },\n    {\n      \"loc\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"msg\": \"<string>\",\n      \"type\": \"<string>\",\n      \"ctx\": {},\n      \"input\": \"\"\n    }\n  ]\n}",
+                  "code": 422,
+                  "cookie": [],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "id": "b8709e55-f0dd-4ff6-8aa4-e81c30d468cf",
+                  "name": "Validation Error",
+                  "originalRequest": {
+                    "body": {
+                      "mode": "raw",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      },
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": true,\n    \"key_1\": true,\n    \"key_2\": 2214.2745411715505,\n    \"key_3\": false,\n    \"key_4\": 5118\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"CUSTOM\"\n}"
+                    },
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "method": "POST",
+                    "url": {
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "screen",
+                        "watchlist"
+                      ],
+                      "query": [],
+                      "variable": []
+                    }
+                  },
+                  "status": "Unprocessable Entity (WebDAV) (RFC 4918)"
+                }
+              ]
+            }
+          ],
+          "name": "watchlist"
+        }
+      ],
+      "name": "screen"
+    }
+  ]
+}

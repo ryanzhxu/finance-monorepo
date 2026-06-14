@@ -32,6 +32,18 @@ class PortfolioContext(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "NVDA",
+                "asset_type": "stock",
+                "horizon": "2_4_weeks",
+                "include_narrative": False,
+                "include_entry": True,
+            }
+        }
+    )
+
     symbol: str
     asset_type: AssetType = AssetType.STOCK
     horizon: Horizon = Horizon.TWO_TO_FOUR_WEEKS
@@ -50,6 +62,18 @@ class AnalyzeRequest(BaseModel):
 
 
 class BatchAnalyzeRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbols": ["NVDA", "KO", "JPM"],
+                "asset_type": "stock",
+                "horizon": "2_4_weeks",
+                "include_narrative": False,
+                "include_entry": True,
+            }
+        }
+    )
+
     symbols: list[str] = Field(min_length=1, max_length=20)
     asset_type: AssetType = AssetType.STOCK
     horizon: Horizon = Horizon.TWO_TO_FOUR_WEEKS
@@ -66,6 +90,16 @@ class BatchAnalyzeRequest(BaseModel):
 
 
 class EntryRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "NVDA",
+                "asset_type": "stock",
+                "horizon": "2_4_weeks",
+            }
+        }
+    )
+
     symbol: str
     asset_type: AssetType = AssetType.STOCK
     horizon: Horizon = Horizon.TWO_TO_FOUR_WEEKS
@@ -200,6 +234,50 @@ class HealthResponse(BaseModel):
 
 
 class ScreenRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "universe": "sp500",
+                "limit": 10,
+                "horizon": "2_4_weeks",
+                "include_analysis": False,
+                "include_narrative": False,
+            },
+            "x-postman-examples": {
+                "undervalued": {
+                    "universe": "sp500",
+                    "limit": 10,
+                    "horizon": "2_4_weeks",
+                    "include_analysis": False,
+                    "include_narrative": False,
+                },
+                "custom": {
+                    "universe": "custom",
+                    "limit": 10,
+                    "horizon": "2_4_weeks",
+                    "include_analysis": False,
+                    "include_narrative": False,
+                    "tickers": ["KO", "NVDA", "JPM"],
+                },
+                "opportunities": {
+                    "universe": "sp500",
+                    "limit": 10,
+                    "horizon": "2_4_weeks",
+                    "include_analysis": True,
+                    "include_narrative": False,
+                },
+                "watchlist": {
+                    "universe": "watchlist",
+                    "limit": 10,
+                    "horizon": "2_4_weeks",
+                    "include_analysis": True,
+                    "include_narrative": False,
+                    "tickers": ["KO", "NVDA", "JPM"],
+                },
+            },
+        }
+    )
+
     universe: Universe = Universe.SP500
     limit: int = Field(default=25, ge=1, le=100)
     horizon: Horizon = Horizon.TWO_TO_FOUR_WEEKS
@@ -218,6 +296,20 @@ class ScreenRequest(BaseModel):
 
 
 class TrendingScreenRequest(ScreenRequest):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "universe": "sp500",
+                "limit": 10,
+                "horizon": "2_4_weeks",
+                "include_analysis": True,
+                "include_narrative": False,
+                "lookback_days": [3, 5],
+                "sources": ["news", "yahoo_trending"],
+            }
+        }
+    )
+
     lookback_days: list[int] = Field(default_factory=lambda: [3, 5])
     sources: list[TrendSource] = Field(
         default_factory=lambda: [

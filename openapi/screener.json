@@ -1,0 +1,1286 @@
+{
+  "components": {
+    "schemas": {
+      "BuyabilityResult": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "entry_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryAssessment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fundamental_state": {
+            "$ref": "#/components/schemas/FundamentalState"
+          },
+          "ideal_buy_zone": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ideal Buy Zone"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "sentiment_score": {
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Sentiment Score",
+            "type": "number"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "technical_state": {
+            "$ref": "#/components/schemas/TechnicalState"
+          },
+          "trend_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Trend Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "symbol",
+          "trend_score",
+          "sentiment_score",
+          "technical_state",
+          "fundamental_state",
+          "data_quality_score",
+          "confidence",
+          "reason"
+        ],
+        "title": "BuyabilityResult",
+        "type": "object"
+      },
+      "Direction": {
+        "enum": [
+          "BUY",
+          "HOLD",
+          "SELL"
+        ],
+        "title": "Direction",
+        "type": "string"
+      },
+      "EntryAssessment": {
+        "enum": [
+          "buy_now",
+          "wait_for_pullback",
+          "wait_for_breakout_confirmation",
+          "avoid",
+          "short_term_trade_only",
+          "long_term_investment_candidate"
+        ],
+        "title": "EntryAssessment",
+        "type": "string"
+      },
+      "Freshness": {
+        "enum": [
+          "live",
+          "delayed",
+          "quarterly",
+          "stale",
+          "missing",
+          "estimated"
+        ],
+        "title": "Freshness",
+        "type": "string"
+      },
+      "FundamentalState": {
+        "enum": [
+          "strong",
+          "mixed",
+          "weak"
+        ],
+        "title": "FundamentalState",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Horizon": {
+        "enum": [
+          "1D",
+          "1W",
+          "2-4W",
+          "3-6M"
+        ],
+        "title": "Horizon",
+        "type": "string"
+      },
+      "MarketRegime": {
+        "enum": [
+          "risk_on",
+          "neutral",
+          "risk_off"
+        ],
+        "title": "MarketRegime",
+        "type": "string"
+      },
+      "RegimeResponse": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "market_regime": {
+            "$ref": "#/components/schemas/MarketRegime"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "sector_laggards": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sector Laggards",
+            "type": "array"
+          },
+          "sector_leaders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sector Leaders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "market_regime",
+          "generated_at",
+          "data_freshness",
+          "data_quality_score",
+          "confidence",
+          "reason"
+        ],
+        "title": "RegimeResponse",
+        "type": "object"
+      },
+      "ScreenRequest": {
+        "example": {
+          "horizon": "2_4_weeks",
+          "include_analysis": false,
+          "include_narrative": false,
+          "limit": 10,
+          "universe": "sp500"
+        },
+        "properties": {
+          "filters_override": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters Override"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon",
+            "default": "2-4W"
+          },
+          "include_analysis": {
+            "default": true,
+            "title": "Include Analysis",
+            "type": "boolean"
+          },
+          "include_narrative": {
+            "default": false,
+            "title": "Include Narrative",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 25,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "tickers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tickers"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/Universe",
+            "default": "SP500"
+          }
+        },
+        "title": "ScreenRequest",
+        "type": "object",
+        "x-postman-examples": {
+          "custom": {
+            "horizon": "2_4_weeks",
+            "include_analysis": false,
+            "include_narrative": false,
+            "limit": 10,
+            "tickers": [
+              "KO",
+              "NVDA",
+              "JPM"
+            ],
+            "universe": "custom"
+          },
+          "opportunities": {
+            "horizon": "2_4_weeks",
+            "include_analysis": true,
+            "include_narrative": false,
+            "limit": 10,
+            "universe": "sp500"
+          },
+          "undervalued": {
+            "horizon": "2_4_weeks",
+            "include_analysis": false,
+            "include_narrative": false,
+            "limit": 10,
+            "universe": "sp500"
+          },
+          "watchlist": {
+            "horizon": "2_4_weeks",
+            "include_analysis": true,
+            "include_narrative": false,
+            "limit": 10,
+            "tickers": [
+              "KO",
+              "NVDA",
+              "JPM"
+            ],
+            "universe": "watchlist"
+          }
+        }
+      },
+      "ScreenResponse": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "market_regime": {
+            "$ref": "#/components/schemas/MarketRegime"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ScreenResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "screen_type": {
+            "$ref": "#/components/schemas/ScreenType"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/Universe"
+          }
+        },
+        "required": [
+          "screen_type",
+          "generated_at",
+          "universe",
+          "market_regime",
+          "data_quality_score",
+          "confidence",
+          "data_freshness",
+          "results"
+        ],
+        "title": "ScreenResponse",
+        "type": "object"
+      },
+      "ScreenResultItem": {
+        "properties": {
+          "analyst_revision_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Analyst Revision Score",
+            "type": "number"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "entry_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryAssessment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "growth_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Growth Score",
+            "type": "number"
+          },
+          "ideal_buy_zone": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ideal Buy Zone"
+          },
+          "insider_activity_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Insider Activity Score",
+            "type": "number"
+          },
+          "institutional_accumulation_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Institutional Accumulation Score",
+            "type": "number"
+          },
+          "momentum_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Momentum Score",
+            "type": "number"
+          },
+          "opportunity_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Opportunity Score",
+            "type": "number"
+          },
+          "quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Quality Score",
+            "type": "number"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "risk_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Risk Score",
+            "type": "number"
+          },
+          "score_breakdown": {
+            "additionalProperties": true,
+            "title": "Score Breakdown",
+            "type": "object"
+          },
+          "screen_type": {
+            "$ref": "#/components/schemas/ScreenType"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "valuation_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Valuation Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "symbol",
+          "screen_type",
+          "opportunity_score",
+          "valuation_score",
+          "growth_score",
+          "quality_score",
+          "momentum_score",
+          "analyst_revision_score",
+          "institutional_accumulation_score",
+          "insider_activity_score",
+          "risk_score",
+          "score_breakdown",
+          "data_freshness",
+          "data_quality_score",
+          "confidence",
+          "reason",
+          "recommended_action"
+        ],
+        "title": "ScreenResultItem",
+        "type": "object"
+      },
+      "ScreenType": {
+        "enum": [
+          "undervalued",
+          "trending",
+          "opportunities",
+          "watchlist",
+          "custom"
+        ],
+        "title": "ScreenType",
+        "type": "string"
+      },
+      "TechnicalState": {
+        "enum": [
+          "oversold",
+          "neutral",
+          "extended",
+          "overextended",
+          "breakout"
+        ],
+        "title": "TechnicalState",
+        "type": "string"
+      },
+      "TrendQuality": {
+        "enum": [
+          "high_quality_trend",
+          "news_driven_trend",
+          "earnings_driven_trend",
+          "meme_fomo_trend",
+          "likely_pump_risk",
+          "too_late_overextended",
+          "early_accumulation"
+        ],
+        "title": "TrendQuality",
+        "type": "string"
+      },
+      "TrendSource": {
+        "enum": [
+          "reddit",
+          "stocktwits",
+          "news",
+          "yahoo_trending"
+        ],
+        "title": "TrendSource",
+        "type": "string"
+      },
+      "TrendingResultItem": {
+        "properties": {
+          "acceleration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceleration"
+          },
+          "baseline_daily_mentions_30d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Daily Mentions 30D"
+          },
+          "buyability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyabilityResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "institutional_account_participation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional Account Participation"
+          },
+          "mention_count_24h": {
+            "default": 0,
+            "title": "Mention Count 24H",
+            "type": "integer"
+          },
+          "mention_count_3d": {
+            "default": 0,
+            "title": "Mention Count 3D",
+            "type": "integer"
+          },
+          "mention_count_5d": {
+            "default": 0,
+            "title": "Mention Count 5D",
+            "type": "integer"
+          },
+          "mention_growth_3d_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mention Growth 3D Pct"
+          },
+          "mention_growth_5d_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mention Growth 5D Pct"
+          },
+          "news_catalyst": {
+            "default": "none",
+            "title": "News Catalyst",
+            "type": "string"
+          },
+          "pos_neu_neg_ratio": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Pos Neu Neg Ratio",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "retail_fomo_risk": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Retail Fomo Risk",
+            "type": "number"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "score_breakdown": {
+            "additionalProperties": true,
+            "title": "Score Breakdown",
+            "type": "object"
+          },
+          "screen_type": {
+            "$ref": "#/components/schemas/ScreenType",
+            "default": "trending"
+          },
+          "sentiment_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentiment Change"
+          },
+          "sentiment_score": {
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Sentiment Score",
+            "type": "number"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "trend_quality": {
+            "$ref": "#/components/schemas/TrendQuality"
+          }
+        },
+        "required": [
+          "symbol",
+          "sentiment_score",
+          "retail_fomo_risk",
+          "trend_quality",
+          "data_freshness",
+          "data_quality_score",
+          "confidence",
+          "reason",
+          "score_breakdown"
+        ],
+        "title": "TrendingResultItem",
+        "type": "object"
+      },
+      "TrendingScreenRequest": {
+        "example": {
+          "horizon": "2_4_weeks",
+          "include_analysis": true,
+          "include_narrative": false,
+          "limit": 10,
+          "lookback_days": [
+            3,
+            5
+          ],
+          "sources": [
+            "news",
+            "yahoo_trending"
+          ],
+          "universe": "sp500"
+        },
+        "properties": {
+          "filters_override": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters Override"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon",
+            "default": "2-4W"
+          },
+          "include_analysis": {
+            "default": true,
+            "title": "Include Analysis",
+            "type": "boolean"
+          },
+          "include_narrative": {
+            "default": false,
+            "title": "Include Narrative",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 25,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "lookback_days": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Lookback Days",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/TrendSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "tickers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tickers"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/Universe",
+            "default": "SP500"
+          }
+        },
+        "title": "TrendingScreenRequest",
+        "type": "object"
+      },
+      "TrendingScreenResponse": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "market_regime": {
+            "$ref": "#/components/schemas/MarketRegime"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TrendingResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "screen_type": {
+            "$ref": "#/components/schemas/ScreenType",
+            "default": "trending"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/Universe"
+          }
+        },
+        "required": [
+          "generated_at",
+          "universe",
+          "market_regime",
+          "data_quality_score",
+          "confidence",
+          "data_freshness",
+          "results"
+        ],
+        "title": "TrendingScreenResponse",
+        "type": "object"
+      },
+      "Universe": {
+        "enum": [
+          "SP500",
+          "NASDAQ100",
+          "DOW",
+          "RUSSELL1000",
+          "RUSSELL2000",
+          "WATCHLIST",
+          "CUSTOM"
+        ],
+        "title": "Universe",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Screener Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/screen/custom": {
+      "post": {
+        "operationId": "custom_screen_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Custom"
+      }
+    },
+    "/screen/health": {
+      "get": {
+        "operationId": "health_screen_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Screen Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/screen/opportunities": {
+      "post": {
+        "operationId": "opportunities_screen_opportunities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Opportunities"
+      }
+    },
+    "/screen/regime": {
+      "get": {
+        "operationId": "regime_screen_regime_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegimeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Regime"
+      }
+    },
+    "/screen/trending": {
+      "post": {
+        "operationId": "trending_screen_trending_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendingScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendingScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trending"
+      }
+    },
+    "/screen/undervalued": {
+      "post": {
+        "operationId": "undervalued_screen_undervalued_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Undervalued"
+      }
+    },
+    "/screen/watchlist": {
+      "post": {
+        "operationId": "watchlist_screen_watchlist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Watchlist"
+      }
+    }
+  }
+}
