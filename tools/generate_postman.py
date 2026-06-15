@@ -25,6 +25,50 @@ EXAMPLE_KEY_BY_OPERATION = {
     ("POST", "/screen/opportunities"): "opportunities",
     ("POST", "/screen/watchlist"): "watchlist",
 }
+PROD_CROSS_SERVICE_CHECK_NAME = "Prod Cross-Service Check"
+PROD_CROSS_SERVICE_CHECK_BODY = {
+    "universe": "SP500",
+    "limit": 3,
+    "horizon": "2-4W",
+    "include_analysis": True,
+    "include_narrative": False,
+}
+PROD_CROSS_SERVICE_CHECK_TEST = """pm.test("status is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+const payload = pm.response.json();
+
+pm.test("screen type is opportunities", function () {
+  pm.expect(payload.screen_type).to.eql("opportunities");
+});
+
+pm.test("results are present", function () {
+  pm.expect(payload.results).to.be.an("array").that.is.not.empty;
+});
+
+const first = payload.results[0] || {};
+
+pm.test("score breakdown is attached", function () {
+  pm.expect(first.score_breakdown).to.be.an("object");
+});
+
+pm.test("trend booster is included", function () {
+  pm.expect(first.score_breakdown).to.have.property("trend_booster");
+});
+
+pm.test("data quality fields are present", function () {
+  pm.expect(first).to.have.property("data_quality_score");
+  pm.expect(first).to.have.property("data_freshness");
+});
+
+pm.test("analyst attachment is present", function () {
+  pm.expect(first.entry_assessment).to.be.a("string");
+});
+
+pm.test("analyst degradation did not trigger", function () {
+  pm.expect(typeof first.reason === "string" && first.reason.includes("Analyst unavailable")).to.eql(false);
+});"""
 
 
 def load_openapi(service: str) -> dict[str, Any]:
@@ -159,8 +203,48 @@ def normalize_collection(service: str) -> None:
 
     normalize_request_urls(collection, BASE_URL_VAR_BY_SERVICE[service])
     ensure_json_bodies(service, collection, document)
+    if service == "screener":
+        upsert_prod_cross_service_check(collection)
 
     path.write_text(json.dumps(collection, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def upsert_prod_cross_service_check(collection: dict[str, Any]) -> None:
+    items = collection.setdefault("item", [])
+    items[:] = [item for item in items if item.get("name") != PROD_CROSS_SERVICE_CHECK_NAME]
+    items.append(
+        {
+            "name": PROD_CROSS_SERVICE_CHECK_NAME,
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": PROD_CROSS_SERVICE_CHECK_TEST.splitlines(),
+                    },
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                    "mode": "raw",
+                    "raw": json.dumps(PROD_CROSS_SERVICE_CHECK_BODY, indent=2),
+                    "options": {"raw": {"language": "json"}},
+                },
+                "url": {
+                    "raw": "{{screener_base_url}}/screen/opportunities",
+                    "host": ["{{screener_base_url}}"],
+                    "path": ["screen", "opportunities"],
+                },
+                "description": (
+                    "Verifies the deployed screener can return opportunity results with "
+                    "live analyst attachment over the network."
+                ),
+            },
+            "response": [],
+        }
+    )
 
 
 def write_local_environment() -> None:

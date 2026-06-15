@@ -36,8 +36,8 @@ class AnalyzeRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "symbol": "NVDA",
-                "asset_type": "stock",
-                "horizon": "2_4_weeks",
+                "asset_type": "STOCK",
+                "horizon": "2-4W",
                 "include_narrative": False,
                 "include_entry": True,
             }
@@ -66,8 +66,8 @@ class BatchAnalyzeRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "symbols": ["NVDA", "KO", "JPM"],
-                "asset_type": "stock",
-                "horizon": "2_4_weeks",
+                "asset_type": "STOCK",
+                "horizon": "2-4W",
                 "include_narrative": False,
                 "include_entry": True,
             }
@@ -94,8 +94,8 @@ class EntryRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "symbol": "NVDA",
-                "asset_type": "stock",
-                "horizon": "2_4_weeks",
+                "asset_type": "STOCK",
+                "horizon": "2-4W",
             }
         }
     )
@@ -237,39 +237,39 @@ class ScreenRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "universe": "sp500",
+                "universe": "SP500",
                 "limit": 10,
-                "horizon": "2_4_weeks",
+                "horizon": "2-4W",
                 "include_analysis": False,
                 "include_narrative": False,
             },
             "x-postman-examples": {
                 "undervalued": {
-                    "universe": "sp500",
+                    "universe": "SP500",
                     "limit": 10,
-                    "horizon": "2_4_weeks",
+                    "horizon": "2-4W",
                     "include_analysis": False,
                     "include_narrative": False,
                 },
                 "custom": {
-                    "universe": "custom",
+                    "universe": "CUSTOM",
                     "limit": 10,
-                    "horizon": "2_4_weeks",
+                    "horizon": "2-4W",
                     "include_analysis": False,
                     "include_narrative": False,
                     "tickers": ["KO", "NVDA", "JPM"],
                 },
                 "opportunities": {
-                    "universe": "sp500",
+                    "universe": "SP500",
                     "limit": 10,
-                    "horizon": "2_4_weeks",
+                    "horizon": "2-4W",
                     "include_analysis": True,
                     "include_narrative": False,
                 },
                 "watchlist": {
-                    "universe": "watchlist",
+                    "universe": "WATCHLIST",
                     "limit": 10,
-                    "horizon": "2_4_weeks",
+                    "horizon": "2-4W",
                     "include_analysis": True,
                     "include_narrative": False,
                     "tickers": ["KO", "NVDA", "JPM"],
@@ -299,9 +299,9 @@ class TrendingScreenRequest(ScreenRequest):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "universe": "sp500",
+                "universe": "SP500",
                 "limit": 10,
-                "horizon": "2_4_weeks",
+                "horizon": "2-4W",
                 "include_analysis": True,
                 "include_narrative": False,
                 "lookback_days": [3, 5],

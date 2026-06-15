@@ -33,6 +33,7 @@ shared = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = [
+    "shared/tests",
     "analyst_service/tests",
     "screener_service/tests",
 ]
