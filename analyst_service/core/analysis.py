@@ -44,7 +44,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     config = load_service_config()
     ohlcv = fetch_ohlcv(request.symbol, request.current_price)
     fundamentals_fresh = fetch_fundamentals(request.symbol)
-    sentiment_fresh = fetch_sentiment(request.symbol)
+    sentiment_fresh = fetch_sentiment(request.symbol, price_history=ohlcv.value)
     macro_fresh = fetch_macro()
 
     current_price = _current_price(request.current_price, ohlcv)
@@ -58,7 +58,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         "technicals": _freshness_value(ohlcv),
         "fundamentals": _freshness_value(fundamentals_fresh),
         "ratings": _freshness_value(fundamentals_fresh),
-        "flows": Freshness.MISSING,
+        "flows": _freshness_value(sentiment_fresh) if sentiment.institutional_net_shares_last_13f is not None else Freshness.MISSING,
         "sentiment": _freshness_value(sentiment_fresh),
         "macro": _freshness_value(macro_fresh),
     }

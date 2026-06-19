@@ -331,7 +331,7 @@ The existing `/analyze` contract is **preserved** and extended with the entry bl
   "fundamentals": {
     "eps_surprise_pct": 18.0, "pe_percentile_5y": 62,
     "analyst_upgrades_30d": 2, "analyst_downgrades_30d": 0,
-    "revenue_growth_yoy_pct": 122.0, "fcf_trend": "rising", "gross_margin_pct": 75.0
+    "revenue_growth_yoy_pct": 122.0, "fcf_trend": "improving", "gross_margin_pct": 75.0
   },
   "sentiment": { "put_call_ratio": 0.6, "iv_rank": 35, "reddit_mention_spike_24h_pct": 320, "reddit_positive_pct": 78, "short_interest_pct": 2.1, "institutional_net_shares_last_13f": 2300000 },
   "macro": { "days_to_next_fomc": 12, "rate_cut_probability_pct": 68, "treasury_10y": 4.32, "vix": 18.4, "market_regime": "neutral" },

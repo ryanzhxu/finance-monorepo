@@ -13,6 +13,7 @@ from shared.time_utils import (
     previous_us_equity_trading_day,
 )
 from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
+from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 
 
 def _empty_frame() -> pd.DataFrame:
@@ -110,8 +111,24 @@ def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
     return FreshValue(fundamentals, freshness, as_of)
 
 
-def fetch_sentiment(symbol: str) -> FreshValue[Sentiment]:
-    return FreshValue(Sentiment(), Freshness.MISSING, None)
+def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> FreshValue[Sentiment]:
+    raw = fetch_raw_sentiment(symbol, price_history=price_history)
+    sentiment = Sentiment(
+        put_call_ratio=raw.put_call_ratio,
+        iv_rank=raw.iv_rank_approx,
+        reddit_mention_spike_24h_pct=raw.reddit_mention_spike_24h_pct,
+        reddit_positive_pct=raw.reddit_positive_pct,
+        short_interest_pct=raw.short_interest_pct,
+        institutional_net_shares_last_13f=raw.institutional_net_shares_last_13f,
+    )
+    freshness = Freshness.DELAYED if raw.freshness != "missing" else Freshness.MISSING
+    as_of = None
+    if raw.institutional_13f_as_of is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.institutional_13f_as_of).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(sentiment, freshness, as_of)
 
 
 def fetch_macro() -> FreshValue[Macro]:
