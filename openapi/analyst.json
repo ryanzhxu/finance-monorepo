@@ -212,6 +212,81 @@
         "title": "BatchAnalyzeRequest",
         "type": "object"
       },
+      "ConfluenceZone": {
+        "properties": {
+          "classical_zone": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Classical Zone",
+            "type": "array"
+          },
+          "divergence_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divergence Note"
+          },
+          "fibonacci_golden_pocket": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Fibonacci Golden Pocket",
+            "type": "array"
+          },
+          "high_conviction": {
+            "title": "High Conviction",
+            "type": "boolean"
+          },
+          "merged_zone_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Zone High"
+          },
+          "merged_zone_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Zone Low"
+          },
+          "methods_agreeing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Methods Agreeing",
+            "type": "array"
+          },
+          "overlap": {
+            "title": "Overlap",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "classical_zone",
+          "fibonacci_golden_pocket",
+          "overlap",
+          "high_conviction",
+          "methods_agreeing"
+        ],
+        "title": "ConfluenceZone",
+        "type": "object"
+      },
       "Direction": {
         "enum": [
           "BUY",
@@ -348,6 +423,108 @@
           "reason"
         ],
         "title": "EntryBlock",
+        "type": "object"
+      },
+      "EntryConfluenceRequest": {
+        "properties": {
+          "lookback_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lookback Days"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "EntryConfluenceRequest",
+        "type": "object"
+      },
+      "EntryConfluenceResponse": {
+        "properties": {
+          "classical": {
+            "additionalProperties": true,
+            "title": "Classical",
+            "type": "object"
+          },
+          "confluence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfluenceZone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price"
+          },
+          "data_freshness": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Freshness"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Data Freshness",
+            "type": "object"
+          },
+          "data_quality_score": {
+            "title": "Data Quality Score",
+            "type": "number"
+          },
+          "fibonacci": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FibonacciLevels"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "generated_at",
+          "current_price",
+          "classical",
+          "fibonacci",
+          "confluence",
+          "data_freshness",
+          "data_quality_score"
+        ],
+        "title": "EntryConfluenceResponse",
         "type": "object"
       },
       "EntryRequest": {
@@ -523,6 +700,84 @@
           "data_quality_score"
         ],
         "title": "EntryResponse",
+        "type": "object"
+      },
+      "FibonacciLevels": {
+        "properties": {
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "golden_pocket_high": {
+            "title": "Golden Pocket High",
+            "type": "number"
+          },
+          "golden_pocket_low": {
+            "title": "Golden Pocket Low",
+            "type": "number"
+          },
+          "level_0": {
+            "title": "Level 0",
+            "type": "number"
+          },
+          "level_1000": {
+            "title": "Level 1000",
+            "type": "number"
+          },
+          "level_236": {
+            "title": "Level 236",
+            "type": "number"
+          },
+          "level_382": {
+            "title": "Level 382",
+            "type": "number"
+          },
+          "level_500": {
+            "title": "Level 500",
+            "type": "number"
+          },
+          "level_618": {
+            "title": "Level 618",
+            "type": "number"
+          },
+          "level_650": {
+            "title": "Level 650",
+            "type": "number"
+          },
+          "level_786": {
+            "title": "Level 786",
+            "type": "number"
+          },
+          "lookback_days": {
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "swing_high": {
+            "title": "Swing High",
+            "type": "number"
+          },
+          "swing_low": {
+            "title": "Swing Low",
+            "type": "number"
+          }
+        },
+        "required": [
+          "swing_high",
+          "swing_low",
+          "level_0",
+          "level_236",
+          "level_382",
+          "level_500",
+          "level_618",
+          "level_650",
+          "level_786",
+          "level_1000",
+          "golden_pocket_low",
+          "golden_pocket_high",
+          "as_of",
+          "lookback_days"
+        ],
+        "title": "FibonacciLevels",
         "type": "object"
       },
       "Freshness": {
@@ -1522,6 +1777,99 @@
           }
         },
         "summary": "Entry"
+      }
+    },
+    "/entry/confluence": {
+      "post": {
+        "operationId": "entry_confluence_entry_confluence_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryConfluenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryConfluenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entry Confluence"
+      }
+    },
+    "/entry/confluence/{symbol}": {
+      "get": {
+        "operationId": "entry_confluence_by_symbol_entry_confluence__symbol__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "symbol",
+            "required": true,
+            "schema": {
+              "title": "Symbol",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lookback Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryConfluenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entry Confluence By Symbol"
       }
     },
     "/health": {

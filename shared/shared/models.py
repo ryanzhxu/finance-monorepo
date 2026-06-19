@@ -207,6 +207,45 @@ class EntryBlock(BaseModel):
     reason: str
 
 
+class FibonacciLevels(BaseModel):
+    swing_high: float
+    swing_low: float
+    level_0: float
+    level_236: float
+    level_382: float
+    level_500: float
+    level_618: float
+    level_650: float
+    level_786: float
+    level_1000: float
+    golden_pocket_low: float
+    golden_pocket_high: float
+    as_of: str
+    lookback_days: int
+
+
+class ConfluenceZone(BaseModel):
+    classical_zone: list[float]
+    fibonacci_golden_pocket: list[float]
+    overlap: bool
+    merged_zone_low: float | None = None
+    merged_zone_high: float | None = None
+    high_conviction: bool
+    divergence_note: str | None = None
+    methods_agreeing: list[str]
+
+
+class EntryConfluenceResponse(BaseModel):
+    symbol: str
+    generated_at: str
+    current_price: float | None
+    classical: dict[str, Any]
+    fibonacci: FibonacciLevels | None
+    confluence: ConfluenceZone | None
+    data_freshness: FreshnessMap
+    data_quality_score: float
+
+
 class Recommendation(BaseModel):
     direction: Direction
     confidence: float = Field(ge=0.0, le=1.0)
