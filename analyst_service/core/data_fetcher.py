@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
-from typing import Any
-
 import pandas as pd
 
 from shared.data_quality import FreshValue, utc_now
@@ -14,6 +12,7 @@ from shared.time_utils import (
     latest_completed_us_equity_trading_day,
     previous_us_equity_trading_day,
 )
+from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
 
 
 def _empty_frame() -> pd.DataFrame:
@@ -91,29 +90,24 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
 
 
 def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
-    try:
-        import yfinance as yf
-
-        ticker = yf.Ticker(symbol)
-        info: dict[str, Any] = ticker.info or {}
-        revenue_growth = info.get("revenueGrowth")
-        gross_margin = info.get("grossMargins")
-        trailing_pe = info.get("trailingPE")
-        pe_percentile = None
-        if trailing_pe is not None:
-            pe_percentile = max(0.0, min(100.0, 50.0 + (float(trailing_pe) - 20.0)))
-        fundamentals = Fundamentals(
-            eps_surprise_pct=None,
-            pe_percentile_5y=pe_percentile,
-            analyst_upgrades_30d=0,
-            analyst_downgrades_30d=0,
-            revenue_growth_yoy_pct=None if revenue_growth is None else round(float(revenue_growth) * 100, 2),
-            fcf_trend=None,
-            gross_margin_pct=None if gross_margin is None else round(float(gross_margin) * 100, 2),
-        )
-        return FreshValue(fundamentals, Freshness.QUARTERLY, datetime.now(timezone.utc))
-    except Exception:
-        return FreshValue(Fundamentals(), Freshness.MISSING, None)
+    raw = fetch_raw_fundamentals(symbol)
+    fundamentals = Fundamentals(
+        eps_surprise_pct=raw.eps_surprise_pct,
+        pe_percentile_5y=raw.pe_percentile_5y,
+        analyst_upgrades_30d=raw.analyst_upgrades_30d,
+        analyst_downgrades_30d=raw.analyst_downgrades_30d,
+        revenue_growth_yoy_pct=raw.revenue_growth_yoy_pct,
+        fcf_trend=raw.fcf_trend,
+        gross_margin_pct=raw.gross_margin_pct,
+    )
+    freshness = Freshness.QUARTERLY if raw.freshness == "quarterly" else Freshness.MISSING
+    as_of = None
+    if raw.as_of is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.as_of).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(fundamentals, freshness, as_of)
 
 
 def fetch_sentiment(symbol: str) -> FreshValue[Sentiment]:
