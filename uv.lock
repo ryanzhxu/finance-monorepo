@@ -12,9 +12,39 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "analyst-service",
     "finance-monorepo",
     "screener-service",
     "shared",
+]
+
+[[package]]
+name = "analyst-service"
+version = "0.1.0"
+source = { editable = "analyst_service" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "shared" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "yfinance" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "numpy", specifier = ">=1.26.0" },
+    { name = "pandas", specifier = ">=2.2.0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
+    { name = "shared", editable = "shared" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
+    { name = "yfinance", specifier = ">=0.2.40" },
 ]
 
 [[package]]
@@ -304,6 +334,7 @@ name = "finance-monorepo"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "analyst-service" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "numpy" },
@@ -323,6 +354,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "analyst-service", editable = "analyst_service" },
     { name = "fastapi", specifier = ">=0.111.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "numpy", specifier = ">=1.26.0" },
@@ -930,6 +962,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "shared" },
     { name = "uvicorn", extra = ["standard"] },
@@ -943,6 +976,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "shared", editable = "shared" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },

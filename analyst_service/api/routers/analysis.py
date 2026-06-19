@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, HTTPException
 from pydantic import ConfigDict
 
@@ -26,11 +28,16 @@ async def health() -> HealthResponse:
         load_service_config()
     except Exception:
         config_valid = False
+    alpha_vantage_status = (
+        "configured"
+        if os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
+        else "not_configured"
+    )
     return HealthResponse(
         status="ok" if config_valid else "degraded",
         service="analyst_service",
         config_valid=config_valid,
-        providers={"yfinance": "optional", "alpha_vantage": "not_configured"},
+        providers={"yfinance": "optional", "alpha_vantage": alpha_vantage_status},
         llm_available=llm_available(),
         cache_backend="file",
     )

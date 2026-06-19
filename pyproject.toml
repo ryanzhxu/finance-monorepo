@@ -10,6 +10,7 @@ dependencies = [
     "pandas>=2.2.0",
     "pydantic>=2.7.0",
     "PyYAML>=6.0.1",
+    "analyst-service",
     "screener-service",
     "shared",
     "uvicorn[standard]>=0.30.0",
@@ -24,10 +25,12 @@ dev = [
 [tool.uv.workspace]
 members = [
     "shared",
+    "analyst_service",
     "screener_service",
 ]
 
 [tool.uv.sources]
+analyst-service = { workspace = true }
 screener-service = { workspace = true }
 shared = { workspace = true }
 
