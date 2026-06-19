@@ -116,10 +116,14 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
     sentiment = Sentiment(
         put_call_ratio=raw.put_call_ratio,
         iv_rank=raw.iv_rank_approx,
+        iv_rank_approx=raw.iv_rank_approx,
+        iv_rank_is_approx=True,
         reddit_mention_spike_24h_pct=raw.reddit_mention_spike_24h_pct,
         reddit_positive_pct=raw.reddit_positive_pct,
         short_interest_pct=raw.short_interest_pct,
         institutional_net_shares_last_13f=raw.institutional_net_shares_last_13f,
+        institutional_13f_as_of=raw.institutional_13f_as_of,
+        institutional_13f_freshness=raw.institutional_13f_freshness,
     )
     freshness = Freshness.DELAYED if raw.freshness != "missing" else Freshness.MISSING
     as_of = None

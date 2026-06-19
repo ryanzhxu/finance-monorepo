@@ -155,10 +155,14 @@ class Fundamentals(BaseModel):
 class Sentiment(BaseModel):
     put_call_ratio: float | None = None
     iv_rank: float | None = None
+    iv_rank_approx: float | None = None
+    iv_rank_is_approx: bool = True
     reddit_mention_spike_24h_pct: float | None = None
     reddit_positive_pct: float | None = None
     short_interest_pct: float | None = None
     institutional_net_shares_last_13f: float | None = None
+    institutional_13f_as_of: str | None = None
+    institutional_13f_freshness: str | None = None
 
 
 class Macro(BaseModel):
