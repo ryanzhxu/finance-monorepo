@@ -95,12 +95,18 @@ def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
     raw = fetch_raw_fundamentals(symbol)
     fundamentals = Fundamentals(
         eps_surprise_pct=raw.eps_surprise_pct,
+        pe_ratio=raw.pe_ratio,
+        pb_ratio=raw.pb_ratio,
+        ps_ratio=raw.ps_ratio,
+        ev_ebitda=raw.ev_ebitda,
         pe_percentile_5y=raw.pe_percentile_5y,
         analyst_upgrades_30d=raw.analyst_upgrades_30d,
         analyst_downgrades_30d=raw.analyst_downgrades_30d,
         revenue_growth_yoy_pct=raw.revenue_growth_yoy_pct,
         fcf_trend=raw.fcf_trend,
         gross_margin_pct=raw.gross_margin_pct,
+        freshness=raw.freshness,
+        as_of=raw.as_of,
     )
     freshness = Freshness.QUARTERLY if raw.freshness == "quarterly" else Freshness.MISSING
     as_of = None
@@ -125,6 +131,7 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
         institutional_net_shares_last_13f=raw.institutional_net_shares_last_13f,
         institutional_13f_as_of=raw.institutional_13f_as_of,
         institutional_13f_freshness=raw.institutional_13f_freshness,
+        freshness=raw.freshness,
     )
     freshness = Freshness.DELAYED if raw.freshness != "missing" else Freshness.MISSING
     as_of = None
@@ -145,6 +152,7 @@ def fetch_macro() -> FreshValue[Macro]:
         rate_cut_probability_source=raw.rate_cut_probability_source,
         treasury_10y=raw.treasury_10y,
         vix=raw.vix,
+        freshness=raw.freshness,
     )
     freshness_map = {
         "live": Freshness.LIVE,

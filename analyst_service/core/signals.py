@@ -10,6 +10,14 @@ def _weight(weights: dict[str, float], key: str) -> float:
     return float(weights[key])
 
 
+def _signal_for_band(*, value: float, buy_below: float, sell_above: float) -> Direction:
+    if value < buy_below:
+        return Direction.BUY
+    if value > sell_above:
+        return Direction.SELL
+    return Direction.HOLD
+
+
 def generate_signals(
     technicals: Technicals,
     fundamentals: Fundamentals,
@@ -81,20 +89,25 @@ def generate_signals(
         signals.append(Signal(dimension="Analyst Ratings", signal=direction, weight=_weight(weights, "Analyst_Ratings"), note=f"Net revisions {net} over 30D"))
 
     if sentiment.put_call_ratio is not None:
-        if sentiment.put_call_ratio < signal_thresholds["put_call_buy_below"]:
-            direction = Direction.BUY
-        elif sentiment.put_call_ratio > signal_thresholds["put_call_sell_above"]:
-            direction = Direction.SELL
-        else:
-            direction = Direction.HOLD
+        direction = _signal_for_band(
+            value=sentiment.put_call_ratio,
+            buy_below=signal_thresholds["put_call_buy_below"],
+            sell_above=signal_thresholds["put_call_sell_above"],
+        )
         signals.append(Signal(dimension="Put/Call Ratio", signal=direction, weight=_weight(weights, "Put_Call_Ratio"), note=f"Put/call {sentiment.put_call_ratio:.2f}"))
 
-    if sentiment.iv_rank is not None:
-        direction = Direction.HOLD if sentiment.iv_rank < signal_thresholds["iv_hold_below"] else Direction.SELL
-        signals.append(Signal(dimension="IV Rank", signal=direction, weight=_weight(weights, "IV_Rank"), note=f"IV rank {sentiment.iv_rank:.0f}"))
+    iv_rank_value = sentiment.iv_rank_approx if sentiment.iv_rank_approx is not None else sentiment.iv_rank
+    if iv_rank_value is not None:
+        direction = Direction.HOLD if iv_rank_value < signal_thresholds["iv_hold_below"] else Direction.SELL
+        label = "IV rank approx" if sentiment.iv_rank_is_approx else "IV rank"
+        signals.append(Signal(dimension="IV Rank", signal=direction, weight=_weight(weights, "IV_Rank"), note=f"{label} {iv_rank_value:.0f}"))
 
     if sentiment.short_interest_pct is not None:
-        direction = Direction.SELL if sentiment.short_interest_pct > signal_thresholds["short_interest_sell_above"] else Direction.HOLD
+        direction = _signal_for_band(
+            value=sentiment.short_interest_pct,
+            buy_below=signal_thresholds["short_interest_buy_below"],
+            sell_above=signal_thresholds["short_interest_sell_above"],
+        )
         signals.append(Signal(dimension="Short Interest", signal=direction, weight=_weight(weights, "Short_Interest"), note=f"Short interest {sentiment.short_interest_pct:.1f}%"))
 
     if sentiment.institutional_net_shares_last_13f is not None:
@@ -102,7 +115,21 @@ def generate_signals(
         signals.append(Signal(dimension="Institutional 13F", signal=direction, weight=_weight(weights, "Institutional_13F"), note=f"Net shares {sentiment.institutional_net_shares_last_13f:.0f}"))
 
     if macro.days_to_next_fomc is not None:
-        direction = Direction.HOLD
-        signals.append(Signal(dimension="Macro (FOMC)", signal=direction, weight=_weight(weights, "FOMC_Proximity"), note=f"{macro.days_to_next_fomc} days to next FOMC"))
+        if macro.days_to_next_fomc <= signal_thresholds["fomc_force_hold_days"]:
+            direction = Direction.HOLD
+            note = f"{macro.days_to_next_fomc} days to next FOMC; override active"
+        elif macro.rate_cut_probability_pct is None:
+            direction = Direction.HOLD
+            note = f"{macro.days_to_next_fomc} days to next FOMC; cut probability unavailable"
+        elif macro.rate_cut_probability_pct > signal_thresholds["rate_cut_buy_above"]:
+            direction = Direction.BUY
+            note = f"Rate-cut probability {macro.rate_cut_probability_pct:.0f}%"
+        elif macro.rate_cut_probability_pct < signal_thresholds["rate_cut_sell_below"]:
+            direction = Direction.SELL
+            note = f"Rate-cut probability {macro.rate_cut_probability_pct:.0f}%"
+        else:
+            direction = Direction.HOLD
+            note = f"Rate-cut probability {macro.rate_cut_probability_pct:.0f}%"
+        signals.append(Signal(dimension="Macro (FOMC)", signal=direction, weight=_weight(weights, "FOMC_Proximity"), note=note))
 
     return signals

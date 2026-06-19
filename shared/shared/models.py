@@ -144,12 +144,18 @@ class Technicals(BaseModel):
 
 class Fundamentals(BaseModel):
     eps_surprise_pct: float | None = None
+    pe_ratio: float | None = None
+    pb_ratio: float | None = None
+    ps_ratio: float | None = None
+    ev_ebitda: float | None = None
     pe_percentile_5y: float | None = None
     analyst_upgrades_30d: int | None = None
     analyst_downgrades_30d: int | None = None
     revenue_growth_yoy_pct: float | None = None
     fcf_trend: str | None = None
     gross_margin_pct: float | None = None
+    freshness: str | None = None
+    as_of: str | None = None
 
 
 class Sentiment(BaseModel):
@@ -163,6 +169,7 @@ class Sentiment(BaseModel):
     institutional_net_shares_last_13f: float | None = None
     institutional_13f_as_of: str | None = None
     institutional_13f_freshness: str | None = None
+    freshness: str | None = None
 
 
 class Macro(BaseModel):
@@ -172,6 +179,7 @@ class Macro(BaseModel):
     rate_cut_probability_source: str | None = None
     treasury_10y: float | None = None
     vix: float | None = None
+    freshness: str | None = None
     market_regime: MarketRegime = MarketRegime.NEUTRAL
 
 

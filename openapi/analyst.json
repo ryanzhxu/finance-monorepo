@@ -562,6 +562,17 @@
             ],
             "title": "Analyst Upgrades 30D"
           },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
           "eps_surprise_pct": {
             "anyOf": [
               {
@@ -572,6 +583,17 @@
               }
             ],
             "title": "Eps Surprise Pct"
+          },
+          "ev_ebitda": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ev Ebitda"
           },
           "fcf_trend": {
             "anyOf": [
@@ -584,6 +606,17 @@
             ],
             "title": "Fcf Trend"
           },
+          "freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness"
+          },
           "gross_margin_pct": {
             "anyOf": [
               {
@@ -595,6 +628,17 @@
             ],
             "title": "Gross Margin Pct"
           },
+          "pb_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pb Ratio"
+          },
           "pe_percentile_5y": {
             "anyOf": [
               {
@@ -605,6 +649,28 @@
               }
             ],
             "title": "Pe Percentile 5Y"
+          },
+          "pe_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pe Ratio"
+          },
+          "ps_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ps Ratio"
           },
           "revenue_growth_yoy_pct": {
             "anyOf": [
@@ -737,9 +803,31 @@
             ],
             "title": "Days To Next Fomc"
           },
+          "freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness"
+          },
           "market_regime": {
             "$ref": "#/components/schemas/MarketRegime",
             "default": "neutral"
+          },
+          "next_fomc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Fomc Date"
           },
           "rate_cut_probability_pct": {
             "anyOf": [
@@ -751,6 +839,17 @@
               }
             ],
             "title": "Rate Cut Probability Pct"
+          },
+          "rate_cut_probability_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Cut Probability Source"
           },
           "treasury_10y": {
             "anyOf": [
@@ -917,6 +1016,39 @@
       },
       "Sentiment": {
         "properties": {
+          "freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness"
+          },
+          "institutional_13f_as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional 13F As Of"
+          },
+          "institutional_13f_freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional 13F Freshness"
+          },
           "institutional_net_shares_last_13f": {
             "anyOf": [
               {
@@ -938,6 +1070,22 @@
               }
             ],
             "title": "Iv Rank"
+          },
+          "iv_rank_approx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iv Rank Approx"
+          },
+          "iv_rank_is_approx": {
+            "default": true,
+            "title": "Iv Rank Is Approx",
+            "type": "boolean"
           },
           "put_call_ratio": {
             "anyOf": [

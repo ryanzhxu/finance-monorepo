@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from shared.data_quality import FreshValue, compute_data_quality, freshness_label
+from shared.data_quality import FreshValue, compute_analysis_data_quality, freshness_label
 from shared.enums import Freshness
 from shared.models import (
     AnalyzeRequest,
@@ -14,8 +14,8 @@ from shared.models import (
     Sentiment,
 )
 
-from analyst_service.core.aggregator import aggregate_recommendation
-from analyst_service.core.data_fetcher import fetch_fundamentals, fetch_macro, fetch_ohlcv, fetch_sentiment
+from analyst_service.core.aggregator import aggregate_recommendation, fetch_analysis_context
+from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.narrator import synthesize_narrative
@@ -43,9 +43,7 @@ def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> fl
 async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     config = load_service_config()
     ohlcv = fetch_ohlcv(request.symbol, request.current_price)
-    fundamentals_fresh = fetch_fundamentals(request.symbol)
-    sentiment_fresh = fetch_sentiment(request.symbol, price_history=ohlcv.value)
-    macro_fresh = fetch_macro()
+    fundamentals_fresh, sentiment_fresh, macro_fresh = fetch_analysis_context(request.symbol, ohlcv.value)
 
     current_price = _current_price(request.current_price, ohlcv)
     technicals = compute_technicals(ohlcv.value, support_window=int(config["entry_rules"]["support_window"]))
@@ -62,12 +60,18 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         "sentiment": _freshness_value(sentiment_fresh),
         "macro": _freshness_value(macro_fresh),
     }
-    data_quality_score = compute_data_quality(
-        freshness,
-        default_penalty=int(config["thresholds"]["quality"]["group_penalty"]),
-    )
+    data_quality_score = compute_analysis_data_quality(technicals, fundamentals, sentiment, macro)
     signals = generate_signals(technicals, fundamentals, sentiment, macro, config["weights"], config["thresholds"])
-    provisional = aggregate_recommendation(signals, request.horizon, config["thresholds"], data_quality_score, None, freshness)
+    provisional = aggregate_recommendation(
+        signals,
+        request.horizon,
+        config["thresholds"],
+        data_quality_score,
+        None,
+        freshness,
+        macro=macro,
+        apply_overrides=False,
+    )
     entry: EntryBlock | None = None
     if request.include_entry:
         entry = compute_entry(
@@ -79,7 +83,16 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
             rules=config["entry_rules"],
             risk_flags=provisional.risk_flags,
         )
-    recommendation = aggregate_recommendation(signals, request.horizon, config["thresholds"], data_quality_score, entry, freshness)
+    recommendation = aggregate_recommendation(
+        signals,
+        request.horizon,
+        config["thresholds"],
+        data_quality_score,
+        entry,
+        freshness,
+        macro=macro,
+        apply_overrides=True,
+    )
     response = AnalyzeResponse(
         symbol=request.symbol,
         generated_at=datetime.now(timezone.utc),
