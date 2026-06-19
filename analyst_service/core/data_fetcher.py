@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
-from typing import Any
-
 import pandas as pd
 
 from shared.data_quality import FreshValue, utc_now
@@ -14,6 +12,9 @@ from shared.time_utils import (
     latest_completed_us_equity_trading_day,
     previous_us_equity_trading_day,
 )
+from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
+from analyst_service.core.macro import fetch_macro as fetch_raw_macro
+from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 
 
 def _empty_frame() -> pd.DataFrame:
@@ -91,34 +92,78 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
 
 
 def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
-    try:
-        import yfinance as yf
+    raw = fetch_raw_fundamentals(symbol)
+    fundamentals = Fundamentals(
+        eps_surprise_pct=raw.eps_surprise_pct,
+        pe_ratio=raw.pe_ratio,
+        pb_ratio=raw.pb_ratio,
+        ps_ratio=raw.ps_ratio,
+        ev_ebitda=raw.ev_ebitda,
+        pe_percentile_5y=raw.pe_percentile_5y,
+        analyst_upgrades_30d=raw.analyst_upgrades_30d,
+        analyst_downgrades_30d=raw.analyst_downgrades_30d,
+        revenue_growth_yoy_pct=raw.revenue_growth_yoy_pct,
+        fcf_trend=raw.fcf_trend,
+        gross_margin_pct=raw.gross_margin_pct,
+        freshness=raw.freshness,
+        as_of=raw.as_of,
+    )
+    freshness = Freshness.QUARTERLY if raw.freshness == "quarterly" else Freshness.MISSING
+    as_of = None
+    if raw.as_of is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.as_of).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(fundamentals, freshness, as_of)
 
-        ticker = yf.Ticker(symbol)
-        info: dict[str, Any] = ticker.info or {}
-        revenue_growth = info.get("revenueGrowth")
-        gross_margin = info.get("grossMargins")
-        trailing_pe = info.get("trailingPE")
-        pe_percentile = None
-        if trailing_pe is not None:
-            pe_percentile = max(0.0, min(100.0, 50.0 + (float(trailing_pe) - 20.0)))
-        fundamentals = Fundamentals(
-            eps_surprise_pct=None,
-            pe_percentile_5y=pe_percentile,
-            analyst_upgrades_30d=0,
-            analyst_downgrades_30d=0,
-            revenue_growth_yoy_pct=None if revenue_growth is None else round(float(revenue_growth) * 100, 2),
-            fcf_trend=None,
-            gross_margin_pct=None if gross_margin is None else round(float(gross_margin) * 100, 2),
-        )
-        return FreshValue(fundamentals, Freshness.QUARTERLY, datetime.now(timezone.utc))
-    except Exception:
-        return FreshValue(Fundamentals(), Freshness.MISSING, None)
 
-
-def fetch_sentiment(symbol: str) -> FreshValue[Sentiment]:
-    return FreshValue(Sentiment(), Freshness.MISSING, None)
+def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> FreshValue[Sentiment]:
+    raw = fetch_raw_sentiment(symbol, price_history=price_history)
+    sentiment = Sentiment(
+        put_call_ratio=raw.put_call_ratio,
+        iv_rank=raw.iv_rank_approx,
+        iv_rank_approx=raw.iv_rank_approx,
+        iv_rank_is_approx=True,
+        reddit_mention_spike_24h_pct=raw.reddit_mention_spike_24h_pct,
+        reddit_positive_pct=raw.reddit_positive_pct,
+        short_interest_pct=raw.short_interest_pct,
+        institutional_net_shares_last_13f=raw.institutional_net_shares_last_13f,
+        institutional_13f_as_of=raw.institutional_13f_as_of,
+        institutional_13f_freshness=raw.institutional_13f_freshness,
+        freshness=raw.freshness,
+    )
+    freshness = Freshness.DELAYED if raw.freshness != "missing" else Freshness.MISSING
+    as_of = None
+    if raw.institutional_13f_as_of is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.institutional_13f_as_of).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(sentiment, freshness, as_of)
 
 
 def fetch_macro() -> FreshValue[Macro]:
-    return FreshValue(Macro(), Freshness.MISSING, None)
+    raw = fetch_raw_macro()
+    macro = Macro(
+        days_to_next_fomc=raw.days_to_next_fomc,
+        next_fomc_date=raw.next_fomc_date,
+        rate_cut_probability_pct=raw.rate_cut_probability_pct,
+        rate_cut_probability_source=raw.rate_cut_probability_source,
+        treasury_10y=raw.treasury_10y,
+        vix=raw.vix,
+        freshness=raw.freshness,
+    )
+    freshness_map = {
+        "live": Freshness.LIVE,
+        "delayed": Freshness.DELAYED,
+        "missing": Freshness.MISSING,
+    }
+    freshness = freshness_map.get(raw.freshness, Freshness.MISSING)
+    as_of = None
+    if raw.next_fomc_date is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.next_fomc_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(macro, freshness, as_of)

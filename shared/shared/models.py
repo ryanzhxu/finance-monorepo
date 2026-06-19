@@ -144,28 +144,42 @@ class Technicals(BaseModel):
 
 class Fundamentals(BaseModel):
     eps_surprise_pct: float | None = None
+    pe_ratio: float | None = None
+    pb_ratio: float | None = None
+    ps_ratio: float | None = None
+    ev_ebitda: float | None = None
     pe_percentile_5y: float | None = None
     analyst_upgrades_30d: int | None = None
     analyst_downgrades_30d: int | None = None
     revenue_growth_yoy_pct: float | None = None
     fcf_trend: str | None = None
     gross_margin_pct: float | None = None
+    freshness: str | None = None
+    as_of: str | None = None
 
 
 class Sentiment(BaseModel):
     put_call_ratio: float | None = None
     iv_rank: float | None = None
+    iv_rank_approx: float | None = None
+    iv_rank_is_approx: bool = True
     reddit_mention_spike_24h_pct: float | None = None
     reddit_positive_pct: float | None = None
     short_interest_pct: float | None = None
     institutional_net_shares_last_13f: float | None = None
+    institutional_13f_as_of: str | None = None
+    institutional_13f_freshness: str | None = None
+    freshness: str | None = None
 
 
 class Macro(BaseModel):
     days_to_next_fomc: int | None = None
+    next_fomc_date: str | None = None
     rate_cut_probability_pct: float | None = None
+    rate_cut_probability_source: str | None = None
     treasury_10y: float | None = None
     vix: float | None = None
+    freshness: str | None = None
     market_regime: MarketRegime = MarketRegime.NEUTRAL
 
 

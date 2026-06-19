@@ -100,7 +100,7 @@ def compute_entry(
     fundamentals_strong = bool(
         (fundamentals.revenue_growth_yoy_pct or 0) > 10
         or (fundamentals.eps_surprise_pct or 0) > 5
-        or fundamentals.fcf_trend == "rising"
+        or fundamentals.fcf_trend == "improving"
     )
     fundamentals_weak = bool((fundamentals.revenue_growth_yoy_pct or 0) < -5 or (fundamentals.eps_surprise_pct or 0) < -5)
     valuation_reasonable = fundamentals.pe_percentile_5y is None or fundamentals.pe_percentile_5y <= rules["reasonable_pe_percentile"]
