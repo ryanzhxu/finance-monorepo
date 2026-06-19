@@ -13,6 +13,7 @@ from shared.time_utils import (
     previous_us_equity_trading_day,
 )
 from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
+from analyst_service.core.macro import fetch_macro as fetch_raw_macro
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 
 
@@ -136,4 +137,25 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
 
 
 def fetch_macro() -> FreshValue[Macro]:
-    return FreshValue(Macro(), Freshness.MISSING, None)
+    raw = fetch_raw_macro()
+    macro = Macro(
+        days_to_next_fomc=raw.days_to_next_fomc,
+        next_fomc_date=raw.next_fomc_date,
+        rate_cut_probability_pct=raw.rate_cut_probability_pct,
+        rate_cut_probability_source=raw.rate_cut_probability_source,
+        treasury_10y=raw.treasury_10y,
+        vix=raw.vix,
+    )
+    freshness_map = {
+        "live": Freshness.LIVE,
+        "delayed": Freshness.DELAYED,
+        "missing": Freshness.MISSING,
+    }
+    freshness = freshness_map.get(raw.freshness, Freshness.MISSING)
+    as_of = None
+    if raw.next_fomc_date is not None:
+        try:
+            as_of = datetime.fromisoformat(raw.next_fomc_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            as_of = None
+    return FreshValue(macro, freshness, as_of)

@@ -167,7 +167,9 @@ class Sentiment(BaseModel):
 
 class Macro(BaseModel):
     days_to_next_fomc: int | None = None
+    next_fomc_date: str | None = None
     rate_cut_probability_pct: float | None = None
+    rate_cut_probability_source: str | None = None
     treasury_10y: float | None = None
     vix: float | None = None
     market_regime: MarketRegime = MarketRegime.NEUTRAL
