@@ -14,19 +14,22 @@ type AnalyzeProps = {
   requestedSymbol: { value: string; nonce: number } | null
 }
 
-type LadderLine = {
-  key: string
-  label: string
-  price: number | null
-  color: string
-  dash?: string
-  strokeWidth?: number
+const recommendationTone: Record<Direction, string> = {
+  BUY: 'border border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400',
+  HOLD: 'border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+  SELL: 'border border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-400',
 }
 
-const directionTone: Record<Direction, string> = {
-  BUY: 'text-green-700 bg-green-100',
-  HOLD: 'text-amber-700 bg-amber-100',
-  SELL: 'text-red-700 bg-red-100',
+const signalTone: Record<Direction, string> = {
+  BUY: 'text-green-700 bg-green-100 dark:bg-green-950 dark:text-green-400',
+  HOLD: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-400',
+  SELL: 'text-red-700 bg-red-100 dark:bg-red-950 dark:text-red-400',
+}
+
+const signalBarTone: Record<Direction, string> = {
+  BUY: 'bg-green-500',
+  HOLD: 'bg-amber-500',
+  SELL: 'bg-red-500',
 }
 
 function formatPercent(value: number | null | undefined, digits = 1): string {
@@ -58,224 +61,307 @@ function formatPrice(value: number | null | undefined): string {
   })
 }
 
-function qualityTone(score: number): string {
-  if (score >= 80) {
-    return 'text-green-700 bg-green-100'
+function formatDateLabel(value: string | null | undefined): string {
+  if (!value) {
+    return '—'
   }
-  if (score >= 60) {
-    return 'text-amber-700 bg-amber-100'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '—'
   }
-  return 'text-red-700 bg-red-100'
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 function parseFreshness(value: string | undefined): { label: string; tone: string } {
   const normalized = (value ?? 'missing').trim().toLowerCase()
   if (normalized.startsWith('last_close')) {
-    return { label: 'LAST_CLOSE', tone: 'text-blue-600 bg-blue-50' }
+    return {
+      label: 'LAST_CLOSE',
+      tone: 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
+    }
   }
   if (normalized.startsWith('live')) {
-    return { label: 'LIVE', tone: 'text-green-600 bg-green-50' }
+    return {
+      label: 'LIVE',
+      tone: 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-400',
+    }
   }
   if (normalized.startsWith('delayed')) {
-    return { label: 'DELAYED', tone: 'text-amber-600 bg-amber-50' }
+    return {
+      label: 'DELAYED',
+      tone: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-400',
+    }
   }
   if (normalized.startsWith('missing')) {
-    return { label: 'MISSING', tone: 'text-red-600 bg-red-50' }
+    return {
+      label: 'MISSING',
+      tone: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-400',
+    }
   }
   if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) {
-    return { label: 'DELAYED', tone: 'text-amber-600 bg-amber-50' }
+    return {
+      label: 'DELAYED',
+      tone: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-400',
+    }
   }
-  return { label: value?.toUpperCase() ?? 'MISSING', tone: 'text-slate-600 bg-slate-100' }
+  return {
+    label: value?.toUpperCase() ?? 'MISSING',
+    tone: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  }
 }
 
 function getVoteCount(signals: Signal[], direction: Direction): number {
   return signals.filter((signal) => signal.signal === direction).length
 }
 
-function Ladder({
+function LevelRow({
+  label,
+  value,
+  dotClassName,
+  labelClassName,
+  valueClassName,
+  hollow = false,
+}: {
+  label: string
+  value: string
+  dotClassName: string
+  labelClassName?: string
+  valueClassName?: string
+  hollow?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className={[
+            'h-2.5 w-2.5 rounded-full border',
+            hollow ? 'bg-transparent' : '',
+            dotClassName,
+          ].join(' ')}
+        />
+        <span
+          className={[
+            'truncate text-[12px] font-medium',
+            labelClassName ?? 'text-slate-500 dark:text-slate-400',
+          ].join(' ')}
+        >
+          {label}
+        </span>
+      </div>
+      <span
+        className={[
+          'text-right text-[12px] tabular-nums',
+          valueClassName ?? 'text-slate-500 dark:text-slate-400',
+        ].join(' ')}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  valueClassName,
+  children,
+}: {
+  label: string
+  value?: string
+  valueClassName?: string
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-[11px] py-[9px] text-slate-900 dark:border-white/5 dark:bg-[#161a23] dark:text-slate-100">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
+      {value ? (
+        <p className={['mt-1 text-sm font-medium', valueClassName ?? ''].join(' ')}>{value}</p>
+      ) : null}
+      {children}
+    </div>
+  )
+}
+
+function SignalVoteCard({ signalVote }: { signalVote: Record<Direction, number> }) {
+  const maxCount = Math.max(signalVote.BUY, signalVote.HOLD, signalVote.SELL, 1)
+
+  return (
+    <StatCard label="Signal vote">
+      <div className="mt-2 space-y-2">
+        {(['BUY', 'HOLD', 'SELL'] as Direction[]).map((direction) => (
+          <div key={direction} className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-medium text-slate-600 dark:text-slate-300">{direction}</span>
+              <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                {signalVote[direction]}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div
+                className={['h-full rounded-full', signalBarTone[direction]].join(' ')}
+                style={{ width: `${(signalVote[direction] / maxCount) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  )
+}
+
+function ResultsPanel({
   entry,
   fibonacci,
   confluence,
+  signalVote,
+  macro,
 }: {
   entry: EntryBlock
   fibonacci: FibonacciLevels | null
   confluence: ConfluenceZone | null
-}) {
-  const topResistance = entry.resistance_levels[0] ?? Math.max(...entry.ideal_buy_zone)
-  const baseMin = Math.min(entry.invalidation_level, entry.stop_loss_suggestion)
-  const numericCandidates = [
-    topResistance,
-    entry.breakout_buy_level,
-    entry.current_price,
-    entry.ideal_buy_zone[0],
-    entry.ideal_buy_zone[1],
-    entry.conservative_entry_price,
-    entry.stop_loss_suggestion,
-    entry.invalidation_level,
-    ...(entry.support_levels ?? []),
-    ...(entry.resistance_levels ?? []),
-    fibonacci?.golden_pocket_low,
-    fibonacci?.golden_pocket_high,
-  ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
-
-  const rangeHigh = Math.max(topResistance, ...numericCandidates)
-  const rangeLow = Math.min(baseMin, ...numericCandidates)
-  const span = Math.max(rangeHigh - rangeLow, 1)
-  const padding = span * 0.1
-  const chartTop = 36
-  const chartBottom = 444
-
-  const toY = (price: number) => {
-    const paddedHigh = rangeHigh + padding
-    const paddedLow = rangeLow - padding
-    const usableSpan = paddedHigh - paddedLow
-    return chartTop + ((paddedHigh - price) / usableSpan) * (chartBottom - chartTop)
+  signalVote: Record<Direction, number>
+  macro: EntryConfluenceResponse['classical'] extends never ? never : {
+    next_fomc_date?: string | null
+    days_to_next_fomc?: number | null
+    rate_cut_probability_pct?: number | null
+    treasury_10y?: number | null
+    vix?: number | null
   }
-
-  const lines: LadderLine[] = [
-    ...entry.resistance_levels.map((price, index) => ({
-      key: `resistance-${index}`,
-      label: `Resistance ${index + 1}`,
-      price,
-      color: '#94a3b8',
-    })),
-    {
-      key: 'breakout',
-      label: 'Breakout',
-      price: entry.breakout_buy_level,
-      color: '#7c3aed',
-      dash: '6 6',
-    },
-    {
-      key: 'current',
-      label: 'Current',
-      price: entry.current_price,
-      color: '#111827',
-      strokeWidth: 2.5,
-    },
-    {
-      key: 'conservative',
-      label: 'Conservative entry',
-      price: entry.conservative_entry_price,
-      color: '#15803d',
-      dash: '8 4',
-    },
-    {
-      key: 'stop',
-      label: 'Stop loss',
-      price: entry.stop_loss_suggestion,
-      color: '#ea580c',
-      dash: '8 4',
-    },
-    {
-      key: 'invalidation',
-      label: 'Invalidation',
-      price: entry.invalidation_level,
-      color: '#dc2626',
-      dash: '8 4',
-    },
-    ...entry.support_levels.map((price, index) => ({
-      key: `support-${index}`,
-      label: `Support ${index + 1}`,
-      price,
-      color: '#94a3b8',
-    })),
-  ]
-
-  const idealTop = Math.max(...entry.ideal_buy_zone)
-  const idealBottom = Math.min(...entry.ideal_buy_zone)
+}) {
+  const nextFomc =
+    macro.next_fomc_date && macro.days_to_next_fomc != null
+      ? `${formatDateLabel(macro.next_fomc_date)} · ${macro.days_to_next_fomc}d`
+      : '—'
+  const rateCut =
+    macro.rate_cut_probability_pct == null ? '—' : `${macro.rate_cut_probability_pct.toFixed(1)}%`
+  const rateCutTone =
+    macro.rate_cut_probability_pct == null
+      ? 'text-slate-500 dark:text-slate-400'
+      : macro.rate_cut_probability_pct > 50
+        ? 'text-green-600 dark:text-green-400'
+        : macro.rate_cut_probability_pct < 30
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-slate-600 dark:text-slate-300'
+  const vixAnd10Y = `${formatNumber(macro.vix, 1)} · ${
+    macro.treasury_10y == null ? '—' : `${macro.treasury_10y.toFixed(2)}%`
+  }`
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-stone-50 p-4">
-        <svg viewBox="0 0 320 480" className="h-auto w-full">
-          <rect x="20" y="16" width="280" height="448" rx="18" fill="#ffffff" />
-          <line x1="32" y1="36" x2="32" y2="444" stroke="#cbd5e1" strokeWidth="1" />
-
-          {fibonacci ? (
-            <rect
-              x="36"
-              y={toY(Math.max(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))}
-              width="184"
-              height={
-                toY(Math.min(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high)) -
-                toY(Math.max(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))
-              }
-              fill="#2563eb"
-              opacity="0.15"
+    <div className="grid gap-[14px] xl:grid-cols-[1fr_196px]">
+      <div className="rounded-[18px] border border-slate-200 bg-white p-4 text-slate-900 dark:border-white/5 dark:bg-[#161a23] dark:text-slate-100">
+        <div className="space-y-1">
+          {entry.resistance_levels.map((price, index) => (
+            <LevelRow
+              key={`resistance-${index}`}
+              label={`Resistance ${index + 1}`}
+              value={formatPrice(price)}
+              dotClassName="border-slate-300 bg-slate-300 dark:border-[#2a3040] dark:bg-[#2a3040]"
             />
-          ) : null}
+          ))}
 
-          <rect
-            x="36"
-            y={toY(idealTop)}
-            width="184"
-            height={toY(idealBottom) - toY(idealTop)}
-            fill="#16a34a"
-            opacity="0.15"
+          <LevelRow
+            label="Breakout buy level"
+            value={formatPrice(entry.breakout_buy_level)}
+            dotClassName="border-violet-500 bg-violet-500"
           />
-          <text x="230" y={toY(idealTop) - 6} fontSize="11" fill="#15803d">
-            Ideal buy zone
-          </text>
 
-          {lines.map((line) =>
-            line.price == null ? null : (
-              <g key={line.key}>
-                <line
-                  x1="36"
-                  x2="220"
-                  y1={toY(line.price)}
-                  y2={toY(line.price)}
-                  stroke={line.color}
-                  strokeWidth={line.strokeWidth ?? 1}
-                  strokeDasharray={line.dash}
-                />
-                <text
-                  x="230"
-                  y={toY(line.price) + 4}
-                  fontSize="11"
-                  fill={line.color}
-                >
-                  {line.label} {formatPrice(line.price)}
-                </text>
-              </g>
-            ),
-          )}
+          <div className="flex items-center justify-between gap-3 border-y border-slate-200 py-3 dark:border-white/5">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-3 w-3 rounded-full border border-slate-950 bg-slate-950 dark:border-slate-100 dark:bg-slate-100" />
+              <span className="truncate text-[13px] font-semibold text-slate-950 dark:text-slate-50">
+                Current price
+              </span>
+            </div>
+            <span className="text-right text-base font-semibold tabular-nums text-slate-950 dark:text-slate-50">
+              {formatPrice(entry.current_price)}
+            </span>
+          </div>
 
-          {entry.current_price == null ? (
-            <text x="230" y="58" fontSize="11" fill="#64748b">
-              Current —
-            </text>
-          ) : null}
+          <div className="rounded-xl bg-green-50 px-3 py-3 text-green-800 dark:bg-green-950/40 dark:text-green-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Ideal buy zone</p>
+            <p className="mt-1 text-sm font-medium">
+              {formatPrice(Math.min(...entry.ideal_buy_zone))} - {formatPrice(Math.max(...entry.ideal_buy_zone))}
+            </p>
+          </div>
 
           {fibonacci ? (
-            <text x="230" y={toY(fibonacci.golden_pocket_low) + 18} fontSize="11" fill="#2563eb">
-              Fib Golden Pocket
-            </text>
+            <div className="rounded-xl bg-blue-50 px-3 py-3 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Fib golden pocket</p>
+              <p className="mt-1 text-sm font-medium">
+                {formatPrice(Math.min(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))} -{' '}
+                {formatPrice(Math.max(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))}
+              </p>
+            </div>
           ) : null}
-        </svg>
+
+          <LevelRow
+            label="Conservative entry"
+            value={formatPrice(entry.conservative_entry_price)}
+            dotClassName="border-amber-500 bg-amber-500"
+            valueClassName="text-amber-600 dark:text-amber-400"
+          />
+          <LevelRow
+            label="Stop loss"
+            value={formatPrice(entry.stop_loss_suggestion)}
+            dotClassName="border-red-500 bg-red-500"
+            valueClassName="text-red-600 dark:text-red-400"
+          />
+          <LevelRow
+            label="Invalidation"
+            value={formatPrice(entry.invalidation_level)}
+            dotClassName="border-red-500"
+            valueClassName="text-red-600 dark:text-red-400"
+            hollow
+          />
+
+          {entry.support_levels.map((price, index) => (
+            <LevelRow
+              key={`support-${index}`}
+              label={`Support ${index + 1}`}
+              value={formatPrice(price)}
+              dotClassName="border-slate-300 bg-slate-300 dark:border-[#2a3040] dark:bg-[#2a3040]"
+            />
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {confluence?.overlap ? (
+            <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-green-800 dark:bg-green-950 dark:text-green-400">
+              High conviction zone
+            </span>
+          ) : null}
+          {!confluence?.overlap && confluence?.divergence_note ? (
+            <div className="border-l-2 border-amber-500 bg-amber-50/80 px-3 py-2 text-[12px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              {confluence.divergence_note}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-950 dark:text-amber-400">
+              {entry.entry_assessment}
+            </span>
+            <span className="text-[12px] leading-5 text-slate-500 dark:text-slate-400">{entry.reason}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-          {entry.entry_assessment}
-        </span>
-        {confluence?.overlap ? (
-          <span className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-800 bg-green-200">
-            HIGH CONVICTION ZONE
-          </span>
-        ) : null}
-        {!confluence?.overlap && confluence?.divergence_note ? (
-          <span className="rounded-full px-3 py-1 text-xs font-medium text-amber-800 bg-amber-100">
-            {confluence.divergence_note}
-          </span>
-        ) : null}
+      <div className="flex flex-col gap-2">
+        <SignalVoteCard signalVote={signalVote} />
+        <StatCard
+          label="Conservative entry"
+          value={formatPrice(entry.conservative_entry_price)}
+          valueClassName="text-green-600 dark:text-green-400"
+        />
+        <StatCard
+          label="Stop loss"
+          value={formatPrice(entry.stop_loss_suggestion)}
+          valueClassName="text-red-600 dark:text-red-400"
+        />
+        <StatCard label="Next FOMC" value={nextFomc} />
+        <StatCard label="Rate cut prob" value={rateCut} valueClassName={rateCutTone} />
+        <StatCard label="VIX · 10Y" value={vixAnd10Y} />
       </div>
-
-      <p className="text-sm leading-6 text-slate-700">{entry.reason}</p>
-      {entry.current_price == null ? (
-        <p className="text-sm text-slate-500">Current price unavailable from the live entry response.</p>
-      ) : null}
     </div>
   )
 }
@@ -365,41 +451,50 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
 
       {analysis ? (
         <>
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Summary
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-slate-950">
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
+            <div className="space-y-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
                       {analysis.symbol}
                     </h2>
-                    <span
-                      className={[
-                        'rounded-full px-3 py-1 text-sm font-semibold',
-                        directionTone[analysis.recommendation.direction],
-                      ].join(' ')}
-                    >
-                      {analysis.recommendation.direction}
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-                      Confidence {formatPercent(analysis.confidence * 100)}
-                    </span>
-                    <span
-                      className={[
-                        'rounded-full px-3 py-1 text-sm font-semibold',
-                        qualityTone(analysis.data_quality_score),
-                      ].join(' ')}
-                    >
-                      Data quality {analysis.data_quality_score}
-                    </span>
+                    <p className="mt-1 text-[20px] text-slate-500 dark:text-slate-400">
+                      {formatPrice(entry?.current_price ?? confluenceResponse?.current_price ?? null)}
+                    </p>
                   </div>
+                  <span
+                    className={[
+                      'rounded-full px-3 py-1 text-sm font-semibold',
+                      recommendationTone[analysis.recommendation.direction],
+                    ].join(' ')}
+                  >
+                    {analysis.recommendation.direction}
+                  </span>
                 </div>
-                <div className="rounded-3xl border border-slate-200 bg-stone-50 px-4 py-3 text-sm text-slate-600">
-                  <p>Generated {new Date(analysis.generated_at).toLocaleString()}</p>
-                  <p>Weighted score {formatNumber(analysis.recommendation.weighted_score)}</p>
+
+                <div className="flex items-end gap-6">
+                  <div className="text-right">
+                    <p className="text-[18px] font-medium text-slate-950 dark:text-slate-50">
+                      {formatPercent(analysis.confidence * 100)}
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      confidence
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex justify-end">
+                      <div className="h-[3px] w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div
+                          className="h-full rounded-full bg-green-500"
+                          style={{ width: `${Math.max(0, Math.min(100, analysis.data_quality_score))}%` }}
+                        />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      DQ {analysis.data_quality_score}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -411,7 +506,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                       key={item.label}
                       title={item.value}
                       className={[
-                        'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                        'rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]',
                         freshness.tone,
                       ].join(' ')}
                     >
@@ -421,55 +516,29 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                 })}
               </div>
 
-              {analysis.recommendation.risk_flags.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {analysis.recommendation.risk_flags.map((flag) => (
-                    <span
-                      key={flag}
-                      className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-700"
-                    >
-                      {flag}
-                    </span>
-                  ))}
+              {entry ? (
+                <ResultsPanel
+                  entry={entry}
+                  fibonacci={confluenceResponse?.fibonacci ?? null}
+                  confluence={confluenceResponse?.confluence ?? null}
+                  signalVote={signalVote}
+                  macro={analysis.macro}
+                />
+              ) : (
+                <div className="rounded-[18px] border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  Entry structure unavailable for this response.
                 </div>
-              ) : null}
+              )}
             </div>
           </section>
 
-          {entry ? (
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Entry Zone Ladder
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-                    Classical entry structure with Fibonacci confluence
-                  </h3>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-stone-50 px-4 py-3 text-sm text-slate-600">
-                  <p>Current {formatPrice(entry.current_price)}</p>
-                  <p>
-                    Zone {formatPrice(Math.min(...entry.ideal_buy_zone))} -{' '}
-                    {formatPrice(Math.max(...entry.ideal_buy_zone))}
-                  </p>
-                </div>
-              </div>
-              <Ladder
-                entry={entry}
-                fibonacci={confluenceResponse?.fibonacci ?? null}
-                confluence={confluenceResponse?.confluence ?? null}
-              />
-            </section>
-          ) : null}
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                   Signals
                 </p>
-                <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600">
+                <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
                   <span>BUY: {signalVote.BUY}</span>
                   <span>HOLD: {signalVote.HOLD}</span>
                   <span>SELL: {signalVote.SELL}</span>
@@ -478,7 +547,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
               <button
                 type="button"
                 onClick={() => setSignalsOpen((value) => !value)}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
+                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-200 dark:hover:text-slate-100"
               >
                 {signalsOpen ? 'Hide signals' : 'Show signals'}
               </button>
@@ -486,31 +555,35 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
 
             {signalsOpen ? (
               <div className="mt-5 overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
                   <thead>
-                    <tr className="text-slate-500">
+                    <tr className="text-slate-500 dark:text-slate-400">
                       <th className="pb-3 pr-4 font-medium">Dimension</th>
                       <th className="pb-3 pr-4 font-medium">Signal</th>
                       <th className="pb-3 pr-4 font-medium">Weight</th>
                       <th className="pb-3 font-medium">Note</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
                     {analysis.signals.map((signal) => (
                       <tr key={`${signal.dimension}-${signal.note}`}>
-                        <td className="py-3 pr-4 font-medium text-slate-900">{signal.dimension}</td>
+                        <td className="py-3 pr-4 font-medium text-slate-900 dark:text-slate-100">
+                          {signal.dimension}
+                        </td>
                         <td className="py-3 pr-4">
                           <span
                             className={[
                               'rounded-full px-3 py-1 text-xs font-semibold',
-                              directionTone[signal.signal],
+                              signalTone[signal.signal],
                             ].join(' ')}
                           >
                             {signal.signal}
                           </span>
                         </td>
-                        <td className="py-3 pr-4 text-slate-700">{formatNumber(signal.weight)}</td>
-                        <td className="py-3 text-slate-600">{signal.note}</td>
+                        <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">
+                          {formatNumber(signal.weight)}
+                        </td>
+                        <td className="py-3 text-slate-600 dark:text-slate-400">{signal.note}</td>
                       </tr>
                     ))}
                   </tbody>
