@@ -53,3 +53,20 @@ services:
         value: "86400"
       - key: SENTIMENT_CACHE_TTL
         value: "900"
+
+  - type: web
+    name: finance-web-ui
+    runtime: static
+    region: oregon
+    autoDeployTrigger: commit
+    buildCommand: cd web_ui && npm install && npm run build
+    staticPublishPath: web_ui/dist
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
