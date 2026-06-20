@@ -57,7 +57,6 @@ services:
   - type: web
     name: finance-web-ui
     runtime: static
-    region: oregon
     autoDeployTrigger: commit
     buildCommand: cd web_ui && npm install && npm run build
     staticPublishPath: web_ui/dist
