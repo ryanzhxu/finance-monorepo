@@ -13,6 +13,8 @@ env/
 .env
 .env.*
 !.env.example
+!.env.production
+!web_ui/.env.production
 *.egg-info/
 dist/
 build/
