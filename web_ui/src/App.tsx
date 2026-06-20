@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchAnalyzeBundle } from './api/client'
 import Watchlist from './components/Watchlist'
+import type { AnalysisResponse, EntryConfluenceResponse } from './api/types'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
 import Screener from './views/Screener'
@@ -20,6 +21,10 @@ type ViewKey = 'analyze' | 'screener' | 'health'
 type AnalyzeSelection = {
   value: string
   nonce: number
+  cachedBundle?: {
+    analysis: AnalysisResponse
+    confluence: EntryConfluenceResponse
+  } | null
 }
 
 const tabs: Array<{ key: ViewKey; label: string }> = [
@@ -119,6 +124,7 @@ function App() {
             entryAssessment: classicalEntry.entry_assessment ?? fallbackEntry?.entry_assessment ?? null,
             lastAnalyzedAt: currentTimestamp,
             freshness: 'live',
+            cachedBundle: bundle,
           })
           watchlistRef.current = next
           saveWatchlist(next)
@@ -196,13 +202,18 @@ function App() {
   }
 
   const handleWatchlistAnalyze = (symbol: string) => {
-    setRequestedSymbol({ value: symbol, nonce: Date.now() })
+    const entry = watchlistRef.current.find((watchlistEntry) => watchlistEntry.symbol === symbol)
+    setRequestedSymbol({
+      value: symbol,
+      nonce: Date.now(),
+      cachedBundle: entry?.freshness === 'live' ? entry.cachedBundle : null,
+    })
     setActiveView('analyze')
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#090c12] sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#0d0f14]">
+    <div className="min-h-screen bg-slate-50 px-4 py-6 transition-colors duration-150 dark:bg-[#090c12] sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)] transition-colors duration-150 dark:border-slate-800 dark:bg-[#0d0f14]">
         <header className="border-b border-slate-200 bg-white px-6 py-6 dark:border-slate-800 dark:bg-[#0d0f14] sm:px-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
@@ -245,7 +256,7 @@ function App() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          <aside className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 p-3 dark:border-slate-800">
+          <aside className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 p-3 transition-colors duration-150 dark:border-slate-800">
             <Watchlist
               entries={watchlistEntries}
               refreshingSymbol={refreshingSymbol}
@@ -254,7 +265,7 @@ function App() {
               onAnalyze={handleWatchlistAnalyze}
             />
           </aside>
-          <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+          <main className="flex-1 overflow-y-auto p-6 transition-colors duration-150 sm:p-8">
             {activeView === 'analyze' ? (
               <Analyze
                 key={requestedSymbol?.nonce ?? 'analyze-default'}

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { fetchAnalyzeBundle } from '../api/client'
 import type {
+  AnalysisResponse,
   ConfluenceZone,
   Direction,
   EntryBlock,
@@ -11,8 +12,25 @@ import type {
 } from '../api/types'
 
 type AnalyzeProps = {
-  requestedSymbol: { value: string; nonce: number } | null
+  requestedSymbol: {
+    value: string
+    nonce: number
+    cachedBundle?: {
+      analysis: AnalysisResponse
+      confluence: EntryConfluenceResponse
+    } | null
+  } | null
 }
+
+type AnalyzeMutationInput =
+  | string
+  | {
+      symbol: string
+      cachedBundle?: {
+        analysis: AnalysisResponse
+        confluence: EntryConfluenceResponse
+      } | null
+    }
 
 const recommendationTone: Record<Direction, string> = {
   BUY: 'border border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400',
@@ -279,6 +297,141 @@ function sentimentTone(value: number | null | undefined, buyCeiling: number, sel
   return 'text-slate-600 dark:text-slate-300'
 }
 
+const loaderStages = [
+  { key: 'price', label: 'Fetch price data' },
+  { key: 'technicals', label: 'Compute technicals' },
+  { key: 'fundamentals', label: 'Load fundamentals' },
+  { key: 'signals', label: 'Assemble signals' },
+  { key: 'confluence', label: 'Build confluence' },
+] as const
+
+type LoaderStageKey = (typeof loaderStages)[number]['key']
+
+function AnalysisLoader({ symbol }: { symbol: string }) {
+  const [activeStageIndex, setActiveStageIndex] = useState(0)
+  const [stageTimes, setStageTimes] = useState<Partial<Record<LoaderStageKey, string>>>({})
+  const startTimeRef = useRef<number>(0)
+
+  useEffect(() => {
+    startTimeRef.current = Date.now()
+
+    const interval = window.setInterval(() => {
+      setActiveStageIndex((current) => {
+        if (current >= loaderStages.length - 1) {
+          return current
+        }
+
+        const finishedStage = loaderStages[current]
+        setStageTimes((existing) => ({
+          ...existing,
+          [finishedStage.key]: `${((Date.now() - startTimeRef.current) / 1000).toFixed(1)}s`,
+        }))
+        return current + 1
+      })
+    }, 800)
+
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const activeStageLabel = loaderStages[activeStageIndex]?.label ?? 'Loading analysis'
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-white/5 dark:bg-[#0d0f14]">
+      <style>{`
+        @keyframes progFill {
+          0% { width: 5%; }
+          30% { width: 42%; }
+          60% { width: 68%; }
+          85% { width: 85%; }
+          100% { width: 91%; }
+        }
+      `}</style>
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="text-3xl font-medium text-slate-950 dark:text-slate-50">{symbol || '—'}</h2>
+        <span className="rounded border border-slate-200 px-2 py-0.5 text-[10px] text-slate-400 dark:border-[#1e2330] dark:text-slate-500">
+          analyzing
+        </span>
+      </div>
+
+      <div className="mb-5 mt-1 flex items-center gap-1.5">
+        {loaderStages.map((stage, index) => {
+          const state =
+            index < activeStageIndex ? 'done' : index === activeStageIndex ? 'active' : 'waiting'
+          return (
+            <span
+              key={stage.key}
+              className={[
+                'h-1.5 w-1.5 rounded-full',
+                state === 'done'
+                  ? 'bg-slate-900 dark:bg-[#3dd68c]'
+                  : state === 'active'
+                    ? 'bg-slate-500 animate-pulse'
+                    : 'bg-slate-200 dark:bg-[#1e2330]',
+              ].join(' ')}
+            />
+          )
+        })}
+        <span className="ml-2 text-xs text-slate-500 dark:text-slate-500">{activeStageLabel}…</span>
+      </div>
+
+      <div className="mb-5 h-px w-full bg-slate-200 dark:bg-[#1e2330]">
+        <div
+          className="h-px bg-slate-900 dark:bg-[#3dd68c]"
+          style={{ animation: 'progFill 3.2s ease-in-out infinite' }}
+        />
+      </div>
+      <div className="mb-4 h-px bg-slate-200 dark:bg-[#1e2330]" />
+
+      <div>
+        {loaderStages.map((stage, index) => {
+          const state =
+            index < activeStageIndex ? 'done' : index === activeStageIndex ? 'active' : 'waiting'
+
+          return (
+            <div key={stage.key} className="flex items-center gap-2.5 py-1.5">
+              {state === 'done' ? (
+                <span className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-slate-100 text-[9px] text-slate-500 dark:bg-[#1a3d2b] dark:text-[#3dd68c]">
+                  ✓
+                </span>
+              ) : state === 'active' ? (
+                <span className="h-[15px] w-[15px] animate-spin rounded-full border border-slate-300 border-t-slate-500 dark:border-[#3a4050] dark:border-t-slate-200" />
+              ) : (
+                <span className="h-[15px] w-[15px] rounded-full bg-slate-100 dark:bg-[#161a23]" />
+              )}
+
+              <span
+                className={[
+                  'text-xs',
+                  state === 'done'
+                    ? 'text-slate-400 dark:text-[#3a4a3a]'
+                    : state === 'active'
+                      ? 'font-medium text-slate-900 dark:text-slate-50'
+                      : 'text-slate-200 dark:text-[#1e2330]',
+                ].join(' ')}
+              >
+                {stage.label}
+              </span>
+
+              <span
+                className={[
+                  'ml-auto text-xs',
+                  state === 'done'
+                    ? 'text-slate-400 dark:text-[#3dd68c]'
+                    : state === 'active'
+                      ? 'text-slate-400 dark:text-slate-500'
+                      : 'invisible',
+                ].join(' ')}
+              >
+                {state === 'done' ? stageTimes[stage.key] ?? '—' : '—'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function SignalVoteCard({ signalVote }: { signalVote: Record<Direction, number> }) {
   const maxCount = Math.max(signalVote.BUY, signalVote.HOLD, signalVote.SELL, 1)
 
@@ -468,7 +621,12 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
   const [fundamentalsOpen, setFundamentalsOpen] = useState(true)
   const [sentimentOpen, setSentimentOpen] = useState(true)
   const analysisMutation = useMutation({
-    mutationFn: async (symbol: string) => fetchAnalyzeBundle(symbol),
+    mutationFn: async (input: AnalyzeMutationInput) => {
+      if (typeof input === 'object' && input.cachedBundle) {
+        return input.cachedBundle
+      }
+      return fetchAnalyzeBundle(typeof input === 'string' ? input : input.symbol)
+    },
   })
   const { mutate } = analysisMutation
 
@@ -477,6 +635,10 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
       return
     }
     const normalized = requestedSymbol.value.trim().toUpperCase()
+    if (requestedSymbol.cachedBundle) {
+      mutate({ symbol: normalized, cachedBundle: requestedSymbol.cachedBundle })
+      return
+    }
     mutate(normalized)
   }, [mutate, requestedSymbol])
 
@@ -558,7 +720,12 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
         ) : null}
       </section>
 
-      {analysis ? (
+      {analysisMutation.isPending ? (
+        <AnalysisLoader
+          key={String(requestedSymbol?.nonce ?? (symbolInput.trim().toUpperCase() || 'loader'))}
+          symbol={symbolInput.trim().toUpperCase() || 'NVDA'}
+        />
+      ) : analysis ? (
         <>
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
             <div className="space-y-5">
@@ -930,13 +1097,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
           </section>
         </>
       ) : (
-        <section className="rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 py-10 text-center shadow-sm">
-          <p className="text-lg font-medium text-slate-700">Run an analysis to populate the console.</p>
-          <p className="mt-2 text-sm text-slate-500">
-            The client will call <code className="rounded bg-slate-100 px-2 py-1">/analyze</code> and{' '}
-            <code className="rounded bg-slate-100 px-2 py-1">/entry/confluence</code> in parallel.
-          </p>
-        </section>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Enter a symbol above to begin.</p>
       )}
     </div>
   )

@@ -83,7 +83,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-col">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -95,11 +95,11 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-1.5 pr-1">
         {entries.map((entry) => (
           <div
             key={entry.symbol}
-            className="relative rounded-lg border border-slate-200 bg-slate-50 px-[10px] py-2 transition hover:border-slate-300 dark:border-white/5 dark:bg-[#161a23] dark:hover:border-slate-700"
+            className="relative rounded-lg border border-slate-200 bg-slate-50 px-[10px] py-2 transition-colors duration-150 hover:border-slate-300 dark:border-white/5 dark:bg-[#161a23] dark:hover:border-slate-700"
           >
             <button
               type="button"
@@ -170,16 +170,16 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <form onSubmit={handleSubmit} className="mt-3 flex gap-1.5">
         <input
           value={inputValue}
           onChange={(event) => setInputValue(event.target.value.toUpperCase())}
           placeholder="Symbol…"
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-slate-400 dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100 dark:placeholder:text-slate-500"
+          className="flex-1 rounded-lg border px-2.5 py-1.5 text-xs outline-none bg-white border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-[#161a23] dark:border-white/10 dark:text-slate-100 dark:placeholder-slate-500 transition-colors duration-150"
         />
         <button
           type="submit"
-          className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
           Add
         </button>
