@@ -1,8 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { fetchAnalyzeBundle } from './api/client'
+import Watchlist from './components/Watchlist'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
 import Screener from './views/Screener'
 import { applyTheme, getStoredTheme, storeTheme, type Theme } from './theme'
+import {
+  addSymbol,
+  isStale,
+  loadWatchlist,
+  removeSymbol,
+  saveWatchlist,
+  updateEntry,
+  type WatchlistEntry,
+} from './watchlist'
 
 type ViewKey = 'analyze' | 'screener' | 'health'
 
@@ -43,6 +54,20 @@ function App() {
   const [activeView, setActiveView] = useState<ViewKey>('analyze')
   const [requestedSymbol, setRequestedSymbol] = useState<AnalyzeSelection | null>(null)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
+  const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>(() =>
+    loadWatchlist().map((entry) => ({
+      ...entry,
+      freshness: entry.lastAnalyzedAt ? (isStale(entry) ? 'stale' : 'live') : 'never',
+    })),
+  )
+  const [refreshingSymbol, setRefreshingSymbol] = useState<string | null>(null)
+  const watchlistRef = useRef(watchlistEntries)
+  const refreshQueueRef = useRef<string[]>([])
+  const refreshInFlightRef = useRef(false)
+
+  useEffect(() => {
+    watchlistRef.current = watchlistEntries
+  }, [watchlistEntries])
 
   useEffect(() => {
     if (theme !== 'system') {
@@ -59,6 +84,120 @@ function App() {
     storeTheme(nextTheme)
     applyTheme(nextTheme)
     setTheme(nextTheme)
+  }
+
+  const processRefreshQueue = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      return
+    }
+
+    refreshInFlightRef.current = true
+
+    while (refreshQueueRef.current.length > 0) {
+      const symbol = refreshQueueRef.current.shift()
+      if (!symbol) {
+        continue
+      }
+      if (!watchlistRef.current.some((entry) => entry.symbol === symbol)) {
+        continue
+      }
+
+      setRefreshingSymbol(symbol)
+
+      try {
+        const bundle = await fetchAnalyzeBundle(symbol)
+        const currentTimestamp = new Date().toISOString()
+        const classicalEntry = bundle.confluence.classical
+        const fallbackEntry = bundle.analysis.entry
+
+        setWatchlistEntries((current) => {
+          const next = updateEntry(current, symbol, {
+            direction: bundle.analysis.recommendation.direction,
+            confidence: bundle.analysis.confidence,
+            dataQualityScore: bundle.analysis.data_quality_score,
+            currentPrice: classicalEntry.current_price ?? fallbackEntry?.current_price ?? null,
+            entryAssessment: classicalEntry.entry_assessment ?? fallbackEntry?.entry_assessment ?? null,
+            lastAnalyzedAt: currentTimestamp,
+            freshness: 'live',
+          })
+          watchlistRef.current = next
+          saveWatchlist(next)
+          return next
+        })
+      } catch {
+        setWatchlistEntries((current) => {
+          const currentEntry = current.find((entry) => entry.symbol === symbol)
+          if (!currentEntry) {
+            return current
+          }
+          const next = updateEntry(current, symbol, {
+            freshness: 'stale',
+            lastAnalyzedAt: currentEntry.lastAnalyzedAt,
+          })
+          watchlistRef.current = next
+          saveWatchlist(next)
+          return next
+        })
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      setRefreshingSymbol(null)
+    }
+
+    refreshInFlightRef.current = false
+    setRefreshingSymbol(null)
+  }, [])
+
+  const enqueueSymbols = useCallback((symbols: string[]) => {
+    const nextSymbols = symbols
+      .map((symbol) => symbol.trim().toUpperCase())
+      .filter(Boolean)
+      .filter((symbol, index, all) => all.indexOf(symbol) === index)
+      .filter((symbol) => !refreshQueueRef.current.includes(symbol))
+
+    if (nextSymbols.length === 0) {
+      return
+    }
+
+    refreshQueueRef.current.push(...nextSymbols)
+    void processRefreshQueue()
+  }, [processRefreshQueue])
+
+  useEffect(() => {
+    const staleSymbols = watchlistRef.current
+      .filter((entry) => entry.freshness === 'never' || isStale(entry))
+      .map((entry) => entry.symbol)
+
+    if (staleSymbols.length > 0) {
+      enqueueSymbols(staleSymbols)
+    }
+  }, [enqueueSymbols])
+
+  const handleAddToWatchlist = (symbol: string) => {
+    const next = addSymbol(watchlistRef.current, symbol)
+    if (next === watchlistRef.current) {
+      return
+    }
+    watchlistRef.current = next
+    setWatchlistEntries(next)
+    saveWatchlist(next)
+    enqueueSymbols([symbol])
+  }
+
+  const handleRemoveFromWatchlist = (symbol: string) => {
+    const next = removeSymbol(watchlistRef.current, symbol)
+    watchlistRef.current = next
+    setWatchlistEntries(next)
+    saveWatchlist(next)
+    refreshQueueRef.current = refreshQueueRef.current.filter((queuedSymbol) => queuedSymbol !== symbol)
+    if (refreshingSymbol === symbol) {
+      setRefreshingSymbol(null)
+    }
+  }
+
+  const handleWatchlistAnalyze = (symbol: string) => {
+    setRequestedSymbol({ value: symbol, nonce: Date.now() })
+    setActiveView('analyze')
   }
 
   return (
@@ -105,23 +244,34 @@ function App() {
           </div>
         </header>
 
-        <main className="flex-1 px-6 py-6 sm:px-8">
-          {activeView === 'analyze' ? (
-            <Analyze
-              key={requestedSymbol?.nonce ?? 'analyze-default'}
-              requestedSymbol={requestedSymbol}
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 p-3 dark:border-slate-800">
+            <Watchlist
+              entries={watchlistEntries}
+              refreshingSymbol={refreshingSymbol}
+              onAdd={handleAddToWatchlist}
+              onRemove={handleRemoveFromWatchlist}
+              onAnalyze={handleWatchlistAnalyze}
             />
-          ) : null}
-          {activeView === 'screener' ? (
-            <Screener
-              onAnalyzeSymbol={(symbol) => {
-                setRequestedSymbol({ value: symbol, nonce: Date.now() })
-                setActiveView('analyze')
-              }}
-            />
-          ) : null}
-          {activeView === 'health' ? <Health /> : null}
-        </main>
+          </aside>
+          <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+            {activeView === 'analyze' ? (
+              <Analyze
+                key={requestedSymbol?.nonce ?? 'analyze-default'}
+                requestedSymbol={requestedSymbol}
+              />
+            ) : null}
+            {activeView === 'screener' ? (
+              <Screener
+                onAnalyzeSymbol={(symbol) => {
+                  setRequestedSymbol({ value: symbol, nonce: Date.now() })
+                  setActiveView('analyze')
+                }}
+              />
+            ) : null}
+            {activeView === 'health' ? <Health /> : null}
+          </main>
+        </div>
       </div>
     </div>
   )

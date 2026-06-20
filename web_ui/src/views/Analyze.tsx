@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { fetchAnalyzeBundle } from '../api/client'
 import type {
@@ -169,7 +169,7 @@ function StatCard({
   label: string
   value?: string
   valueClassName?: string
-  children?: React.ReactNode
+  children?: ReactNode
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 px-[11px] py-[9px] text-slate-900 dark:border-white/5 dark:bg-[#161a23] dark:text-slate-100">
@@ -182,6 +182,101 @@ function StatCard({
       {children}
     </div>
   )
+}
+
+function DetailRow({
+  label,
+  value,
+  valueClassName,
+  children,
+}: {
+  label: string
+  value?: string
+  valueClassName?: string
+  children?: ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
+      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <div className="text-right">
+        {value ? (
+          <span className={['text-sm font-medium', valueClassName ?? 'text-slate-900 dark:text-slate-100'].join(' ')}>
+            {value}
+          </span>
+        ) : null}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function clampPercent(value: number | null | undefined): number {
+  if (value == null || Number.isNaN(value)) {
+    return 0
+  }
+  return Math.max(0, Math.min(100, value))
+}
+
+function ordinalLabel(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return '—'
+  }
+  return `${Math.round(value)}th`
+}
+
+function ratioLabel(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return '—'
+  }
+  return `${value.toFixed(2)}×`
+}
+
+function barTone(value: number | null | undefined, greenCeiling: number, amberCeiling: number): string {
+  if (value == null || Number.isNaN(value)) {
+    return 'bg-slate-300 dark:bg-slate-700'
+  }
+  if (value < greenCeiling) {
+    return 'bg-green-500'
+  }
+  if (value <= amberCeiling) {
+    return 'bg-amber-500'
+  }
+  return 'bg-red-500'
+}
+
+function formatDateTimeSmall(value: string | null | undefined): string {
+  if (!value) {
+    return '—'
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatShares(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return '—'
+  }
+  return Math.round(value).toLocaleString()
+}
+
+function sentimentTone(value: number | null | undefined, buyCeiling: number, sellFloor: number): string {
+  if (value == null || Number.isNaN(value)) {
+    return 'text-slate-500 dark:text-slate-400'
+  }
+  if (value < buyCeiling) {
+    return 'text-green-600 dark:text-green-400'
+  }
+  if (value > sellFloor) {
+    return 'text-red-600 dark:text-red-400'
+  }
+  return 'text-slate-600 dark:text-slate-300'
 }
 
 function SignalVoteCard({ signalVote }: { signalVote: Record<Direction, number> }) {
@@ -370,6 +465,8 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
   const initialSymbol = requestedSymbol?.value.trim().toUpperCase() || 'NVDA'
   const [symbolInput, setSymbolInput] = useState(initialSymbol)
   const [signalsOpen, setSignalsOpen] = useState(false)
+  const [fundamentalsOpen, setFundamentalsOpen] = useState(true)
+  const [sentimentOpen, setSentimentOpen] = useState(true)
   const analysisMutation = useMutation({
     mutationFn: async (symbol: string) => fetchAnalyzeBundle(symbol),
   })
@@ -405,6 +502,18 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
         { label: 'Macro', value: analysis.data_freshness.macro },
       ]
     : []
+
+  const fundamentalsSummary = analysis
+    ? `${analysis.fundamentals.eps_surprise_pct == null ? '—' : `${analysis.fundamentals.eps_surprise_pct > 0 ? '+' : ''}${analysis.fundamentals.eps_surprise_pct.toFixed(1)}%`} EPS · PE ${
+        analysis.fundamentals.pe_percentile_5y == null ? '—' : `${Math.round(analysis.fundamentals.pe_percentile_5y)}th pct`
+      } · FCF ${analysis.fundamentals.fcf_trend ?? '—'}`
+    : '—'
+
+  const sentimentSummary = analysis
+    ? `P/C ${analysis.sentiment.put_call_ratio == null ? '—' : analysis.sentiment.put_call_ratio.toFixed(2)} · IV ${
+        analysis.sentiment.iv_rank_approx == null ? '—' : Math.round(analysis.sentiment.iv_rank_approx)
+      } · Short ${analysis.sentiment.short_interest_pct == null ? '—' : `${analysis.sentiment.short_interest_pct.toFixed(1)}%`}`
+    : '—'
 
   return (
     <div className="space-y-6">
@@ -588,6 +697,234 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
+            <button
+              type="button"
+              onClick={() => setFundamentalsOpen((value) => !value)}
+              className="flex w-full items-start justify-between gap-4 text-left"
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                  Fundamentals
+                </p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{fundamentalsSummary}</p>
+              </div>
+              <span className="pt-1 text-sm text-slate-500 dark:text-slate-400">
+                {fundamentalsOpen ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {fundamentalsOpen && analysis ? (
+              <div className="mt-6 grid gap-x-6 gap-y-0 md:grid-cols-2">
+                <div>
+                  <DetailRow
+                    label="EPS surprise"
+                    value={formatPercent(analysis.fundamentals.eps_surprise_pct)}
+                    valueClassName={
+                      analysis.fundamentals.eps_surprise_pct == null
+                        ? 'text-slate-500 dark:text-slate-400'
+                        : analysis.fundamentals.eps_surprise_pct > 5
+                          ? 'text-green-600 dark:text-green-400'
+                          : analysis.fundamentals.eps_surprise_pct < -5
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-slate-600 dark:text-slate-300'
+                    }
+                  />
+                  <DetailRow label="PE ratio" value={ratioLabel(analysis.fundamentals.pe_ratio)} />
+                  <DetailRow label="PE percentile (5y)">
+                    <div className="flex items-center justify-end gap-3">
+                      <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div
+                          className={['h-full rounded-full', barTone(analysis.fundamentals.pe_percentile_5y, 40, 70)].join(' ')}
+                          style={{ width: `${clampPercent(analysis.fundamentals.pe_percentile_5y)}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {ordinalLabel(analysis.fundamentals.pe_percentile_5y)}
+                      </span>
+                    </div>
+                  </DetailRow>
+                  <DetailRow label="FCF trend">
+                    {analysis.fundamentals.fcf_trend ? (
+                      <span
+                        className={[
+                          'rounded-full px-2.5 py-1 text-xs font-semibold',
+                          analysis.fundamentals.fcf_trend === 'improving'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400'
+                            : analysis.fundamentals.fcf_trend === 'deteriorating'
+                              ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                        ].join(' ')}
+                      >
+                        {analysis.fundamentals.fcf_trend}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-slate-500 dark:text-slate-400">—</span>
+                    )}
+                  </DetailRow>
+                  <DetailRow
+                    label="Analyst upgrades (30d)"
+                    value={
+                      analysis.fundamentals.analyst_upgrades_30d == null
+                        ? '—'
+                        : String(analysis.fundamentals.analyst_upgrades_30d)
+                    }
+                    valueClassName="text-green-600 dark:text-green-400"
+                  />
+                  <DetailRow
+                    label="Analyst downgrades (30d)"
+                    value={
+                      analysis.fundamentals.analyst_downgrades_30d == null
+                        ? '—'
+                        : String(analysis.fundamentals.analyst_downgrades_30d)
+                    }
+                    valueClassName="text-red-600 dark:text-red-400"
+                  />
+                </div>
+
+                <div>
+                  <DetailRow
+                    label="Revenue growth YoY"
+                    value={formatPercent(analysis.fundamentals.revenue_growth_yoy_pct)}
+                    valueClassName={
+                      analysis.fundamentals.revenue_growth_yoy_pct == null
+                        ? 'text-slate-500 dark:text-slate-400'
+                        : analysis.fundamentals.revenue_growth_yoy_pct >= 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                    }
+                  />
+                  <DetailRow
+                    label="Gross margin"
+                    value={formatPercent(analysis.fundamentals.gross_margin_pct)}
+                  />
+                  <DetailRow label="P/B ratio" value={ratioLabel(analysis.fundamentals.pb_ratio)} />
+                  <DetailRow label="P/S ratio" value={ratioLabel(analysis.fundamentals.ps_ratio)} />
+                  <DetailRow label="EV/EBITDA" value={ratioLabel(analysis.fundamentals.ev_ebitda)} />
+                  <DetailRow label="As-of date">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {formatDateTimeSmall(analysis.fundamentals.as_of)}
+                    </span>
+                  </DetailRow>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
+            <button
+              type="button"
+              onClick={() => setSentimentOpen((value) => !value)}
+              className="flex w-full items-start justify-between gap-4 text-left"
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                  Sentiment
+                </p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{sentimentSummary}</p>
+              </div>
+              <span className="pt-1 text-sm text-slate-500 dark:text-slate-400">
+                {sentimentOpen ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {sentimentOpen && analysis ? (
+              <div className="mt-6 grid gap-x-6 gap-y-0 md:grid-cols-2">
+                <div>
+                  <DetailRow
+                    label="Put/call ratio"
+                    value={
+                      analysis.sentiment.put_call_ratio == null
+                        ? '—'
+                        : `${analysis.sentiment.put_call_ratio.toFixed(2)} ${
+                            analysis.sentiment.put_call_ratio < 0.7
+                              ? 'bullish'
+                              : analysis.sentiment.put_call_ratio > 1.0
+                                ? 'bearish'
+                                : 'neutral'
+                          }`
+                    }
+                    valueClassName={sentimentTone(analysis.sentiment.put_call_ratio, 0.7, 1.0)}
+                  />
+                  <DetailRow label="IV rank (approx)">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-end gap-3">
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                          <div
+                            className={[
+                              'h-full rounded-full',
+                              barTone(analysis.sentiment.iv_rank_approx, 30, 70),
+                            ].join(' ')}
+                            style={{ width: `${clampPercent(analysis.sentiment.iv_rank_approx)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {analysis.sentiment.iv_rank_approx == null
+                            ? '—'
+                            : Math.round(analysis.sentiment.iv_rank_approx)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">(HV approx)</p>
+                    </div>
+                  </DetailRow>
+                  <DetailRow
+                    label="Short interest"
+                    value={formatPercent(analysis.sentiment.short_interest_pct)}
+                    valueClassName={
+                      analysis.sentiment.short_interest_pct == null
+                        ? 'text-slate-500 dark:text-slate-400'
+                        : analysis.sentiment.short_interest_pct < 5
+                          ? 'text-green-600 dark:text-green-400'
+                          : analysis.sentiment.short_interest_pct <= 15
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400'
+                    }
+                  />
+                  <DetailRow
+                    label="Reddit mentions"
+                    value={
+                      analysis.sentiment.reddit_mention_spike_24h_pct == null
+                        ? '— missing'
+                        : formatPercent(analysis.sentiment.reddit_mention_spike_24h_pct)
+                    }
+                    valueClassName="text-slate-600 dark:text-slate-300"
+                  />
+                </div>
+
+                <div>
+                  <DetailRow
+                    label="Reddit sentiment"
+                    value={
+                      analysis.sentiment.reddit_positive_pct == null
+                        ? '— missing'
+                        : `${analysis.sentiment.reddit_positive_pct.toFixed(1)}% positive`
+                    }
+                    valueClassName="text-slate-600 dark:text-slate-300"
+                  />
+                  <DetailRow
+                    label="Institutional 13F"
+                    value={
+                      analysis.sentiment.institutional_net_shares_last_13f == null
+                        ? '— delayed 45d'
+                        : `${formatShares(analysis.sentiment.institutional_net_shares_last_13f)} shares`
+                    }
+                    valueClassName="text-slate-600 dark:text-slate-300"
+                  />
+                  <DetailRow label="13F as-of">
+                    <span className="text-sm text-slate-900 dark:text-slate-100">
+                      {formatDateTimeSmall(analysis.sentiment.institutional_13f_as_of)}
+                    </span>
+                  </DetailRow>
+                  <DetailRow
+                    label="Freshness"
+                    value={analysis.sentiment.freshness ?? '—'}
+                    valueClassName="text-slate-600 dark:text-slate-300"
+                  />
+                </div>
               </div>
             ) : null}
           </section>
