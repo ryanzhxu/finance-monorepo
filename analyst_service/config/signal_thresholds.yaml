@@ -21,3 +21,42 @@ signals:
   fomc_force_hold_days: 5
 quality:
   group_penalty: 15
+news_sentiment:
+  bullish_words:
+    - beat
+    - beats
+    - record
+    - upgrade
+    - upgrades
+    - raised
+    - raises
+    - outperform
+    - strong
+    - growth
+    - surges
+    - rally
+    - positive
+    - bullish
+    - buy
+    - opportunity
+    - momentum
+  bearish_words:
+    - miss
+    - misses
+    - missed
+    - downgrade
+    - downgrades
+    - cut
+    - cuts
+    - weak
+    - decline
+    - falls
+    - drops
+    - concern
+    - risk
+    - sell
+    - bearish
+    - loss
+    - disappoints
+  min_headlines_for_signal: 3
+  signal_threshold: 0.15

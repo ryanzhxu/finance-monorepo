@@ -87,6 +87,7 @@ export interface Recommendation {
 
 export interface AnalysisResponse {
   symbol: string
+  company_name?: string | null
   generated_at: string
   data_freshness: FreshnessMap
   data_quality_score: number

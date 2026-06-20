@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib
 import io
+import logging
 import math
 import os
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,8 +15,11 @@ import httpx
 import pandas as pd
 
 from shared.models import Sentiment as SharedSentiment
+from analyst_service.core.settings import load_service_config
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
+TIINGO_BASE = "https://api.tiingo.com/tiingo/news"
+YAHOO_RSS_URL = "https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
 _KNOWN_CIKS = {
     "AAPL": "0000320193",
     "AMZN": "0001018724",
@@ -24,6 +29,7 @@ _KNOWN_CIKS = {
     "NVDA": "0001045810",
     "TSLA": "0001318605",
 }
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -34,6 +40,9 @@ class SentimentData:
     institutional_net_shares_last_13f: int | None = None
     institutional_13f_as_of: str | None = None
     institutional_13f_freshness: str = "delayed_45d"
+    news_sentiment_score: float | None = None
+    news_headline_count: int | None = None
+    news_sentiment_source: str | None = None
     reddit_mention_spike_24h_pct: float | None = None
     reddit_positive_pct: float | None = None
     freshness: str = "missing"
@@ -53,6 +62,11 @@ def _coerce_float(value: Any) -> float | None:
 
 def _load_yfinance() -> Any:
     return importlib.import_module("yfinance")
+
+
+def _news_sentiment_config() -> dict[str, Any]:
+    thresholds = load_service_config()["thresholds"]
+    return dict(thresholds.get("news_sentiment", {}))
 
 
 def _now_utc() -> datetime:
@@ -348,6 +362,69 @@ def _fetch_reddit_sentiment(symbol: str) -> tuple[float | None, float | None]:
     return mention_spike, positive_pct
 
 
+def score_headlines(titles: list[str]) -> float | None:
+    config = _news_sentiment_config()
+    min_headlines = int(config.get("min_headlines_for_signal", 3))
+    usable_titles = [title.strip() for title in titles if title and title.strip()]
+    if len(usable_titles) < min_headlines:
+        return None
+
+    bullish_words = {str(word).lower() for word in config.get("bullish_words", [])}
+    bearish_words = {str(word).lower() for word in config.get("bearish_words", [])}
+    bullish_hits = 0
+    bearish_hits = 0
+
+    for title in usable_titles:
+        tokens = re.findall(r"[a-z0-9]+", title.lower())
+        bullish_hits += sum(token in bullish_words for token in tokens)
+        bearish_hits += sum(token in bearish_words for token in tokens)
+
+    score = (bullish_hits - bearish_hits) / len(usable_titles)
+    return round(max(-1.0, min(1.0, score)), 4)
+
+
+def fetch_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
+    key = os.getenv("TIINGO_API_KEY")
+    if not key:
+        return []
+    try:
+        response = httpx.get(
+            TIINGO_BASE,
+            params={"tickers": symbol, "limit": limit},
+            headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+            timeout=8.0,
+        )
+        response.raise_for_status()
+        articles = response.json()
+        if not isinstance(articles, list):
+            return []
+        headlines: list[str] = []
+        for article in articles:
+            if not isinstance(article, dict):
+                continue
+            title = str(article.get("title") or "").strip()
+            description = str(article.get("description") or "").strip()
+            combined = " ".join(part for part in (title, description) if part).strip()
+            if combined:
+                headlines.append(combined)
+        return headlines
+    except Exception as exc:
+        logger.warning("Tiingo news fetch failed for %s: %s", symbol, exc)
+        return []
+
+
+def fetch_yahoo_rss_headlines(symbol: str) -> list[str]:
+    try:
+        response = httpx.get(YAHOO_RSS_URL.format(symbol=symbol), timeout=6.0)
+        response.raise_for_status()
+        root = ET.fromstring(response.text)
+        titles = [item.findtext("title") or "" for item in root.iter("item")]
+        return [title.strip() for title in titles if title and title.strip()]
+    except Exception as exc:
+        logger.warning("Yahoo RSS fetch failed for %s: %s", symbol, exc)
+        return []
+
+
 def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> SentimentData:
     info: dict[str, Any] = {}
     put_call_ratio = None
@@ -381,6 +458,17 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
     except Exception:
         reddit_mention_spike_24h_pct, reddit_positive_pct = None, None
 
+    news_source = None
+    headlines = fetch_tiingo_news(symbol)
+    if headlines:
+        news_source = "tiingo"
+    else:
+        headlines = fetch_yahoo_rss_headlines(symbol)
+        if headlines:
+            news_source = "yahoo_rss"
+    news_headline_count = len(headlines) if headlines else None
+    news_sentiment_score = score_headlines(headlines) if headlines else None
+
     freshness = "missing"
     if any(
         value is not None
@@ -390,6 +478,8 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
             short_interest_pct,
             institutional_total,
             filing_date,
+            news_sentiment_score,
+            news_headline_count,
             reddit_mention_spike_24h_pct,
             reddit_positive_pct,
         )
@@ -403,6 +493,9 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
         institutional_net_shares_last_13f=institutional_total,
         institutional_13f_as_of=filing_date,
         institutional_13f_freshness="delayed_45d",
+        news_sentiment_score=news_sentiment_score,
+        news_headline_count=news_headline_count,
+        news_sentiment_source=news_source,
         reddit_mention_spike_24h_pct=reddit_mention_spike_24h_pct,
         reddit_positive_pct=reddit_positive_pct,
         freshness=freshness,

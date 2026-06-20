@@ -49,11 +49,13 @@ function toErrorMessage(error: unknown): string {
   return 'Unexpected request failure'
 }
 
-export async function fetchAnalysis(symbol: string): Promise<AnalysisResponse> {
+export async function fetchAnalysis(symbol: string, signal?: AbortSignal): Promise<AnalysisResponse> {
   try {
     const response = await analystClient.post<AnalysisResponse>('/analyze', {
       symbol,
       include_narrative: false,
+    }, {
+      signal,
     })
     return response.data
   } catch (error) {
@@ -64,11 +66,14 @@ export async function fetchAnalysis(symbol: string): Promise<AnalysisResponse> {
 export async function fetchEntryConfluence(
   symbol: string,
   lookbackDays?: number,
+  signal?: AbortSignal,
 ): Promise<EntryConfluenceResponse> {
   try {
     const response = await analystClient.post<EntryConfluenceResponse>('/entry/confluence', {
       symbol,
       ...(lookbackDays ? { lookback_days: lookbackDays } : {}),
+    }, {
+      signal,
     })
     return response.data
   } catch (error) {
@@ -76,14 +81,14 @@ export async function fetchEntryConfluence(
   }
 }
 
-export async function fetchAnalyzeBundle(symbol: string): Promise<{
+export async function fetchAnalyzeBundle(symbol: string, signal?: AbortSignal): Promise<{
   analysis: AnalysisResponse
   confluence: EntryConfluenceResponse
 }> {
   try {
     const [analysis, confluence] = await Promise.all([
-      fetchAnalysis(symbol),
-      fetchEntryConfluence(symbol),
+      fetchAnalysis(symbol, signal),
+      fetchEntryConfluence(symbol, undefined, signal),
     ])
     return { analysis, confluence }
   } catch (error) {

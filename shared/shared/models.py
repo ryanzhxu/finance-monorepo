@@ -163,6 +163,9 @@ class Sentiment(BaseModel):
     iv_rank: float | None = None
     iv_rank_approx: float | None = None
     iv_rank_is_approx: bool = True
+    news_sentiment_score: float | None = None
+    news_headline_count: int | None = None
+    news_sentiment_source: str | None = None
     reddit_mention_spike_24h_pct: float | None = None
     reddit_positive_pct: float | None = None
     short_interest_pct: float | None = None
@@ -263,6 +266,7 @@ class AnalyzeResponse(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     symbol: str
+    company_name: str | None = None
     generated_at: datetime
     data_freshness: FreshnessMap
     data_quality_score: int = Field(ge=0, le=100)

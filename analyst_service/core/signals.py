@@ -114,6 +114,26 @@ def generate_signals(
         direction = Direction.BUY if sentiment.institutional_net_shares_last_13f > 0 else Direction.SELL if sentiment.institutional_net_shares_last_13f < 0 else Direction.HOLD
         signals.append(Signal(dimension="Institutional 13F", signal=direction, weight=_weight(weights, "Institutional_13F"), note=f"Net shares {sentiment.institutional_net_shares_last_13f:.0f}"))
 
+    if sentiment.news_sentiment_score is not None:
+        news_thresholds = thresholds["news_sentiment"]
+        signal_threshold = float(news_thresholds["signal_threshold"])
+        if sentiment.news_sentiment_score > signal_threshold:
+            direction = Direction.BUY
+        elif sentiment.news_sentiment_score < -signal_threshold:
+            direction = Direction.SELL
+        else:
+            direction = Direction.HOLD
+        headline_count = sentiment.news_headline_count if sentiment.news_headline_count is not None else 0
+        source = sentiment.news_sentiment_source or "unknown"
+        signals.append(
+            Signal(
+                dimension="News Sentiment",
+                signal=direction,
+                weight=_weight(weights, "News_Sentiment"),
+                note=f"News score {sentiment.news_sentiment_score:.2f} across {headline_count} headlines via {source}",
+            )
+        )
+
     if macro.days_to_next_fomc is not None:
         if macro.days_to_next_fomc <= signal_thresholds["fomc_force_hold_days"]:
             direction = Direction.HOLD

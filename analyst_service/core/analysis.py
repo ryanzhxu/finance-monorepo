@@ -44,6 +44,17 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     config = load_service_config()
     ohlcv = fetch_ohlcv(request.symbol, request.current_price)
     fundamentals_fresh, sentiment_fresh, macro_fresh = fetch_analysis_context(request.symbol, ohlcv.value)
+    try:
+        import yfinance as yf
+
+        ticker = yf.Ticker(request.symbol)
+        _info = ticker.fast_info
+        company_name: str | None = getattr(_info, "display_name", None)
+        if not company_name:
+            _full_info = ticker.info
+            company_name = _full_info.get("longName") or _full_info.get("shortName") or None
+    except Exception:
+        company_name = None
 
     current_price = _current_price(request.current_price, ohlcv)
     technicals = compute_technicals(ohlcv.value, support_window=int(config["entry_rules"]["support_window"]))
@@ -95,6 +106,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     )
     response = AnalyzeResponse(
         symbol=request.symbol,
+        company_name=company_name,
         generated_at=datetime.now(timezone.utc),
         data_freshness=freshness,
         data_quality_score=data_quality_score,

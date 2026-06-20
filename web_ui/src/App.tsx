@@ -13,6 +13,7 @@ import {
   removeSymbol,
   saveWatchlist,
   updateEntry,
+  type CachedAnalyzeBundle,
   type WatchlistEntry,
 } from './watchlist'
 
@@ -33,25 +34,48 @@ const tabs: Array<{ key: ViewKey; label: string }> = [
   { key: 'health', label: 'Health' },
 ]
 
+const THEME_CYCLE: Theme[] = ['light', 'dark', 'system']
+
+function nextTheme(current: Theme): Theme {
+  const idx = THEME_CYCLE.indexOf(current)
+  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]
+}
+
 function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
+  const next = nextTheme(theme)
+  const icons: Record<Theme, React.ReactNode> = {
+    light: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    ),
+    dark: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    ),
+    system: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+    ),
+  }
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
-      {(['light', 'system', 'dark'] as Theme[]).map((itemTheme) => (
-        <button
-          key={itemTheme}
-          type="button"
-          onClick={() => onChange(itemTheme)}
-          className={[
-            'rounded-md px-3 py-1 text-xs font-medium capitalize transition',
-            theme === itemTheme
-              ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
-              : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
-          ].join(' ')}
-        >
-          {itemTheme}
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+      onClick={() => onChange(next)}
+      className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-100"
+    >
+      {icons[theme]}
+    </button>
   )
 }
 
@@ -195,11 +219,32 @@ function App() {
     }
   }, [enqueueSymbols])
 
-  const handleAddToWatchlist = (symbol: string) => {
+  const handleAddToWatchlist = (symbol: string, cachedBundle?: CachedAnalyzeBundle | null) => {
     const next = addSymbol(watchlistRef.current, symbol)
     if (next === watchlistRef.current) {
       return
     }
+    const normalized = symbol.trim().toUpperCase()
+
+    if (cachedBundle) {
+      const classicalEntry = cachedBundle.confluence.classical
+      const fallbackEntry = cachedBundle.analysis.entry
+      const hydrated = updateEntry(next, normalized, {
+        direction: cachedBundle.analysis.recommendation.direction,
+        confidence: cachedBundle.analysis.confidence,
+        dataQualityScore: cachedBundle.analysis.data_quality_score,
+        currentPrice: classicalEntry.current_price ?? fallbackEntry?.current_price ?? null,
+        entryAssessment: classicalEntry.entry_assessment ?? fallbackEntry?.entry_assessment ?? null,
+        lastAnalyzedAt: new Date().toISOString(),
+        freshness: 'live',
+        cachedBundle,
+      })
+      watchlistRef.current = hydrated
+      setWatchlistEntries(hydrated)
+      saveWatchlist(hydrated)
+      return
+    }
+
     watchlistRef.current = next
     setWatchlistEntries(next)
     saveWatchlist(next)
@@ -284,10 +329,12 @@ function App() {
           <main className="flex-1 overflow-y-auto p-6 transition-colors duration-150 sm:p-8">
             {activeView === 'analyze' ? (
               <Analyze
-                key={requestedSymbol?.nonce ?? 'analyze-default'}
-                requestedSymbol={requestedSymbol}
-              />
-            ) : null}
+              key={requestedSymbol?.nonce ?? 'analyze-default'}
+              requestedSymbol={requestedSymbol}
+              onAddToWatchlist={handleAddToWatchlist}
+              watchlistSymbols={watchlistEntries.map((entry) => entry.symbol)}
+            />
+          ) : null}
             {activeView === 'screener' ? (
               <Screener
                 onAnalyzeSymbol={(symbol) => {

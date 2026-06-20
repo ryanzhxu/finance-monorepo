@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import { fetchAnalyzeBundle } from '../api/client'
 import type {
   AnalysisResponse,
@@ -18,18 +17,58 @@ type AnalyzeProps = {
     cachedBundle?: {
       analysis: AnalysisResponse
       confluence: EntryConfluenceResponse
-    } | null
+      } | null
   } | null
+  onAddToWatchlist: (
+    symbol: string,
+    cachedBundle?: {
+      analysis: AnalysisResponse
+      confluence: EntryConfluenceResponse
+    } | null,
+  ) => void
+  watchlistSymbols: string[]
 }
 
 type AnalyzeMutationInput =
   | string
   | {
       symbol: string
+      signal?: AbortSignal
       cachedBundle?: {
         analysis: AnalysisResponse
         confluence: EntryConfluenceResponse
       } | null
+    }
+
+type AnalyzeBundle = {
+  analysis: AnalysisResponse
+  confluence: EntryConfluenceResponse
+}
+
+type AnalyzeViewState =
+  | {
+      phase: 'idle'
+      bundle: null
+      error: string | null
+      activeSymbol: string
+    }
+  | {
+      phase: 'loading'
+      bundle: null
+      error: null
+      activeSymbol: string
+    }
+  | {
+      phase: 'cancelled'
+      bundle: null
+      error: null
+      activeSymbol: string
+    }
+  | {
+      phase: 'ready'
+      bundle: AnalyzeBundle
+      error: null
+      activeSymbol: string
     }
 
 const recommendationTone: Record<Direction, string> = {
@@ -614,22 +653,123 @@ function ResultsPanel({
   )
 }
 
-function Analyze({ requestedSymbol }: AnalyzeProps) {
+function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  const cause = error.cause
+  if (cause && typeof cause === 'object') {
+    if ('code' in cause && cause.code === 'ERR_CANCELED') {
+      return true
+    }
+    if ('name' in cause && cause.name === 'CanceledError') {
+      return true
+    }
+  }
+  return error.name === 'AbortError' || error.message.toLowerCase() === 'canceled'
+}
+
+function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: AnalyzeProps) {
   const initialSymbol = requestedSymbol?.value.trim().toUpperCase() || 'NVDA'
   const [symbolInput, setSymbolInput] = useState(initialSymbol)
   const [signalsOpen, setSignalsOpen] = useState(false)
   const [fundamentalsOpen, setFundamentalsOpen] = useState(true)
   const [sentimentOpen, setSentimentOpen] = useState(true)
+  const [watchlistConfirmation, setWatchlistConfirmation] = useState<string | null>(null)
   const lastFiredNonce = useRef<number | null>(null)
-  const analysisMutation = useMutation({
-    mutationFn: async (input: AnalyzeMutationInput) => {
-      if (typeof input === 'object' && input.cachedBundle) {
-        return input.cachedBundle
+  const abortedRef = useRef<boolean>(false)
+  const fetchIdRef = useRef<number>(0)
+  const controllerRef = useRef<AbortController | null>(null)
+  const [viewState, setViewState] = useState<AnalyzeViewState>(() =>
+    requestedSymbol?.cachedBundle
+      ? {
+          phase: 'ready',
+          bundle: requestedSymbol.cachedBundle,
+          error: null,
+          activeSymbol: requestedSymbol.value.trim().toUpperCase(),
+        }
+      : requestedSymbol?.value
+        ? {
+            phase: 'loading',
+            bundle: null,
+            error: null,
+            activeSymbol: requestedSymbol.value.trim().toUpperCase(),
+          }
+      : {
+          phase: 'idle',
+          bundle: null,
+          error: null,
+          activeSymbol: initialSymbol,
+        },
+  )
+  const runAnalysis = async (input: AnalyzeMutationInput) => {
+    const normalized = typeof input === 'string' ? input : input.symbol
+
+    if (typeof input === 'object' && input.cachedBundle) {
+      setViewState({
+        phase: 'ready',
+        bundle: input.cachedBundle,
+        error: null,
+        activeSymbol: normalized,
+      })
+      return
+    }
+
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    abortedRef.current = false
+    const fetchId = ++fetchIdRef.current
+
+    setViewState({
+      phase: 'loading',
+      bundle: null,
+      error: null,
+      activeSymbol: normalized,
+    })
+
+    try {
+      const bundle = await fetchAnalyzeBundle(normalized, controller.signal)
+      if (abortedRef.current || fetchIdRef.current !== fetchId) {
+        return
       }
-      return fetchAnalyzeBundle(typeof input === 'string' ? input : input.symbol)
-    },
-  })
-  const { mutate } = analysisMutation
+      setViewState({
+        phase: 'ready',
+        bundle,
+        error: null,
+        activeSymbol: normalized,
+      })
+    } catch (error) {
+      if (abortedRef.current || fetchIdRef.current !== fetchId) {
+        return
+      }
+      if (isAbortError(error)) {
+        setViewState({
+          phase: 'cancelled',
+          bundle: null,
+          error: null,
+          activeSymbol: normalized,
+        })
+        return
+      }
+      setViewState({
+        phase: 'idle',
+        bundle: null,
+        error: error instanceof Error ? error.message : 'Unexpected request failure',
+        activeSymbol: normalized,
+      })
+    } finally {
+      if (fetchIdRef.current === fetchId) {
+        controllerRef.current = null
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      controllerRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     if (!requestedSymbol?.value) {
@@ -639,20 +779,28 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
       return
     }
     lastFiredNonce.current = requestedSymbol.nonce
-    const normalized = requestedSymbol.value.trim().toUpperCase()
     if (requestedSymbol.cachedBundle) {
-      mutate({ symbol: normalized, cachedBundle: requestedSymbol.cachedBundle })
+      setViewState({
+        phase: 'ready',
+        bundle: requestedSymbol.cachedBundle,
+        error: null,
+        activeSymbol: requestedSymbol.value.trim().toUpperCase(),
+      })
       return
     }
-    mutate(normalized)
-  }, [mutate, requestedSymbol])
+    void runAnalysis(requestedSymbol.value.trim().toUpperCase())
+  }, [requestedSymbol])
 
-  const entryBundle = analysisMutation.data ?? requestedSymbol?.cachedBundle ?? null
+  const entryBundle = viewState.bundle
   const analysis = entryBundle?.analysis
   const confluenceResponse: EntryConfluenceResponse | undefined = entryBundle?.confluence
   const entry = (confluenceResponse?.classical ?? analysis?.entry) as EntryBlock | null | undefined
-  const showLoader = analysisMutation.isPending && !requestedSymbol?.cachedBundle
-  const showResults = !!entryBundle
+  const showLoader = viewState.phase === 'loading'
+  const showCancelled = viewState.phase === 'cancelled'
+  const showResults = viewState.phase === 'ready' && !!entryBundle
+  const resultSymbol = analysis?.symbol ?? viewState.activeSymbol
+  const isInWatchlist = !!resultSymbol && watchlistSymbols.includes(resultSymbol)
+  const watchlistButtonLabel = isInWatchlist || watchlistConfirmation === resultSymbol ? 'Added ✓' : 'Add to Watchlist'
 
   const signalVote = useMemo(() => {
     const signals = analysis?.signals ?? []
@@ -684,20 +832,18 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
       } · Short ${analysis.sentiment.short_interest_pct == null ? '—' : `${analysis.sentiment.short_interest_pct.toFixed(1)}%`}`
     : '—'
 
+  useEffect(() => {
+    if (!watchlistConfirmation) {
+      return
+    }
+    const timeout = window.setTimeout(() => setWatchlistConfirmation(null), 2000)
+    return () => window.clearTimeout(timeout)
+  }, [watchlistConfirmation])
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-stone-50 p-5 shadow-sm">
-        <form
-          className="flex flex-col gap-3 sm:flex-row"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const normalized = symbolInput.trim().toUpperCase()
-            if (!normalized) {
-              return
-            }
-            mutate(normalized)
-          }}
-        >
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <label htmlFor="symbol" className="mb-2 block text-sm font-medium text-slate-700">
               Symbol
@@ -706,31 +852,70 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
               id="symbol"
               value={symbolInput}
               onChange={(event) => setSymbolInput(event.target.value.toUpperCase())}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  const normalized = symbolInput.trim().toUpperCase()
+                  if (!normalized) return
+                  void runAnalysis(normalized)
+                }
+              }}
               placeholder="NVDA"
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none ring-0 transition transition-colors duration-150 focus:border-slate-900 dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100 dark:placeholder-slate-500"
             />
           </div>
           <div className="sm:self-end">
-            <button
-              type="submit"
-              disabled={analysisMutation.isPending}
-              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
-            >
-              {analysisMutation.isPending ? 'Analyzing...' : 'Analyze'}
-            </button>
+            {showLoader ? (
+              <button
+                type="button"
+                onClick={() => {
+                  abortedRef.current = true
+                  fetchIdRef.current++
+                  controllerRef.current?.abort()
+                  controllerRef.current = null
+                  lastFiredNonce.current = requestedSymbol?.nonce ?? lastFiredNonce.current
+                  setViewState((current) => ({
+                    phase: 'cancelled',
+                    bundle: null,
+                    error: null,
+                    activeSymbol: current.activeSymbol,
+                  }))
+                }}
+                className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const normalized = symbolInput.trim().toUpperCase()
+                  if (!normalized) return
+                  void runAnalysis(normalized)
+                }}
+                className="flex w-full items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                Analyze
+              </button>
+            )}
           </div>
-        </form>
-        {analysisMutation.isError ? (
+        </div>
+        {viewState.error ? (
           <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {analysisMutation.error.message}
+            {viewState.error}
           </p>
         ) : null}
       </section>
 
       {showLoader ? (
         <AnalysisLoader
-          key={String(requestedSymbol?.nonce ?? (symbolInput.trim().toUpperCase() || 'loader'))}
-          symbol={symbolInput.trim().toUpperCase() || 'NVDA'}
+          key={viewState.activeSymbol || String(requestedSymbol?.nonce ?? 'loader')}
+          symbol={viewState.activeSymbol || symbolInput.trim().toUpperCase() || 'NVDA'}
         />
       ) : showResults ? (
         <>
@@ -739,9 +924,16 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="flex flex-wrap items-end gap-4">
                   <div>
-                    <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
-                      {analysis!.symbol}
-                    </h2>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
+                        {analysis!.symbol}
+                      </h2>
+                      {analysis!.company_name ? (
+                        <span className="text-base text-slate-500 dark:text-slate-400">
+                          {analysis!.company_name}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-1 text-[20px] text-slate-500 dark:text-slate-400">
                       {formatPrice(entry?.current_price ?? confluenceResponse?.current_price ?? null)}
                     </p>
@@ -754,6 +946,25 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                   >
                     {analysis!.recommendation.direction}
                   </span>
+                  <button
+                    type="button"
+                    disabled={isInWatchlist}
+                    onClick={() => {
+                      if (!entryBundle || !analysis) {
+                        return
+                      }
+                      onAddToWatchlist(analysis.symbol, entryBundle)
+                      setWatchlistConfirmation(analysis.symbol)
+                    }}
+                    className={[
+                      'rounded-full px-3 py-1 text-sm font-semibold transition',
+                      isInWatchlist
+                        ? 'cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200',
+                    ].join(' ')}
+                  >
+                    {watchlistButtonLabel}
+                  </button>
                 </div>
 
                 <div className="flex items-end gap-6">
@@ -1103,6 +1314,40 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
             ) : null}
           </section>
         </>
+      ) : showCancelled ? (
+        <section className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-slate-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-base font-medium text-slate-900 dark:text-slate-50">Analysis stopped</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {viewState.activeSymbol} · request cancelled
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const normalized = symbolInput.trim().toUpperCase()
+              if (!normalized) {
+                return
+              }
+              void runAnalysis(normalized)
+            }}
+            className="rounded-2xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            Run again
+          </button>
+        </section>
       ) : (
         <p className="text-sm text-slate-500 dark:text-slate-400">Enter a symbol above to begin.</p>
       )}

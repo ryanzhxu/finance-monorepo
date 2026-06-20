@@ -1342,6 +1342,39 @@
             "title": "Iv Rank Is Approx",
             "type": "boolean"
           },
+          "news_headline_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Headline Count"
+          },
+          "news_sentiment_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Sentiment Score"
+          },
+          "news_sentiment_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Sentiment Source"
+          },
           "put_call_ratio": {
             "anyOf": [
               {

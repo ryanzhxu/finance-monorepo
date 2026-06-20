@@ -98,6 +98,7 @@ def compute_analysis_data_quality(
         getattr(sentiment, "iv_rank_approx", None) if getattr(sentiment, "iv_rank_approx", None) is not None else getattr(sentiment, "iv_rank", None),
         getattr(sentiment, "short_interest_pct", None),
         getattr(sentiment, "institutional_net_shares_last_13f", None),
+        getattr(sentiment, "news_sentiment_score", None),
     ]
     macro_values = [
         getattr(macro, "days_to_next_fomc", None),
