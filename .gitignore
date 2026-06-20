@@ -21,3 +21,6 @@ backtesting/recommendations.jsonl
 screener_service/cache/**/*.json
 screener_service/cache/**/*.jsonl
 analyst_service/cache/
+web_ui/node_modules/
+web_ui/dist/
+web_ui/.env.local
