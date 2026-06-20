@@ -1,0 +1,4 @@
+default_lookback_days: 90
+golden_pocket_low_ratio: 0.618
+golden_pocket_high_ratio: 0.650
+overlap_tolerance_atr: 0.5

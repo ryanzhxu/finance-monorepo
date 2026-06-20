@@ -20,3 +20,4 @@ build/
 backtesting/recommendations.jsonl
 screener_service/cache/**/*.json
 screener_service/cache/**/*.jsonl
+analyst_service/cache/
