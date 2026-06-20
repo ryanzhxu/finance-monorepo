@@ -620,6 +620,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
   const [signalsOpen, setSignalsOpen] = useState(false)
   const [fundamentalsOpen, setFundamentalsOpen] = useState(true)
   const [sentimentOpen, setSentimentOpen] = useState(true)
+  const lastFiredNonce = useRef<number | null>(null)
   const analysisMutation = useMutation({
     mutationFn: async (input: AnalyzeMutationInput) => {
       if (typeof input === 'object' && input.cachedBundle) {
@@ -634,6 +635,10 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
     if (!requestedSymbol?.value) {
       return
     }
+    if (lastFiredNonce.current === requestedSymbol.nonce) {
+      return
+    }
+    lastFiredNonce.current = requestedSymbol.nonce
     const normalized = requestedSymbol.value.trim().toUpperCase()
     if (requestedSymbol.cachedBundle) {
       mutate({ symbol: normalized, cachedBundle: requestedSymbol.cachedBundle })
@@ -642,10 +647,12 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
     mutate(normalized)
   }, [mutate, requestedSymbol])
 
-  const entryBundle = analysisMutation.data
+  const entryBundle = analysisMutation.data ?? requestedSymbol?.cachedBundle ?? null
   const analysis = entryBundle?.analysis
   const confluenceResponse: EntryConfluenceResponse | undefined = entryBundle?.confluence
   const entry = (confluenceResponse?.classical ?? analysis?.entry) as EntryBlock | null | undefined
+  const showLoader = analysisMutation.isPending && !requestedSymbol?.cachedBundle
+  const showResults = !!entryBundle
 
   const signalVote = useMemo(() => {
     const signals = analysis?.signals ?? []
@@ -700,7 +707,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
               value={symbolInput}
               onChange={(event) => setSymbolInput(event.target.value.toUpperCase())}
               placeholder="NVDA"
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none ring-0 transition focus:border-slate-900"
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none ring-0 transition transition-colors duration-150 focus:border-slate-900 dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100 dark:placeholder-slate-500"
             />
           </div>
           <div className="sm:self-end">
@@ -720,12 +727,12 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
         ) : null}
       </section>
 
-      {analysisMutation.isPending ? (
+      {showLoader ? (
         <AnalysisLoader
           key={String(requestedSymbol?.nonce ?? (symbolInput.trim().toUpperCase() || 'loader'))}
           symbol={symbolInput.trim().toUpperCase() || 'NVDA'}
         />
-      ) : analysis ? (
+      ) : showResults ? (
         <>
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
             <div className="space-y-5">
@@ -733,7 +740,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                 <div className="flex flex-wrap items-end gap-4">
                   <div>
                     <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
-                      {analysis.symbol}
+                      {analysis!.symbol}
                     </h2>
                     <p className="mt-1 text-[20px] text-slate-500 dark:text-slate-400">
                       {formatPrice(entry?.current_price ?? confluenceResponse?.current_price ?? null)}
@@ -742,17 +749,17 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                   <span
                     className={[
                       'rounded-full px-3 py-1 text-sm font-semibold',
-                      recommendationTone[analysis.recommendation.direction],
+                      recommendationTone[analysis!.recommendation.direction],
                     ].join(' ')}
                   >
-                    {analysis.recommendation.direction}
+                    {analysis!.recommendation.direction}
                   </span>
                 </div>
 
                 <div className="flex items-end gap-6">
                   <div className="text-right">
                     <p className="text-[18px] font-medium text-slate-950 dark:text-slate-50">
-                      {formatPercent(analysis.confidence * 100)}
+                      {formatPercent(analysis!.confidence * 100)}
                     </p>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                       confidence
@@ -763,12 +770,12 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                       <div className="h-[3px] w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                         <div
                           className="h-full rounded-full bg-green-500"
-                          style={{ width: `${Math.max(0, Math.min(100, analysis.data_quality_score))}%` }}
+                          style={{ width: `${Math.max(0, Math.min(100, analysis!.data_quality_score))}%` }}
                         />
                       </div>
                     </div>
                     <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      DQ {analysis.data_quality_score}
+                      DQ {analysis!.data_quality_score}
                     </p>
                   </div>
                 </div>
@@ -798,7 +805,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                   fibonacci={confluenceResponse?.fibonacci ?? null}
                   confluence={confluenceResponse?.confluence ?? null}
                   signalVote={signalVote}
-                  macro={analysis.macro}
+                  macro={analysis!.macro}
                 />
               ) : (
                 <div className="rounded-[18px] border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -841,7 +848,7 @@ function Analyze({ requestedSymbol }: AnalyzeProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
-                    {analysis.signals.map((signal) => (
+                    {analysis!.signals.map((signal) => (
                       <tr key={`${signal.dimension}-${signal.note}`}>
                         <td className="py-3 pr-4 font-medium text-slate-900 dark:text-slate-100">
                           {signal.dimension}

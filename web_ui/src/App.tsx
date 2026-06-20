@@ -67,12 +67,17 @@ function App() {
   )
   const [refreshingSymbol, setRefreshingSymbol] = useState<string | null>(null)
   const watchlistRef = useRef(watchlistEntries)
+  const requestedSymbolRef = useRef(requestedSymbol)
   const refreshQueueRef = useRef<string[]>([])
   const refreshInFlightRef = useRef(false)
 
   useEffect(() => {
     watchlistRef.current = watchlistEntries
   }, [watchlistEntries])
+
+  useEffect(() => {
+    requestedSymbolRef.current = requestedSymbol
+  }, [requestedSymbol])
 
   useEffect(() => {
     if (theme !== 'system') {
@@ -103,7 +108,18 @@ function App() {
       if (!symbol) {
         continue
       }
-      if (!watchlistRef.current.some((entry) => entry.symbol === symbol)) {
+      const currentEntry = watchlistRef.current.find((entry) => entry.symbol === symbol)
+      if (!currentEntry) {
+        continue
+      }
+      if (currentEntry.freshness === 'live') {
+        continue
+      }
+      const activeRequestedSymbol = requestedSymbolRef.current
+      if (
+        activeRequestedSymbol?.value === symbol &&
+        Date.now() - activeRequestedSymbol.nonce <= 5000
+      ) {
         continue
       }
 
