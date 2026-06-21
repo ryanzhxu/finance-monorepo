@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { fetchAnalyzeBundle, fetchSymbolSearch } from '../api/client'
 import type {
   AnalysisResponse,
@@ -43,6 +43,11 @@ type AnalyzeMutationInput =
 type AnalyzeBundle = {
   analysis: AnalysisResponse
   confluence: EntryConfluenceResponse
+}
+
+type SymbolSuggestion = {
+  symbol: string
+  name: string
 }
 
 type AnalyzeViewState =
@@ -669,8 +674,12 @@ function isAbortError(error: unknown): boolean {
   return error.name === 'AbortError' || error.message.toLowerCase() === 'canceled'
 }
 
+function normalizeSymbol(value: string): string {
+  return value.trim().toUpperCase()
+}
+
 function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: AnalyzeProps) {
-  const initialSymbol = requestedSymbol?.value.trim().toUpperCase() || 'NVDA'
+  const initialSymbol = normalizeSymbol(requestedSymbol?.value ?? '') || 'NVDA'
   const [symbolInput, setSymbolInput] = useState(initialSymbol)
   const [signalsOpen, setSignalsOpen] = useState(false)
   const [fundamentalsOpen, setFundamentalsOpen] = useState(true)
@@ -680,8 +689,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
   const abortedRef = useRef<boolean>(false)
   const fetchIdRef = useRef<number>(0)
   const controllerRef = useRef<AbortController | null>(null)
-  const [suggestions, setSuggestions] = useState<Array<{ symbol: string; name: string }>>([])
+  const [suggestions, setSuggestions] = useState<SymbolSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
+  const [companyNameCache, setCompanyNameCache] = useState<Record<string, string>>({})
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const [viewState, setViewState] = useState<AnalyzeViewState>(() =>
@@ -690,14 +701,14 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
           phase: 'ready',
           bundle: requestedSymbol.cachedBundle,
           error: null,
-          activeSymbol: requestedSymbol.value.trim().toUpperCase(),
+          activeSymbol: normalizeSymbol(requestedSymbol.value),
         }
       : requestedSymbol?.value
         ? {
             phase: 'loading',
             bundle: null,
             error: null,
-            activeSymbol: requestedSymbol.value.trim().toUpperCase(),
+            activeSymbol: normalizeSymbol(requestedSymbol.value),
           }
       : {
           phase: 'idle',
@@ -706,8 +717,29 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
           activeSymbol: initialSymbol,
         },
   )
+  const rememberSuggestionNames = useCallback((results: SymbolSuggestion[]) => {
+    if (results.length === 0) {
+      return
+    }
+    setCompanyNameCache((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const result of results) {
+        const normalized = normalizeSymbol(result.symbol)
+        const name = result.name.trim()
+        if (!normalized || !name || next[normalized] === name) {
+          continue
+        }
+        next[normalized] = name
+        changed = true
+      }
+      return changed ? next : current
+    })
+  }, [])
+
   const handleSymbolChange = (value: string) => {
     setSymbolInput(value.toUpperCase())
+    setActiveSuggestionIndex(-1)
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     if (value.trim().length < 1) {
       setSuggestions([])
@@ -716,12 +748,14 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     }
     searchDebounceRef.current = setTimeout(async () => {
       const results = await fetchSymbolSearch(value.trim())
+      rememberSuggestionNames(results)
       setSuggestions(results)
+      setActiveSuggestionIndex(results.length > 0 ? 0 : -1)
       setShowSuggestions(results.length > 0)
     }, 300)
   }
 
-  const runAnalysis = async (input: AnalyzeMutationInput) => {
+  const runAnalysis = useCallback(async (input: AnalyzeMutationInput) => {
     const normalized = typeof input === 'string' ? input : input.symbol
 
     if (typeof input === 'object' && input.cachedBundle) {
@@ -748,10 +782,14 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     })
 
     try {
-      const bundle = await fetchAnalyzeBundle(normalized, controller.signal)
+      const [bundle, searchResults] = await Promise.all([
+        fetchAnalyzeBundle(normalized, controller.signal),
+        fetchSymbolSearch(normalized),
+      ])
       if (abortedRef.current || fetchIdRef.current !== fetchId) {
         return
       }
+      rememberSuggestionNames(searchResults)
       setViewState({
         phase: 'ready',
         bundle,
@@ -782,7 +820,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
         controllerRef.current = null
       }
     }
-  }
+  }, [rememberSuggestionNames])
 
   useEffect(() => {
     return () => {
@@ -799,16 +837,19 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     }
     lastFiredNonce.current = requestedSymbol.nonce
     if (requestedSymbol.cachedBundle) {
-      setViewState({
-        phase: 'ready',
-        bundle: requestedSymbol.cachedBundle,
-        error: null,
-        activeSymbol: requestedSymbol.value.trim().toUpperCase(),
-      })
       return
     }
-    void runAnalysis(requestedSymbol.value.trim().toUpperCase())
-  }, [requestedSymbol])
+    let cancelled = false
+    const normalized = normalizeSymbol(requestedSymbol.value)
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void runAnalysis(normalized)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [requestedSymbol, runAnalysis])
 
   const entryBundle = viewState.bundle
   const analysis = entryBundle?.analysis
@@ -818,6 +859,9 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
   const showCancelled = viewState.phase === 'cancelled'
   const showResults = viewState.phase === 'ready' && !!entryBundle
   const resultSymbol = analysis?.symbol ?? viewState.activeSymbol
+  const displayCompanyName =
+    analysis?.company_name ??
+    (analysis?.symbol ? companyNameCache[normalizeSymbol(analysis.symbol)] ?? null : null)
   const isInWatchlist = !!resultSymbol && watchlistSymbols.includes(resultSymbol)
   const watchlistButtonLabel = isInWatchlist || watchlistConfirmation === resultSymbol ? 'Added ✓' : 'Add to Watchlist'
 
@@ -872,6 +916,59 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    if (!analysis?.symbol || analysis.company_name || companyNameCache[normalizeSymbol(analysis.symbol)]) {
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const results = await fetchSymbolSearch(analysis.symbol)
+      if (cancelled) {
+        return
+      }
+      rememberSuggestionNames(results)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [analysis?.company_name, analysis?.symbol, companyNameCache, rememberSuggestionNames])
+
+  const stopAnalysis = () => {
+    abortedRef.current = true
+    fetchIdRef.current++
+    controllerRef.current?.abort()
+    controllerRef.current = null
+    lastFiredNonce.current = requestedSymbol?.nonce ?? lastFiredNonce.current
+    setViewState((current) => ({
+      phase: 'cancelled',
+      bundle: null,
+      error: null,
+      activeSymbol: current.activeSymbol,
+    }))
+  }
+
+  const handlePrimaryAction = () => {
+    if (showLoader) {
+      stopAnalysis()
+      return
+    }
+    const normalized = normalizeSymbol(symbolInput)
+    if (!normalized) {
+      return
+    }
+    void runAnalysis(normalized)
+  }
+
+  const applySuggestion = (suggestion: SymbolSuggestion) => {
+    setSymbolInput(suggestion.symbol)
+    setSuggestions([])
+    setActiveSuggestionIndex(-1)
+    setShowSuggestions(false)
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-stone-50 p-5 shadow-sm">
@@ -885,15 +982,42 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               value={symbolInput}
               onChange={(event) => handleSymbolChange(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Escape') { setShowSuggestions(false); return }
-                if (event.key === 'Enter') {
+                if (event.key === 'Escape') {
                   setShowSuggestions(false)
-                  const normalized = symbolInput.trim().toUpperCase()
-                  if (!normalized) return
-                  void runAnalysis(normalized)
+                  setActiveSuggestionIndex(-1)
+                  return
+                }
+                if (event.key === 'ArrowDown' && suggestions.length > 0) {
+                  event.preventDefault()
+                  setShowSuggestions(true)
+                  setActiveSuggestionIndex((current) => (current + 1) % suggestions.length)
+                  return
+                }
+                if (event.key === 'ArrowUp' && suggestions.length > 0) {
+                  event.preventDefault()
+                  setShowSuggestions(true)
+                  setActiveSuggestionIndex((current) =>
+                    current <= 0 ? suggestions.length - 1 : current - 1,
+                  )
+                  return
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  if (showSuggestions && activeSuggestionIndex >= 0 && suggestions[activeSuggestionIndex]) {
+                    applySuggestion(suggestions[activeSuggestionIndex])
+                    return
+                  }
+                  setShowSuggestions(false)
+                  setActiveSuggestionIndex(-1)
+                  handlePrimaryAction()
                 }
               }}
-              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
+              onFocus={() => {
+                if (suggestions.length > 0) {
+                  setShowSuggestions(true)
+                  setActiveSuggestionIndex((current) => (current >= 0 ? current : 0))
+                }
+              }}
               placeholder="NVDA"
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none ring-0 transition transition-colors duration-150 focus:border-slate-900 dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100 dark:placeholder-slate-500"
             />
@@ -902,16 +1026,18 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                 ref={suggestionsRef}
                 className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-[#161a23]"
               >
-                {suggestions.map((s) => (
+                {suggestions.map((s, index) => (
                   <button
                     key={s.symbol}
                     type="button"
-                    onClick={() => {
-                      setSymbolInput(s.symbol)
-                      setSuggestions([])
-                      setShowSuggestions(false)
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                    onMouseEnter={() => setActiveSuggestionIndex(index)}
+                    onClick={() => applySuggestion(s)}
+                    className={[
+                      'flex w-full items-center gap-3 px-4 py-2.5 text-left transition',
+                      activeSuggestionIndex === index
+                        ? 'bg-slate-100 dark:bg-slate-800'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800',
+                    ].join(' ')}
                   >
                     <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {s.symbol}
@@ -928,19 +1054,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             {showLoader ? (
               <button
                 type="button"
-                onClick={() => {
-                  abortedRef.current = true
-                  fetchIdRef.current++
-                  controllerRef.current?.abort()
-                  controllerRef.current = null
-                  lastFiredNonce.current = requestedSymbol?.nonce ?? lastFiredNonce.current
-                  setViewState((current) => ({
-                    phase: 'cancelled',
-                    bundle: null,
-                    error: null,
-                    activeSymbol: current.activeSymbol,
-                  }))
-                }}
+                onClick={stopAnalysis}
                 className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
               >
                 Stop
@@ -948,11 +1062,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  const normalized = symbolInput.trim().toUpperCase()
-                  if (!normalized) return
-                  void runAnalysis(normalized)
-                }}
+                onClick={handlePrimaryAction}
                 className="flex w-full items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24"
@@ -988,9 +1098,9 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
                       {analysis!.symbol}
                     </h2>
-                    {analysis!.company_name ? (
+                    {displayCompanyName ? (
                       <span className="text-base text-slate-500 dark:text-slate-400">
-                        {analysis!.company_name}
+                        {displayCompanyName}
                       </span>
                     ) : null}
                   </div>
@@ -1397,13 +1507,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
           </div>
           <button
             type="button"
-            onClick={() => {
-              const normalized = symbolInput.trim().toUpperCase()
-              if (!normalized) {
-                return
-              }
-              void runAnalysis(normalized)
-            }}
+            onClick={handlePrimaryAction}
             className="rounded-2xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
             Run again
