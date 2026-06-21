@@ -351,9 +351,24 @@ def _fetch_alpha_vantage_overview(symbol: str, key: str) -> dict[str, Any]:
         )
         response.raise_for_status()
         payload = response.json()
-        return payload if isinstance(payload, dict) else {}
+        data = payload if isinstance(payload, dict) else {}
+        logger.warning(
+            "[%s] Alpha Vantage OVERVIEW returned keys: %s. "
+            "TrailingPE=%s RevenueGrowthYOY=%s GrossProfitTTM=%s",
+            symbol,
+            list(data.keys())[:8],
+            data.get("TrailingPE"),
+            data.get("RevenueGrowthYOY"),
+            data.get("GrossProfitTTM"),
+        )
+        return data
     except Exception as exc:
-        logger.warning("Alpha Vantage overview fetch failed for %s: %s", symbol, exc)
+        logger.warning(
+            "[%s] Alpha Vantage OVERVIEW fetch raised %s: %s",
+            symbol,
+            type(exc).__name__,
+            exc,
+        )
         return {}
 
 
@@ -474,7 +489,18 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
 
     try:
         info = ticker.info or {}
-    except Exception:
+        logger.warning(
+            "[%s] yfinance .info returned %d keys. "
+            "trailingPE=%s revenueGrowth=%s grossMargins=%s priceToBook=%s",
+            symbol,
+            len(info),
+            info.get("trailingPE"),
+            info.get("revenueGrowth"),
+            info.get("grossMargins"),
+            info.get("priceToBook"),
+        )
+    except Exception as exc:
+        logger.warning("[%s] yfinance .info fetch raised: %s", symbol, exc)
         info = {}
 
     try:
@@ -555,6 +581,17 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
             revenue_ttm = _coerce_float(av.get("RevenueTTM"))
             if gross_profit is not None and revenue_ttm and revenue_ttm > 0:
                 gross_margin = round(gross_profit / revenue_ttm * 100.0, 2)
+
+    logger.warning(
+        "[%s] fundamentals final state — pe=%s revenue_growth=%s "
+        "gross_margin=%s pb=%s ev_ebitda=%s",
+        symbol,
+        current_pe,
+        revenue_growth,
+        gross_margin,
+        pb_ratio,
+        ev_ebitda,
+    )
 
     freshness: Literal["quarterly", "missing"] = "quarterly" if any(
         value is not None
