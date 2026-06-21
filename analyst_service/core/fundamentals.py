@@ -405,6 +405,14 @@ def _alpha_vantage_key() -> str | None:
     return os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
 
 
+def _alpha_vantage_trailing_pe(overview: dict[str, Any]) -> float | None:
+    return _coerce_float(overview.get("TrailingPE") or overview.get("PERatio"))
+
+
+def _alpha_vantage_price_to_book(overview: dict[str, Any]) -> float | None:
+    return _coerce_float(overview.get("PriceToBookRatio"))
+
+
 def _alpha_vantage_revenue_growth(overview: dict[str, Any]) -> float | None:
     return _maybe_percent(overview.get("QuarterlyRevenueGrowthYOY") or overview.get("RevenueGrowthYOY"))
 
@@ -446,6 +454,46 @@ def _alpha_vantage_latest_surprise(earnings: dict[str, Any]) -> float | None:
         return None
     ranked_rows.sort(key=lambda row: row[0])
     return ranked_rows[-1][1]
+
+
+def _alpha_vantage_latest_quarter(overview: dict[str, Any]) -> str | None:
+    return _iso_date(overview.get("LatestQuarter"))
+
+
+def _alpha_vantage_earnings_history(earnings: dict[str, Any]) -> pd.DataFrame | None:
+    quarterly = earnings.get("quarterlyEarnings")
+    if not isinstance(quarterly, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in quarterly:
+        if not isinstance(item, dict):
+            continue
+        reported_date = _safe_timestamp(item.get("reportedDate"))
+        fiscal_date = _safe_timestamp(item.get("fiscalDateEnding"))
+        index_date = reported_date or fiscal_date
+        eps_actual = _coerce_float(item.get("reportedEPS"))
+        if index_date is None or eps_actual is None:
+            continue
+        surprise_pct = _maybe_percent(item.get("surprisePercentage") or item.get("surprisePercent"))
+        if surprise_pct is None:
+            estimated_eps = _coerce_float(item.get("estimatedEPS"))
+            if estimated_eps not in (None, 0):
+                surprise_pct = round(((eps_actual - estimated_eps) / abs(estimated_eps)) * 100.0, 2)
+        rows.append(
+            {
+                "date": index_date,
+                "epsActual": eps_actual,
+                "surprisePercent": surprise_pct,
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).set_index("date").sort_index()
+    frame.index = pd.to_datetime(frame.index)
+    return frame
 
 
 def _fetch_yahoo_search_name(symbol: str) -> str | None:
@@ -607,8 +655,9 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         av_earnings = _fetch_alpha_vantage_earnings(symbol, av_key)
 
     av_eps_surprise_pct = _alpha_vantage_latest_surprise(av_earnings)
-    av_current_pe = _coerce_float(av_overview.get("TrailingPE"))
-    av_pb_ratio = _coerce_float(av_overview.get("PriceToBookRatio"))
+    av_earnings_history = _alpha_vantage_earnings_history(av_earnings)
+    av_current_pe = _alpha_vantage_trailing_pe(av_overview)
+    av_pb_ratio = _alpha_vantage_price_to_book(av_overview)
     av_ps_ratio = _coerce_float(av_overview.get("PriceToSalesRatioTTM"))
     av_ev_ebitda = _coerce_float(av_overview.get("EVToEBITDA"))
     av_revenue_growth = _alpha_vantage_revenue_growth(av_overview)
@@ -660,13 +709,21 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     except Exception:
         price_history = None
 
-    yf_eps_surprise_pct, earnings_as_of = _extract_latest_surprise(earnings_history)
+    yf_eps_surprise_pct, _ = _extract_latest_surprise(earnings_history)
+
+    effective_earnings_history = earnings_history
+    if _safe_frame(effective_earnings_history) is None or _safe_frame(effective_earnings_history).empty:
+        effective_earnings_history = av_earnings_history
+
+    fallback_eps_surprise_pct, earnings_as_of = _extract_latest_surprise(effective_earnings_history)
     eps_surprise_pct = av_eps_surprise_pct if av_eps_surprise_pct is not None else yf_eps_surprise_pct
+    if eps_surprise_pct is None:
+        eps_surprise_pct = fallback_eps_surprise_pct
     current_pe = av_current_pe if av_current_pe is not None else _coerce_float(info.get("trailingPE"))
     pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(info.get("priceToBook"))
     ps_ratio = _coerce_float(info.get("priceToSalesTrailingTwelveMonths"))
     ev_ebitda = _coerce_float(info.get("enterpriseToEbitda"))
-    pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
+    pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, price_history, now)
     upgrades, downgrades = _extract_recent_recommendation_counts(upgrades_downgrades, now)
     revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(info.get("revenueGrowth"))
     gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(info.get("grossMargins"))
@@ -684,7 +741,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
 
     if current_pe is None:
         current_pe = _sec_pe_ratio(sec_companyfacts, current_price)
-        pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
+        pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, price_history, now)
     if revenue_growth is None:
         revenue_growth = _sec_revenue_growth(sec_companyfacts)
     if gross_margin is None:
@@ -693,6 +750,8 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         fcf_trend = _sec_fcf_trend(sec_companyfacts)
     if earnings_as_of is None:
         earnings_as_of = _sec_as_of(sec_companyfacts)
+    if earnings_as_of is None:
+        earnings_as_of = _alpha_vantage_latest_quarter(av_overview)
 
     if ps_ratio is None:
         ps_ratio = av_ps_ratio

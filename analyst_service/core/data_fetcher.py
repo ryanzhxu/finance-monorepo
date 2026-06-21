@@ -86,7 +86,7 @@ def _store_cached_payload(key: str, payload: dict[str, object], ttl: int) -> Non
 
 
 def _fundamentals_cache_key(symbol: str) -> str:
-    return f"fundamentals:v2:{symbol.strip().upper()}"
+    return f"fundamentals:v3:{symbol.strip().upper()}"
 
 
 def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Freshness) -> bool:
@@ -111,6 +111,15 @@ def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Fresh
 def _fundamentals_cache_ttl(fundamentals: Fundamentals, freshness: Freshness) -> int:
     if _is_sparse_fundamentals_payload(fundamentals, freshness):
         return _cache_ttl("FUNDAMENTAL_SPARSE_CACHE_TTL", 300)
+    if any(
+        value is None
+        for value in (
+            fundamentals.eps_surprise_pct,
+            fundamentals.pe_percentile_5y,
+            fundamentals.as_of,
+        )
+    ):
+        return _cache_ttl("FUNDAMENTAL_SPARSE_CACHE_TTL", 300)
     return _cache_ttl("FUNDAMENTAL_CACHE_TTL", 86400)
 
 
@@ -124,8 +133,8 @@ def _sentiment_cache_key(symbol: str, price_history: pd.DataFrame | None) -> str
                 if not series.empty:
                     last_close = float(series.iloc[-1])
                 break
-        return f"sentiment:v1:{symbol.strip().upper()}:{last_index}:{last_close}"
-    return f"sentiment:v1:{symbol.strip().upper()}"
+        return f"sentiment:v2:{symbol.strip().upper()}:{last_index}:{last_close}"
+    return f"sentiment:v2:{symbol.strip().upper()}"
 
 
 def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -> tuple[Freshness, datetime | None]:

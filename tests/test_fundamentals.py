@@ -237,7 +237,11 @@ def test_fetch_fundamentals_uses_alpha_vantage_after_sec_gap(monkeypatch) -> Non
 
 
 def test_fetch_fundamentals_prefers_alpha_vantage_for_covered_fields(monkeypatch) -> None:
-    _install_fake_yfinance(monkeypatch)
+    _install_fake_yfinance(
+        monkeypatch,
+        earnings_history=pd.DataFrame(),
+        upgrades_downgrades=pd.DataFrame(),
+    )
 
     class FakeResponse:
         def __init__(self, payload: dict) -> None:
@@ -266,7 +270,17 @@ def test_fetch_fundamentals_prefers_alpha_vantage_for_covered_fields(monkeypatch
                 {
                     "quarterlyEarnings": [
                         {
-                            "reportedDate": "2026-05-28",
+                            "fiscalDateEnding": "2026-01-31",
+                            "reportedDate": "2026-02-20",
+                            "reportedEPS": "7.28",
+                            "estimatedEPS": "6.95",
+                            "surprisePercentage": "4.7482",
+                        },
+                        {
+                            "fiscalDateEnding": "2026-04-30",
+                            "reportedDate": "2026-05-20",
+                            "reportedEPS": "7.64",
+                            "estimatedEPS": "6.97",
                             "surprisePercentage": "9.5",
                         }
                     ]
@@ -286,7 +300,9 @@ def test_fetch_fundamentals_prefers_alpha_vantage_for_covered_fields(monkeypatch
     assert data.gross_margin_pct == 75.0
     assert data.ps_ratio == 28.7
     assert data.ev_ebitda == 48.6
-    assert data.as_of == "2026-05-28"
+    assert data.pe_percentile_5y is not None
+    assert 0 <= data.pe_percentile_5y <= 100
+    assert data.as_of == "2026-05-20"
 
 
 def test_fetch_fundamentals_falls_back_to_yfinance_when_alpha_vantage_is_limited(monkeypatch) -> None:
@@ -318,3 +334,38 @@ def test_fetch_fundamentals_falls_back_to_yfinance_when_alpha_vantage_is_limited
     assert data.pb_ratio == 54.1
     assert data.revenue_growth_yoy_pct == 69.0
     assert data.gross_margin_pct == 75.9
+
+
+def test_fetch_fundamentals_uses_alpha_vantage_latest_quarter_for_as_of(monkeypatch) -> None:
+    _install_fake_yfinance(
+        monkeypatch,
+        info={},
+        earnings_history=pd.DataFrame(),
+        quarterly_cash_flow=pd.DataFrame(),
+        price_history=pd.DataFrame(),
+    )
+
+    class FakeResponse:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def fake_get(url: str, *args, **kwargs):
+        params = kwargs.get("params", {})
+        if "alphavantage.co" in url and params.get("function") == "OVERVIEW":
+            return FakeResponse({"LatestQuarter": "2026-04-30"})
+        if "alphavantage.co" in url and params.get("function") == "EARNINGS":
+            return FakeResponse({})
+        raise httpx.HTTPError("boom")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_get)
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.as_of == "2026-04-30"
