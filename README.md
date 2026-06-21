@@ -1,42 +1,75 @@
 # finance-monorepo
 
-Phase 1 implements the analyst service: shared models/config/data-quality helpers, deterministic indicators and entry levels, weighted signal aggregation, optional narrative isolation, and append-only recommendation logging.
+Market opportunity monorepo with two live FastAPI services, shared contracts/utilities, and a deployed React/Vite frontend in `web_ui/`.
 
-Phase 2 implements the screener core: universe resolution, filters, bulk fundamentals, deterministic opportunity scoring, market regime, and optional analyst entry attachment.
+## Services
 
-Phase 3 implements trending and buyability: optional mention sources, deterministic acceleration and trend classification, graceful degradation when sources or analyst are unavailable, and trend-aware opportunity boosting.
+- `analyst_service/` single-symbol analysis, entry/confluence, provider health, and ticker search
+- `screener_service/` undervalued/opportunity/trending screens, watchlist/custom screens, regime, and screener health
+- `shared/` cross-service models, enums, freshness/config helpers
+- `web_ui/` production frontend for Analyze, Screener, Health, and Watchlist views
+- `backtesting/store.py` append-only logging helpers
 
-Future services are placeholders until their phases begin.
+`execution_engine/` and `portfolio_dashboard/` are still placeholders.
 
-## Run
+## Local Run
 
 ```bash
 uv sync
 uv run uvicorn analyst_service.api.main:app --port 8001
 uv run uvicorn screener_service.api.main:app --port 8002
+cd web_ui && npm install && npm run dev
 ```
 
-Health check:
+Health endpoints:
 
 ```bash
 curl -sS http://127.0.0.1:8001/health
+curl -sS http://127.0.0.1:8002/screen/health
 ```
 
-Run targeted tests:
+`web_ui` reads:
+
+- `VITE_ANALYST_URL` with fallback `http://localhost:8001`
+- `VITE_SCREENER_URL` with fallback `http://localhost:8002`
+
+## Verification
+
+Backend tests:
 
 ```bash
 uv run pytest
 ```
 
-## Postman
+Frontend build:
 
-Generate OpenAPI specs and Postman collections without starting either service:
+```bash
+cd web_ui && npm run build
+```
+
+Frontend lint:
+
+```bash
+cd web_ui && npm run lint
+```
+
+At the time of the latest guidance refresh, the build passed and lint failed on `react-hooks/set-state-in-effect` in `web_ui/src/views/Analyze.tsx`.
+
+## API Artifacts
+
+Dump OpenAPI directly from the FastAPI apps:
+
+```bash
+uv run python tools/dump_openapi.py
+```
+
+Generate Postman collections and environments:
 
 ```bash
 make postman
 ```
 
-This regenerates:
+This writes:
 
 - `openapi/analyst.json`
 - `openapi/screener.json`
@@ -44,26 +77,21 @@ This regenerates:
 - `postman/screener.postman_collection.json`
 - `postman/local.postman_environment.json`
 
-If you have a Postman API key, push or update the collections and environment in your Postman workspace:
+`make postman` shells out to `npx -y openapi-to-postmanv2`, so it depends on npm/network access. Do not hand-edit `openapi/` or `postman/`.
+
+If `POSTMAN_API_KEY` is set, you can sync the generated collections and environment:
 
 ```bash
-export POSTMAN_API_KEY='pmak-...'
 make postman-push
 ```
 
 Set `POSTMAN_WORKSPACE_ID` as well if you want a workspace other than `My Workspace`.
 
-## Phase Boundary
+## Deployment
 
-Implemented:
+`render.yaml` is the deploy source of truth for:
 
-- `shared/`
-- `analyst_service/`
-- `screener_service/`
-- `backtesting/store.py`
-
-Not implemented yet:
-
-- dashboard logic
-- execution-engine logic
-- backtesting evaluation
+- `finance-analyst`
+- `finance-screener`
+- `finance-cache`
+- `finance-web-ui`

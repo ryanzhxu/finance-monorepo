@@ -1,91 +1,99 @@
 # finance-monorepo
 
-Two FastAPI services plus shared contracts: `analyst_service` does single-stock analysis, `screener_service` does discovery/ranking, `shared/` holds cross-service models and enums, and `backtesting/store.py` appends results. `execution_engine/` and `portfolio_dashboard/` are placeholders for now.
+FastAPI analyst and screener services plus a live React/Vite frontend in `web_ui/`. `execution_engine/` and `portfolio_dashboard/` are still placeholders. If docs conflict with code, trust the code and note the mismatch.
 
-If docs conflict with code, trust the code first and note the mismatch.
+## Read First
 
-## Source Of Truth
-
-Read these first for most tasks:
 - `README.md`
 - `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`
-- `AGENTS_ANALYST.md`
-- `pyproject.toml`
 - `render.yaml`
-- `shared/shared/models.py`
+- `pyproject.toml`
 - `analyst_service/api/routers/analysis.py`
 - `screener_service/api/routers/screen.py`
+- `shared/shared/models.py`
+- `web_ui/src/api/client.ts`
+- `skills/`
+
+`AGENTS_ANALYST.md` is historical analyst-service context only. Read it after the monorepo docs and current code, not before.
 
 ## Layout
 
-- `shared/` shared models, enums, config loading, data-quality, market calendar
-- `analyst_service/` single-stock API, deterministic indicators, entry logic, narration
-- `screener_service/` universe, filters, scoring, trending, analyst attachment
-- `backtesting/` append-only recommendation log
-- `tools/` OpenAPI/Postman generation and sync scripts
-- `openapi/` generated OpenAPI JSON
-- `postman/` generated collections and environments
-- `screener_service/cache/` runtime cache files
+- `analyst_service/` single-symbol analysis, `/entry`, `/entry/confluence`, `/health`, and `/search`
+- `screener_service/` discovery, ranking, trending, regime, and `/screen/health`
+- `shared/` shared enums, contracts, freshness helpers, and config loading
+- `web_ui/` React 19 + Vite + Tailwind frontend used in production
+- `backtesting/store.py` append-only logging helpers; `backtesting/recommendations.jsonl` is data, not hand-edited source
+- `tools/` OpenAPI dump and Postman sync scripts
+- `openapi/` and `postman/` generated artifacts
+- `execution_engine/` and `portfolio_dashboard/` are placeholders with `.gitkeep`
 
-## Setup And Run
+## Commands
+
+Setup:
 
 ```bash
 uv sync
+cd web_ui && npm install
+```
+
+Verified in this checkout:
+
+```bash
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -q
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync python tools/dump_openapi.py
+cd web_ui && npm run build
+```
+
+Declared by repo config, but not fully re-verified here because this sandbox blocks local port binding:
+
+```bash
 uv run uvicorn analyst_service.api.main:app --port 8001
 uv run uvicorn screener_service.api.main:app --port 8002
+cd web_ui && npm run dev
 ```
 
-Health checks:
+Current caveats:
 
-```bash
-curl -sS http://127.0.0.1:8001/health
-curl -sS http://127.0.0.1:8002/screen/health
-```
+- Plain `uv run ...` may fail in Codex if `~/.cache/uv` is inaccessible; use `UV_CACHE_DIR=/private/tmp/uv-cache` and `--no-sync`.
+- `make postman` calls `npx -y openapi-to-postmanv2`; it needs npm/network access beyond the verified `tools/dump_openapi.py` step.
+- `cd web_ui && npm run lint` currently fails on `react-hooks/set-state-in-effect` in `web_ui/src/views/Analyze.tsx`.
 
-Verification:
+## Architecture And Boundaries
 
-```bash
-uv run pytest
-make postman
-```
+- Keep the dependency direction `screener_service -> analyst_service -> external providers`.
+- `analyst_service` never calls `screener_service`, `web_ui`, `execution_engine`, or `portfolio_dashboard`.
+- Keep deterministic math, scoring, and price levels in Python `core/` modules. LLM use stays narration-only.
+- Keep weights, thresholds, and rules in YAML under each service `config/`.
+- API/UI boundary lives in `web_ui/src/api/client.ts` and `web_ui/src/api/types.ts`; contract changes must be reflected there.
+- `render.yaml` is deploy truth for `finance-analyst`, `finance-screener`, `finance-cache`, and the static `finance-web-ui` site.
+- Load `.env` before config reads in both FastAPI entrypoints.
 
-`make postman-push` is for syncing to Postman when `POSTMAN_API_KEY` is set.
-No lint/typecheck command is currently verified in the repo; verify before relying on one.
+## Generated And Sensitive Files
 
-## Conventions
+Do not hand-edit:
 
-- Keep deterministic math in `core/`; keep LLM calls only in `analyst_service/core/narrator.py`.
-- Keep all weights, thresholds, and rules in YAML under each service `config/`.
-- Use `shared/` models instead of duplicating request/response schemas.
-- Preserve the dependency chain: `screener_service -> analyst_service -> external providers`; analyst never calls screener, dashboard, or execution code.
-- Load `.env` at the top of both FastAPI entrypoints before config is read.
-- Prefer the smallest behavior change that solves the task.
-- Do not refactor unrelated code or overwrite other local changes.
+- `openapi/*.json`
+- `postman/*.json`
+- `analyst_service/cache/`
+- `screener_service/cache/`
+- `backtesting/recommendations.jsonl`
+- `.venv/`, `web_ui/node_modules/`, `web_ui/dist/`, `*.egg-info/`
 
-## Secrets And Config
-
-- Never print, commit, or hardcode secrets.
-- Use env vars only for credentials and host-specific settings.
-- Do not edit generated OpenAPI/Postman files by hand.
-- Do not hand-edit cache files, `backtesting/recommendations.jsonl`, `__pycache__/`, `.venv/`, or `*.egg-info/`.
+Do not print or commit values from repo-root `.env`, `web_ui/.env.local`, or service credentials. `web_ui/.env.production` is tracked deploy wiring, not a place to store secrets.
 
 ## Testing Expectations
 
-- Start with the narrowest useful test, then broaden only if risk warrants it.
-- Re-run the affected service tests after code changes.
-- If a router or response model changes, regenerate OpenAPI/Postman and re-check the diff.
-- If startup or health changes, verify the matching `/health` endpoint.
-- Report exact commands run and what was not verified.
-
-## Review And Done
-
-- For review requests, lead with bugs, regressions, risky assumptions, and missing verification.
-- A task is done when the code change is in place, the relevant tests pass, and any affected generated artifacts are refreshed.
-- Update this file when repo commands, boundaries, generated artifacts, or the recommended workflow change.
+- Start with the narrowest affected pytest file or UI command, then broaden.
+- Re-run service tests after backend changes.
+- Re-run `cd web_ui && npm run build` after UI changes. Run lint too if you touch the failing path or are fixing that rule.
+- If routers, shared models, health payloads, or UI-facing contracts change, run `UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync python tools/dump_openapi.py`, then `make postman` when npm/network access is available.
+- If local socket binding is blocked, use startup validation plus targeted tests as local proof and use deployed checks for live health behavior.
 
 ## Skills
 
 Repo skills live in `skills/`:
-- `finance-implementation-workflow` for normal code changes and feature work.
-- `finance-test-debug-workflow` for failing tests, startup errors, and health-check debugging.
-- `finance-api-contract-sync` when routers, request/response models, OpenAPI, or Postman artifacts change.
+
+- `finance-implementation-workflow`
+- `finance-test-debug-workflow`
+- `finance-api-contract-sync`
+- `finance-guidance-maintenance`
