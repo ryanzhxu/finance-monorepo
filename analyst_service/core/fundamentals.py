@@ -374,6 +374,80 @@ def _fetch_alpha_vantage_overview(symbol: str, key: str) -> dict[str, Any]:
         return {}
 
 
+def _fetch_alpha_vantage_earnings(symbol: str, key: str) -> dict[str, Any]:
+    try:
+        response = httpx.get(
+            ALPHA_VANTAGE_BASE_URL,
+            params={"function": "EARNINGS", "symbol": symbol, "apikey": key},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        data = payload if isinstance(payload, dict) else {}
+        quarterly = data.get("quarterlyEarnings")
+        logger.warning(
+            "[%s] Alpha Vantage EARNINGS returned %d quarterly rows",
+            symbol,
+            len(quarterly) if isinstance(quarterly, list) else 0,
+        )
+        return data
+    except Exception as exc:
+        logger.warning(
+            "[%s] Alpha Vantage EARNINGS fetch raised %s: %s",
+            symbol,
+            type(exc).__name__,
+            exc,
+        )
+        return {}
+
+
+def _alpha_vantage_key() -> str | None:
+    return os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
+
+
+def _alpha_vantage_revenue_growth(overview: dict[str, Any]) -> float | None:
+    return _maybe_percent(overview.get("QuarterlyRevenueGrowthYOY") or overview.get("RevenueGrowthYOY"))
+
+
+def _alpha_vantage_gross_margin(overview: dict[str, Any]) -> float | None:
+    gross_profit = _coerce_float(overview.get("GrossProfitTTM"))
+    revenue_ttm = _coerce_float(overview.get("RevenueTTM"))
+    if gross_profit is None or revenue_ttm is None or revenue_ttm <= 0:
+        return None
+    return round(gross_profit / revenue_ttm * 100.0, 2)
+
+
+def _alpha_vantage_latest_surprise(earnings: dict[str, Any]) -> float | None:
+    quarterly = earnings.get("quarterlyEarnings")
+    if not isinstance(quarterly, list):
+        return None
+
+    ranked_rows: list[tuple[pd.Timestamp, float]] = []
+    for item in quarterly:
+        if not isinstance(item, dict):
+            continue
+        surprise_pct = _maybe_percent(
+            item.get("surprisePercentage")
+            or item.get("surprisePercent")
+        )
+        if surprise_pct is None:
+            reported_eps = _coerce_float(item.get("reportedEPS"))
+            estimated_eps = _coerce_float(item.get("estimatedEPS"))
+            if reported_eps is not None and estimated_eps not in (None, 0):
+                surprise_pct = round(((reported_eps - estimated_eps) / abs(estimated_eps)) * 100.0, 2)
+        if surprise_pct is None:
+            continue
+        reported_date = _safe_timestamp(item.get("reportedDate") or item.get("fiscalDateEnding"))
+        if reported_date is None:
+            continue
+        ranked_rows.append((reported_date, surprise_pct))
+
+    if not ranked_rows:
+        return None
+    ranked_rows.sort(key=lambda row: row[0])
+    return ranked_rows[-1][1]
+
+
 def _fetch_yahoo_search_name(symbol: str) -> str | None:
     try:
         response = httpx.get(
@@ -525,14 +599,30 @@ def _sec_pe_ratio(companyfacts: dict[str, Any] | None, current_price: float | No
 
 def fetch_fundamentals(symbol: str) -> FundamentalsData:
     now = _utc_now()
+    av_key = _alpha_vantage_key()
+    av_overview: dict[str, Any] = {}
+    av_earnings: dict[str, Any] = {}
+    if av_key:
+        av_overview = _fetch_alpha_vantage_overview(symbol, av_key)
+        av_earnings = _fetch_alpha_vantage_earnings(symbol, av_key)
+
+    av_eps_surprise_pct = _alpha_vantage_latest_surprise(av_earnings)
+    av_current_pe = _coerce_float(av_overview.get("TrailingPE"))
+    av_pb_ratio = _coerce_float(av_overview.get("PriceToBookRatio"))
+    av_ps_ratio = _coerce_float(av_overview.get("PriceToSalesRatioTTM"))
+    av_ev_ebitda = _coerce_float(av_overview.get("EVToEBITDA"))
+    av_revenue_growth = _alpha_vantage_revenue_growth(av_overview)
+    av_gross_margin = _alpha_vantage_gross_margin(av_overview)
+
+    ticker = None
     try:
         yf = _load_yfinance()
         ticker = yf.Ticker(symbol)
-    except Exception:
-        return FundamentalsData()
+    except Exception as exc:
+        logger.warning("[%s] yfinance ticker init raised: %s", symbol, exc)
 
     try:
-        info = ticker.info or {}
+        info = ticker.info or {} if ticker is not None else {}
         logger.warning(
             "[%s] yfinance .info returned %d keys. "
             "trailingPE=%s revenueGrowth=%s grossMargins=%s priceToBook=%s",
@@ -549,36 +639,37 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     company_name = info.get("longName") or info.get("shortName") or None
 
     try:
-        earnings_history = ticker.earnings_history
+        earnings_history = ticker.earnings_history if ticker is not None else None
     except Exception:
         earnings_history = None
 
     try:
-        upgrades_downgrades = ticker.upgrades_downgrades
+        upgrades_downgrades = ticker.upgrades_downgrades if ticker is not None else None
     except Exception:
         upgrades_downgrades = None
 
     try:
-        quarterly_cash_flow = getattr(ticker, "quarterly_cash_flow", None)
+        quarterly_cash_flow = getattr(ticker, "quarterly_cash_flow", None) if ticker is not None else None
         if quarterly_cash_flow is None:
-            quarterly_cash_flow = getattr(ticker, "quarterly_cashflow", None)
+            quarterly_cash_flow = getattr(ticker, "quarterly_cashflow", None) if ticker is not None else None
     except Exception:
         quarterly_cash_flow = None
 
     try:
-        price_history = ticker.history(period="5y", interval="1d", auto_adjust=False)
+        price_history = ticker.history(period="5y", interval="1d", auto_adjust=False) if ticker is not None else None
     except Exception:
         price_history = None
 
-    eps_surprise_pct, earnings_as_of = _extract_latest_surprise(earnings_history)
-    current_pe = _coerce_float(info.get("trailingPE"))
-    pb_ratio = _coerce_float(info.get("priceToBook"))
+    yf_eps_surprise_pct, earnings_as_of = _extract_latest_surprise(earnings_history)
+    eps_surprise_pct = av_eps_surprise_pct if av_eps_surprise_pct is not None else yf_eps_surprise_pct
+    current_pe = av_current_pe if av_current_pe is not None else _coerce_float(info.get("trailingPE"))
+    pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(info.get("priceToBook"))
     ps_ratio = _coerce_float(info.get("priceToSalesTrailingTwelveMonths"))
     ev_ebitda = _coerce_float(info.get("enterpriseToEbitda"))
     pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
     upgrades, downgrades = _extract_recent_recommendation_counts(upgrades_downgrades, now)
-    revenue_growth = _maybe_percent(info.get("revenueGrowth"))
-    gross_margin = _maybe_percent(info.get("grossMargins"))
+    revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(info.get("revenueGrowth"))
+    gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(info.get("grossMargins"))
     fcf_trend = _extract_fcf_trend(_safe_frame(quarterly_cash_flow))
     current_price = _extract_current_price(info, _safe_frame(price_history))
 
@@ -603,37 +694,15 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     if earnings_as_of is None:
         earnings_as_of = _sec_as_of(sec_companyfacts)
 
-    av_key = os.getenv("ALPHA_VANTAGE_KEY")
-    av: dict[str, Any] = {}
-    if av_key and any(value is None for value in (current_pe, revenue_growth, gross_margin, fcf_trend)):
-        try:
-            av = _fetch_alpha_vantage_overview(symbol, av_key)
-        except Exception as exc:
-            logger.warning("Alpha Vantage overview fallback failed for %s: %s", symbol, exc)
-            av = {}
-        if current_pe is None:
-            current_pe = _coerce_float(av.get("TrailingPE"))
-            pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
-        if pb_ratio is None:
-            pb_ratio = _coerce_float(av.get("PriceToBookRatio"))
-        if ps_ratio is None:
-            ps_ratio = _coerce_float(av.get("PriceToSalesRatioTTM"))
-        if ev_ebitda is None:
-            ev_ebitda = _coerce_float(av.get("EVToEBITDA"))
-        if revenue_growth is None:
-            revenue_growth = _maybe_percent(
-                av.get("QuarterlyRevenueGrowthYOY") or av.get("RevenueGrowthYOY")
-            )
-        if gross_margin is None:
-            gross_profit = _coerce_float(av.get("GrossProfitTTM"))
-            revenue_ttm = _coerce_float(av.get("RevenueTTM"))
-            if gross_profit is not None and revenue_ttm and revenue_ttm > 0:
-                gross_margin = round(gross_profit / revenue_ttm * 100.0, 2)
+    if ps_ratio is None:
+        ps_ratio = av_ps_ratio
+    if ev_ebitda is None:
+        ev_ebitda = av_ev_ebitda
 
     if company_name is None:
         company_name = _fetch_yahoo_search_name(symbol)
-    if company_name is None and av:
-        av_name = av.get("Name")
+    if company_name is None and av_overview:
+        av_name = av_overview.get("Name")
         if isinstance(av_name, str) and av_name.strip():
             company_name = av_name.strip()
 

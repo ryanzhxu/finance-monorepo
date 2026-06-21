@@ -86,7 +86,7 @@ def _store_cached_payload(key: str, payload: dict[str, object], ttl: int) -> Non
 
 
 def _fundamentals_cache_key(symbol: str) -> str:
-    return f"fundamentals:v1:{symbol.strip().upper()}"
+    return f"fundamentals:v2:{symbol.strip().upper()}"
 
 
 def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Freshness) -> bool:

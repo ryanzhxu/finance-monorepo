@@ -255,3 +255,77 @@ def test_sparse_fundamentals_use_short_cache_ttl(monkeypatch) -> None:
 
     assert result.freshness.value == "missing"
     assert captured["ttl"] == 300
+
+
+def test_nonlocal_yfinance_shape_uses_alpha_vantage_for_covered_fields(monkeypatch) -> None:
+    _install_sparse_yfinance(monkeypatch)
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+    monkeypatch.setattr(data_fetcher_module, "_load_cached_payload", lambda key: None)
+    monkeypatch.setattr(data_fetcher_module, "_store_cached_payload", lambda key, payload, ttl: None)
+
+    class FakeResponse:
+        def __init__(self, payload) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return self._payload
+
+    def fake_httpx_get(url: str, *args, **kwargs):
+        if url == fundamentals_module.YAHOO_SEARCH_URL:
+            return FakeResponse(
+                {
+                    "quotes": [
+                        {
+                            "symbol": "NVDA",
+                            "quoteType": "EQUITY",
+                            "longname": "NVIDIA Corporation",
+                        }
+                    ]
+                }
+            )
+        params = kwargs.get("params", {})
+        if url == fundamentals_module.ALPHA_VANTAGE_BASE_URL and params.get("function") == "OVERVIEW":
+            return FakeResponse(
+                {
+                    "Name": "NVIDIA Corporation",
+                    "TrailingPE": "32.26",
+                    "PriceToBookRatio": "49.7",
+                    "QuarterlyRevenueGrowthYOY": "0.852",
+                    "GrossProfitTTM": "105000000000",
+                    "RevenueTTM": "132911392405.06",
+                }
+            )
+        if url == fundamentals_module.ALPHA_VANTAGE_BASE_URL and params.get("function") == "EARNINGS":
+            return FakeResponse(
+                {
+                    "quarterlyEarnings": [
+                        {
+                            "reportedDate": "2026-05-28",
+                            "surprisePercentage": "13.19",
+                        }
+                    ]
+                }
+            )
+        raise httpx.HTTPError("boom")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_httpx_get)
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.company_name == "NVIDIA Corporation"
+    assert data.eps_surprise_pct == 13.19
+    assert data.pe_ratio == 32.26
+    assert data.pb_ratio == 49.7
+    assert data.revenue_growth_yoy_pct == 85.2
+    assert data.gross_margin_pct == 79.0
+    assert data.freshness == "quarterly"
+
+    cached = data_fetcher_module.fetch_fundamentals("NVDA")
+
+    assert cached.value.pe_ratio == 32.26
+    assert cached.value.pb_ratio == 49.7
+    assert cached.value.revenue_growth_yoy_pct == 85.2
+    assert cached.value.gross_margin_pct == 79.0

@@ -234,3 +234,87 @@ def test_fetch_fundamentals_uses_alpha_vantage_after_sec_gap(monkeypatch) -> Non
     assert data.ev_ebitda == 31.3
     assert data.revenue_growth_yoy_pct == 42.0
     assert data.gross_margin_pct == 75.0
+
+
+def test_fetch_fundamentals_prefers_alpha_vantage_for_covered_fields(monkeypatch) -> None:
+    _install_fake_yfinance(monkeypatch)
+
+    class FakeResponse:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def fake_get(url: str, *args, **kwargs):
+        params = kwargs.get("params", {})
+        if "alphavantage.co" in url and params.get("function") == "OVERVIEW":
+            return FakeResponse(
+                {
+                    "TrailingPE": "58.4",
+                    "PriceToBookRatio": "40.2",
+                    "QuarterlyRevenueGrowthYOY": "0.42",
+                    "GrossProfitTTM": "75000000000",
+                    "RevenueTTM": "100000000000",
+                }
+            )
+        if "alphavantage.co" in url and params.get("function") == "EARNINGS":
+            return FakeResponse(
+                {
+                    "quarterlyEarnings": [
+                        {
+                            "reportedDate": "2026-05-28",
+                            "surprisePercentage": "9.5",
+                        }
+                    ]
+                }
+            )
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_get)
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.eps_surprise_pct == 9.5
+    assert data.pe_ratio == 58.4
+    assert data.pb_ratio == 40.2
+    assert data.revenue_growth_yoy_pct == 42.0
+    assert data.gross_margin_pct == 75.0
+    assert data.ps_ratio == 28.7
+    assert data.ev_ebitda == 48.6
+    assert data.as_of == "2026-05-28"
+
+
+def test_fetch_fundamentals_falls_back_to_yfinance_when_alpha_vantage_is_limited(monkeypatch) -> None:
+    _install_fake_yfinance(monkeypatch)
+
+    class FakeResponse:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def fake_get(url: str, *args, **kwargs):
+        params = kwargs.get("params", {})
+        if "alphavantage.co" in url and params.get("function") in {"OVERVIEW", "EARNINGS"}:
+            return FakeResponse({"Information": "rate limit reached"})
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_get)
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.eps_surprise_pct == 13.19
+    assert data.pe_ratio == 65.2
+    assert data.pb_ratio == 54.1
+    assert data.revenue_growth_yoy_pct == 69.0
+    assert data.gross_margin_pct == 75.9
