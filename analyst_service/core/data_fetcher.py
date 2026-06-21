@@ -89,6 +89,31 @@ def _fundamentals_cache_key(symbol: str) -> str:
     return f"fundamentals:v1:{symbol.strip().upper()}"
 
 
+def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Freshness) -> bool:
+    core_values = (
+        fundamentals.company_name,
+        fundamentals.eps_surprise_pct,
+        fundamentals.pe_ratio,
+        fundamentals.pb_ratio,
+        fundamentals.ps_ratio,
+        fundamentals.ev_ebitda,
+        fundamentals.pe_percentile_5y,
+        fundamentals.analyst_upgrades_30d,
+        fundamentals.analyst_downgrades_30d,
+        fundamentals.revenue_growth_yoy_pct,
+        fundamentals.fcf_trend,
+        fundamentals.gross_margin_pct,
+        fundamentals.as_of,
+    )
+    return freshness == Freshness.MISSING and all(value is None for value in core_values)
+
+
+def _fundamentals_cache_ttl(fundamentals: Fundamentals, freshness: Freshness) -> int:
+    if _is_sparse_fundamentals_payload(fundamentals, freshness):
+        return _cache_ttl("FUNDAMENTAL_SPARSE_CACHE_TTL", 300)
+    return _cache_ttl("FUNDAMENTAL_CACHE_TTL", 86400)
+
+
 def _sentiment_cache_key(symbol: str, price_history: pd.DataFrame | None) -> str:
     if isinstance(price_history, pd.DataFrame) and not price_history.empty:
         last_index = price_history.index[-1]
@@ -191,7 +216,7 @@ def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
             "freshness": freshness.value,
             "as_of": as_of.isoformat() if as_of is not None else None,
         },
-        _cache_ttl("FUNDAMENTAL_CACHE_TTL", 86400),
+        _fundamentals_cache_ttl(fundamentals, freshness),
     )
     return result
 

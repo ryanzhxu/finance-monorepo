@@ -1,0 +1,257 @@
+from __future__ import annotations
+
+import sys
+from types import SimpleNamespace
+
+import httpx
+import pandas as pd
+from fastapi.testclient import TestClient
+
+from analyst_service.api.main import app
+from analyst_service.api.routers import analysis as analysis_router
+from analyst_service.core import analysis as analysis_module
+from analyst_service.core import data_fetcher as data_fetcher_module
+from analyst_service.core import macro as macro_module
+from analyst_service.core import sentiment as sentiment_module
+from analyst_service.core import fundamentals as fundamentals_module
+from tests.fixtures.nvda_yfinance import FIXED_NOW, NVDA_PRICE_HISTORY
+
+
+class SparseMetadataTicker:
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol
+        self.fast_info = SimpleNamespace(last_price=float(NVDA_PRICE_HISTORY["Close"].iloc[-1]))
+
+    @property
+    def info(self) -> dict[str, object]:
+        # Simulate a provider response that still serves prices, but not metadata.
+        return {}
+
+    @property
+    def earnings_history(self) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    @property
+    def upgrades_downgrades(self) -> pd.DataFrame:
+        raise RuntimeError("non-local Yahoo metadata unavailable")
+
+    @property
+    def quarterly_cash_flow(self) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    def history(self, *args, **kwargs) -> pd.DataFrame:
+        return NVDA_PRICE_HISTORY.copy()
+
+
+def _ohlcv_frame() -> pd.DataFrame:
+    close = NVDA_PRICE_HISTORY["Close"].astype(float)
+    open_ = close.shift(1).fillna(close.iloc[0] * 0.995)
+    high = pd.concat([open_, close], axis=1).max(axis=1) * 1.01
+    low = pd.concat([open_, close], axis=1).min(axis=1) * 0.99
+    volume = pd.Series(1_250_000, index=close.index)
+    return pd.DataFrame(
+        {
+            "Open": open_,
+            "High": high,
+            "Low": low,
+            "Close": close,
+            "Volume": volume,
+        },
+        index=close.index,
+    )
+
+
+def _install_sparse_yfinance(monkeypatch) -> None:
+    macro_tickers = {
+        "^IRX": SimpleNamespace(info={"currentPrice": 4.5}, fast_info=SimpleNamespace(last_price=None)),
+        "^TNX": SimpleNamespace(info={}, fast_info=SimpleNamespace(last_price=42.1)),
+        "^VIX": SimpleNamespace(info={}, fast_info=SimpleNamespace(last_price=18.4)),
+        "ZQ=F": SimpleNamespace(info={}, fast_info=SimpleNamespace(last_price=95.875)),
+    }
+
+    def ticker_factory(symbol: str):
+        if symbol in {"NVDA", "AAPL"}:
+            return SparseMetadataTicker(symbol)
+        if symbol in macro_tickers:
+            return macro_tickers[symbol]
+        raise AssertionError(f"Unexpected ticker: {symbol}")
+
+    fake_module = SimpleNamespace(
+        Ticker=ticker_factory,
+        download=lambda *args, **kwargs: _ohlcv_frame().copy(),
+    )
+    monkeypatch.setitem(sys.modules, "yfinance", fake_module)
+    monkeypatch.setattr(analysis_router, "yf", fake_module)
+    monkeypatch.setattr(fundamentals_module, "_utc_now", lambda: FIXED_NOW)
+
+
+def test_nonlocal_yfinance_shape_can_pass_health_while_fundamentals_are_sparse(monkeypatch) -> None:
+    _install_sparse_yfinance(monkeypatch)
+    monkeypatch.delenv("ALPHA_VANTAGE_KEY", raising=False)
+    monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
+
+    async def fake_check_sec_edgar() -> str:
+        return "unreachable"
+
+    monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_check_sec_edgar)
+    class FakeResponse:
+        def __init__(self, payload) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return self._payload
+
+    def fake_httpx_get(url: str, *args, **kwargs):
+        if url == fundamentals_module.YAHOO_SEARCH_URL:
+            return FakeResponse(
+                {
+                    "quotes": [
+                        {
+                            "symbol": "NVDA",
+                            "quoteType": "EQUITY",
+                            "longname": "NVIDIA Corporation",
+                        }
+                    ]
+                }
+            )
+        raise httpx.HTTPError("boom")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_httpx_get)
+
+    client = TestClient(app)
+    health = client.get("/health")
+
+    assert health.status_code == 200
+    assert health.json()["providers"]["yfinance"] == "ok"
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.company_name == "NVIDIA Corporation"
+    assert data.analyst_upgrades_30d is None
+    assert data.analyst_downgrades_30d is None
+    assert data.pe_ratio is None
+    assert data.revenue_growth_yoy_pct is None
+    assert data.gross_margin_pct is None
+    assert data.freshness == "missing"
+
+
+def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(monkeypatch, tmp_path) -> None:
+    _install_sparse_yfinance(monkeypatch)
+    monkeypatch.delenv("ALPHA_VANTAGE_KEY", raising=False)
+    monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
+    monkeypatch.delenv("MARKETAUX_API_KEY", raising=False)
+    monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
+    monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
+    monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
+    monkeypatch.setattr(data_fetcher_module, "_load_cached_payload", lambda key: None)
+    monkeypatch.setattr(data_fetcher_module, "_store_cached_payload", lambda key, payload, ttl: None)
+    class FakeResponse:
+        def __init__(self, payload) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return self._payload
+
+    def fake_httpx_get(url: str, *args, **kwargs):
+        if url == fundamentals_module.YAHOO_SEARCH_URL:
+            return FakeResponse(
+                {
+                    "quotes": [
+                        {
+                            "symbol": "NVDA",
+                            "quoteType": "EQUITY",
+                            "longname": "NVIDIA Corporation",
+                        }
+                    ]
+                }
+            )
+        raise httpx.HTTPError("boom")
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_httpx_get)
+    monkeypatch.setattr(
+        sentiment_module,
+        "_sec_get",
+        lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")),
+    )
+
+    fomc_html = """
+    <html>
+      <body>
+        <div>June 16-17, 2026</div>
+        <div>July 28-29, 2026</div>
+        <div>September 15-16, 2026</div>
+      </body>
+    </html>
+    """
+
+    class FakeMacroResponse:
+        def __init__(self, *, text: str = "") -> None:
+            self.text = text
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return {}
+
+    def fake_macro_get(url: str, **kwargs):
+        if url == macro_module.FED_FOMC_CALENDAR_URL:
+            return FakeMacroResponse(text=fomc_html)
+        raise AssertionError(f"Unexpected macro URL: {url}")
+
+    monkeypatch.setattr(macro_module.requests, "get", fake_macro_get)
+    monkeypatch.setattr(macro_module, "CACHE_PATH", tmp_path / "fomc-calendar.json")
+    monkeypatch.setattr(macro_module, "_today", lambda: macro_module.date(2026, 6, 18))
+
+    client = TestClient(app)
+    response = client.post(
+        "/analyze",
+        json={
+            "symbol": "NVDA",
+            "asset_type": "STOCK",
+            "horizon": "2-4W",
+            "include_narrative": False,
+            "include_entry": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["symbol"] == "NVDA"
+    assert payload["company_name"] == "NVIDIA Corporation"
+    assert payload["fundamentals"]["company_name"] == "NVIDIA Corporation"
+    assert payload["fundamentals"]["analyst_upgrades_30d"] is None
+    assert payload["fundamentals"]["analyst_downgrades_30d"] is None
+    assert payload["fundamentals"]["pe_ratio"] is None
+    assert payload["data_quality_score"] < 70
+    assert payload["recommendation"]["direction"] in ["BUY", "HOLD", "SELL"]
+    assert payload["entry"] is not None
+    assert payload["data_freshness"]["price"] is not None
+
+
+def test_sparse_fundamentals_use_short_cache_ttl(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(data_fetcher_module, "_load_cached_payload", lambda key: None)
+    monkeypatch.setattr(
+        data_fetcher_module,
+        "fetch_raw_fundamentals",
+        lambda symbol: fundamentals_module.FundamentalsData(),
+    )
+
+    def fake_store(key: str, payload: dict[str, object], ttl: int) -> None:
+        captured["ttl"] = ttl
+        captured["payload"] = payload
+
+    monkeypatch.setattr(data_fetcher_module, "_store_cached_payload", fake_store)
+
+    result = data_fetcher_module.fetch_fundamentals("NVDA")
+
+    assert result.freshness.value == "missing"
+    assert captured["ttl"] == 300

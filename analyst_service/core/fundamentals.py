@@ -15,6 +15,7 @@ from shared.models import Fundamentals as SharedFundamentals
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
 ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
+YAHOO_SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search"
 _OPERATING_CASHFLOW_KEYS = (
     "Operating Cash Flow",
     "OperatingCashFlow",
@@ -373,6 +374,48 @@ def _fetch_alpha_vantage_overview(symbol: str, key: str) -> dict[str, Any]:
         return {}
 
 
+def _fetch_yahoo_search_name(symbol: str) -> str | None:
+    try:
+        response = httpx.get(
+            YAHOO_SEARCH_URL,
+            params={
+                "q": symbol,
+                "quotesCount": 10,
+                "newsCount": 0,
+                "enableFuzzyQuery": False,
+                "quotesQueryId": "tss_match_phrase_query",
+            },
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        logger.warning("[%s] Yahoo search company-name fallback failed: %s", symbol, exc)
+        return None
+
+    quotes = payload.get("quotes", []) if isinstance(payload, dict) else []
+    target = symbol.strip().upper()
+    for quote in quotes:
+        if not isinstance(quote, dict):
+            continue
+        if str(quote.get("symbol", "")).strip().upper() != target:
+            continue
+        name = quote.get("longname") or quote.get("shortname")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+
+    for quote in quotes:
+        if not isinstance(quote, dict):
+            continue
+        if quote.get("quoteType") != "EQUITY":
+            continue
+        name = quote.get("longname") or quote.get("shortname")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return None
+
+
 def _quarterly_sec_records(companyfacts: dict[str, Any] | None, concepts: tuple[str, ...]) -> list[dict[str, Any]]:
     if not companyfacts:
         return []
@@ -503,6 +546,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     except Exception as exc:
         logger.warning("[%s] yfinance .info fetch raised: %s", symbol, exc)
         info = {}
+    company_name = info.get("longName") or info.get("shortName") or None
 
     try:
         earnings_history = ticker.earnings_history
@@ -560,6 +604,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         earnings_as_of = _sec_as_of(sec_companyfacts)
 
     av_key = os.getenv("ALPHA_VANTAGE_KEY")
+    av: dict[str, Any] = {}
     if av_key and any(value is None for value in (current_pe, revenue_growth, gross_margin, fcf_trend)):
         try:
             av = _fetch_alpha_vantage_overview(symbol, av_key)
@@ -584,6 +629,13 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
             revenue_ttm = _coerce_float(av.get("RevenueTTM"))
             if gross_profit is not None and revenue_ttm and revenue_ttm > 0:
                 gross_margin = round(gross_profit / revenue_ttm * 100.0, 2)
+
+    if company_name is None:
+        company_name = _fetch_yahoo_search_name(symbol)
+    if company_name is None and av:
+        av_name = av.get("Name")
+        if isinstance(av_name, str) and av_name.strip():
+            company_name = av_name.strip()
 
     logger.warning(
         "[%s] fundamentals final state — pe=%s revenue_growth=%s "
@@ -622,7 +674,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         analyst_downgrades_30d=downgrades,
         freshness=freshness,
         as_of=earnings_as_of,
-        company_name=info.get("longName") or info.get("shortName") or None,
+        company_name=company_name,
     )
 
 
