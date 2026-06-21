@@ -17,7 +17,7 @@
           "item": [
             {
               "event": [],
-              "id": "4e68ac9c-cb14-4005-b703-6a004cced747",
+              "id": "8acbf225-6c3b-4693-9cae-afde4f1164e6",
               "name": "Custom",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -62,7 +62,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"screen_type\": \"custom\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"WATCHLIST\",\n  \"market_regime\": \"risk_on\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"estimated\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": \"string\",\n        \"key_2\": 3754\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"quarterly\",\n        \"key_2\": \"missing\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"long_term_investment_candidate\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"opportunities\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": 1625\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"wait_for_pullback\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "body": "{\n  \"screen_type\": \"opportunities\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"RUSSELL2000\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"live\",\n    \"key_2\": \"last_close\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 177.76513366893897,\n        \"key_1\": 4650.508963453534\n      },\n      \"data_freshness\": {\n        \"key_0\": \"stale\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"BUY\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 7685,\n        \"key_1\": false\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"last_close\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"buy_now\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -71,7 +71,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "3b605c15-e832-44ef-a1c0-08d3884dedbe",
+                  "id": "b458c2fe-6f48-46ff-b0f5-5590f53e5794",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {
@@ -82,7 +82,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -120,7 +120,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "99a7622c-7b5b-4dda-bc6b-c1f9449577fd",
+                  "id": "f885cfb3-5acb-4fae-ac3c-ab412d9268d8",
                   "name": "Validation Error",
                   "originalRequest": {
                     "body": {
@@ -131,7 +131,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -168,7 +168,7 @@
           "item": [
             {
               "event": [],
-              "id": "199b621e-eba4-4f60-973c-f6866225de3b",
+              "id": "8062a204-87d6-4026-a250-7722478f0ea9",
               "name": "Health",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -201,7 +201,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"key_0\": 1531,\n  \"key_1\": true\n}",
+                  "body": "{\n  \"key_0\": 6107.312868416677,\n  \"key_1\": \"string\",\n  \"key_2\": \"string\"\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -210,7 +210,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "1d0ebfeb-8fce-4610-856a-4217b2fdfe04",
+                  "id": "fa84ddaf-9ff5-4f4a-9f59-d5de004d55a5",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {},
@@ -245,7 +245,7 @@
           "item": [
             {
               "event": [],
-              "id": "e78f7624-bb0d-48cd-a8fa-58543664429a",
+              "id": "17d7895c-4c96-4888-aea0-db3965bb71e6",
               "name": "Opportunities",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -290,7 +290,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"screen_type\": \"custom\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"WATCHLIST\",\n  \"market_regime\": \"risk_on\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"estimated\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": \"string\",\n        \"key_2\": 3754\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"quarterly\",\n        \"key_2\": \"missing\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"long_term_investment_candidate\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"opportunities\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": 1625\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"wait_for_pullback\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "body": "{\n  \"screen_type\": \"opportunities\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"RUSSELL2000\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"live\",\n    \"key_2\": \"last_close\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 177.76513366893897,\n        \"key_1\": 4650.508963453534\n      },\n      \"data_freshness\": {\n        \"key_0\": \"stale\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"BUY\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 7685,\n        \"key_1\": false\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"last_close\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"buy_now\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -299,7 +299,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "eb4863d1-1dd2-4c57-b376-2e798ba27ad8",
+                  "id": "d7b02eea-92df-4b54-b368-01a56767edc6",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {
@@ -310,7 +310,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -348,7 +348,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "69c510ce-5e02-468c-a33f-0c3fc7837011",
+                  "id": "486dc2e2-9ce3-4567-bae3-5c9edd11a49a",
                   "name": "Validation Error",
                   "originalRequest": {
                     "body": {
@@ -359,7 +359,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -396,7 +396,7 @@
           "item": [
             {
               "event": [],
-              "id": "fa2d3258-6d27-4ff5-951f-b8d1ca6d5f42",
+              "id": "49715ca7-4dd5-4ff5-bf1d-b791369b66d4",
               "name": "Regime",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -438,7 +438,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "ac17533c-3388-48fd-a508-6fe751a9951b",
+                  "id": "8d427c0a-df5d-446f-a0bf-0b7d830a934e",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {},
@@ -473,7 +473,7 @@
           "item": [
             {
               "event": [],
-              "id": "16f7d4e0-8084-4565-8614-cb74be177401",
+              "id": "7c244182-b35a-466c-8ed3-e7b054807c93",
               "name": "Trending",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -518,7 +518,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"DOW\",\n  \"market_regime\": \"risk_on\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"last_close\",\n    \"key_1\": \"quarterly\"\n  },\n  \"results\": [\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"likely_pump_risk\",\n      \"data_freshness\": {\n        \"key_0\": \"quarterly\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": 7900,\n        \"key_1\": 8879,\n        \"key_2\": \"string\"\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"overextended\",\n        \"fundamental_state\": \"mixed\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"short_term_trade_only\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"undervalued\",\n      \"sentiment_change\": \"<number>\"\n    },\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"too_late_overextended\",\n      \"data_freshness\": {\n        \"key_0\": \"delayed\",\n        \"key_1\": \"delayed\",\n        \"key_2\": \"quarterly\",\n        \"key_3\": \"missing\",\n        \"key_4\": \"estimated\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": true\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"oversold\",\n        \"fundamental_state\": \"strong\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"long_term_investment_candidate\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"watchlist\",\n      \"sentiment_change\": \"<number>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"screen_type\": \"opportunities\"\n}",
+                  "body": "{\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"NASDAQ100\",\n  \"market_regime\": \"risk_off\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"last_close\"\n  },\n  \"results\": [\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"likely_pump_risk\",\n      \"data_freshness\": {\n        \"key_0\": \"missing\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": 7703.533473916996,\n        \"key_1\": 7131.563287899176,\n        \"key_2\": 1.4137221181886872\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"oversold\",\n        \"fundamental_state\": \"mixed\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"wait_for_pullback\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"opportunities\",\n      \"sentiment_change\": \"<number>\"\n    },\n    {\n      \"symbol\": \"<string>\",\n      \"sentiment_score\": \"<number>\",\n      \"retail_fomo_risk\": \"<number>\",\n      \"trend_quality\": \"meme_fomo_trend\",\n      \"data_freshness\": {\n        \"key_0\": \"estimated\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"score_breakdown\": {\n        \"key_0\": 473,\n        \"key_1\": false,\n        \"key_2\": 344.5083887377287,\n        \"key_3\": true,\n        \"key_4\": true\n      },\n      \"acceleration\": \"<number>\",\n      \"baseline_daily_mentions_30d\": \"<number>\",\n      \"buyability\": {\n        \"symbol\": \"<string>\",\n        \"trend_score\": \"<number>\",\n        \"sentiment_score\": \"<number>\",\n        \"technical_state\": \"overextended\",\n        \"fundamental_state\": \"mixed\",\n        \"data_quality_score\": \"<integer>\",\n        \"confidence\": \"<number>\",\n        \"reason\": \"<string>\",\n        \"current_price\": \"<number>\",\n        \"entry_assessment\": \"buy_now\",\n        \"ideal_buy_zone\": \"<array>\",\n        \"risk_flags\": [\n          \"<string>\",\n          \"<string>\"\n        ]\n      },\n      \"institutional_account_participation\": \"<number>\",\n      \"mention_count_24h\": 0,\n      \"mention_count_3d\": 0,\n      \"mention_count_5d\": 0,\n      \"mention_growth_3d_pct\": \"<number>\",\n      \"mention_growth_5d_pct\": \"<number>\",\n      \"news_catalyst\": \"none\",\n      \"pos_neu_neg_ratio\": [\n        \"<number>\",\n        \"<number>\"\n      ],\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"screen_type\": \"custom\",\n      \"sentiment_change\": \"<number>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"screen_type\": \"opportunities\"\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -527,7 +527,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "9b73de9b-5671-4f8b-89bc-28f88cd902ad",
+                  "id": "be20d079-f571-4ac9-8cdc-b8f150f4be05",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {
@@ -538,7 +538,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 2731.648157855966\n  },\n  \"horizon\": \"1D\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"reddit\",\n    \"yahoo_trending\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"NASDAQ100\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": \"string\",\n    \"key_1\": \"string\",\n    \"key_2\": true\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"reddit\",\n    \"news\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
                     },
                     "header": [
                       {
@@ -576,7 +576,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "3d5ca646-fc5d-4783-9eb5-daf6aa373af0",
+                  "id": "8b7ec32c-4a9b-4900-a89d-5ce341ad71de",
                   "name": "Validation Error",
                   "originalRequest": {
                     "body": {
@@ -587,7 +587,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 2731.648157855966\n  },\n  \"horizon\": \"1D\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"reddit\",\n    \"yahoo_trending\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"NASDAQ100\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": \"string\",\n    \"key_1\": \"string\",\n    \"key_2\": true\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"lookback_days\": [\n    \"<integer>\",\n    \"<integer>\"\n  ],\n  \"sources\": [\n    \"reddit\",\n    \"news\"\n  ],\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
                     },
                     "header": [
                       {
@@ -624,7 +624,7 @@
           "item": [
             {
               "event": [],
-              "id": "dac6d9c8-0dd6-46bc-bac6-eb207351f36a",
+              "id": "80e64428-c0f8-4767-9f14-885aa252b080",
               "name": "Undervalued",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -669,7 +669,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"screen_type\": \"custom\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"WATCHLIST\",\n  \"market_regime\": \"risk_on\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"estimated\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": \"string\",\n        \"key_2\": 3754\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"quarterly\",\n        \"key_2\": \"missing\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"long_term_investment_candidate\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"opportunities\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": 1625\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"wait_for_pullback\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "body": "{\n  \"screen_type\": \"opportunities\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"RUSSELL2000\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"live\",\n    \"key_2\": \"last_close\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 177.76513366893897,\n        \"key_1\": 4650.508963453534\n      },\n      \"data_freshness\": {\n        \"key_0\": \"stale\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"BUY\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 7685,\n        \"key_1\": false\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"last_close\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"buy_now\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -678,7 +678,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "7644926d-e527-4386-9d2d-afe4505cd6a0",
+                  "id": "904e6dd2-575d-44eb-bd39-9febccbda7f3",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {
@@ -689,7 +689,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -727,7 +727,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "5dc784ea-cdcc-4973-aa42-570ac6ff990a",
+                  "id": "27bf7a05-b56c-4f7a-9fa4-44c27dc5f6d3",
                   "name": "Validation Error",
                   "originalRequest": {
                     "body": {
@@ -738,7 +738,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -775,7 +775,7 @@
           "item": [
             {
               "event": [],
-              "id": "033aba2f-0016-42e3-a8ad-f1505859419c",
+              "id": "3ccfa94e-29cb-4e74-bd66-b3a48dc8abb1",
               "name": "Watchlist",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -820,7 +820,7 @@
               "response": [
                 {
                   "_postman_previewlanguage": "json",
-                  "body": "{\n  \"screen_type\": \"custom\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"WATCHLIST\",\n  \"market_regime\": \"risk_on\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"estimated\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": \"string\",\n        \"key_2\": 3754\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"quarterly\",\n        \"key_2\": \"missing\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"long_term_investment_candidate\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"opportunities\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": \"string\",\n        \"key_1\": 1625\n      },\n      \"data_freshness\": {\n        \"key_0\": \"delayed\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"wait_for_pullback\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"HOLD\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
+                  "body": "{\n  \"screen_type\": \"opportunities\",\n  \"generated_at\": \"<dateTime>\",\n  \"universe\": \"RUSSELL2000\",\n  \"market_regime\": \"neutral\",\n  \"data_quality_score\": \"<integer>\",\n  \"confidence\": \"<number>\",\n  \"data_freshness\": {\n    \"key_0\": \"stale\",\n    \"key_1\": \"live\",\n    \"key_2\": \"last_close\"\n  },\n  \"results\": [\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"undervalued\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 177.76513366893897,\n        \"key_1\": 4650.508963453534\n      },\n      \"data_freshness\": {\n        \"key_0\": \"stale\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"short_term_trade_only\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"BUY\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    },\n    {\n      \"rank\": \"<integer>\",\n      \"symbol\": \"<string>\",\n      \"screen_type\": \"trending\",\n      \"opportunity_score\": \"<number>\",\n      \"valuation_score\": \"<number>\",\n      \"growth_score\": \"<number>\",\n      \"quality_score\": \"<number>\",\n      \"momentum_score\": \"<number>\",\n      \"analyst_revision_score\": \"<number>\",\n      \"institutional_accumulation_score\": \"<number>\",\n      \"insider_activity_score\": \"<number>\",\n      \"risk_score\": \"<number>\",\n      \"score_breakdown\": {\n        \"key_0\": 7685,\n        \"key_1\": false\n      },\n      \"data_freshness\": {\n        \"key_0\": \"missing\",\n        \"key_1\": \"last_close\"\n      },\n      \"data_quality_score\": \"<integer>\",\n      \"confidence\": \"<number>\",\n      \"reason\": \"<string>\",\n      \"recommended_action\": \"<string>\",\n      \"entry_assessment\": \"buy_now\",\n      \"ideal_buy_zone\": \"<array>\",\n      \"recommendation\": \"SELL\",\n      \"risk_flags\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"summary\": \"<string>\"\n    }\n  ],\n  \"notes\": [\n    \"<string>\",\n    \"<string>\"\n  ]\n}",
                   "code": 200,
                   "cookie": [],
                   "header": [
@@ -829,7 +829,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "08b0eb2f-a981-47ed-aa7a-f9dc803b3897",
+                  "id": "dbb0e2aa-b10c-4ad6-8961-22203ce013bd",
                   "name": "Successful Response",
                   "originalRequest": {
                     "body": {
@@ -840,7 +840,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {
@@ -878,7 +878,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "id": "1b5ec48e-6483-4644-882a-1dbf1b8368d2",
+                  "id": "d4d8ae04-27ec-4f0d-b12e-5da0881d0d55",
                   "name": "Validation Error",
                   "originalRequest": {
                     "body": {
@@ -889,7 +889,7 @@
                           "language": "json"
                         }
                       },
-                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": false,\n    \"key_1\": 5831.490459557087,\n    \"key_2\": 6645.717066108018\n  },\n  \"horizon\": \"1W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"DOW\"\n}"
+                      "raw": "{\n  \"filters_override\": {\n    \"key_0\": 3314.948630244278\n  },\n  \"horizon\": \"2-4W\",\n  \"include_analysis\": true,\n  \"include_narrative\": false,\n  \"limit\": 25,\n  \"tickers\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"universe\": \"RUSSELL2000\"\n}"
                     },
                     "header": [
                       {

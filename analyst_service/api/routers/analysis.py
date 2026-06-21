@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import asdict
 from datetime import datetime, timezone
+
+import httpx
+import yfinance as yf
+from yfinance.exceptions import YFRateLimitError
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -53,6 +58,28 @@ class EntryConfluenceRequest(BaseModel):
     lookback_days: int | None = None
 
 
+async def _check_yfinance() -> str:
+    loop = asyncio.get_event_loop()
+    def _probe():
+        yf.Ticker("AAPL").fast_info  # noqa: B018
+    try:
+        await asyncio.wait_for(loop.run_in_executor(None, _probe), timeout=3.0)
+        return "ok"
+    except YFRateLimitError:
+        return "rate_limited"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_sec_edgar() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get("https://data.sec.gov/api/xbrl/frames/")
+        return "reachable" if r.status_code == 200 else "unreachable"
+    except Exception:
+        return "unreachable"
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     config_valid = True
@@ -60,18 +87,30 @@ async def health() -> HealthResponse:
         load_service_config()
     except Exception:
         config_valid = False
+
     alpha_vantage_status = (
         "configured"
         if os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
         else "not_configured"
     )
+
+    yfinance_status, sec_status = await asyncio.gather(
+        _check_yfinance(),
+        _check_sec_edgar(),
+    )
+
     return HealthResponse(
         status="ok" if config_valid else "degraded",
         service="analyst_service",
         config_valid=config_valid,
         providers={
-            "yfinance": "optional",
+            "yfinance": yfinance_status,
             "alpha_vantage": alpha_vantage_status,
+            "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",
+            "tiingo": "not_configured",
+            "reddit": "configured" if os.getenv("REDDIT_CLIENT_ID") else "no_credentials",
+            "stocktwits": "configured" if os.getenv("STOCKTWITS_API_KEY") else "no_credentials",
+            "sec_edgar": sec_status,
             "redis": redis_status(),
         },
         llm_available=llm_available(),
