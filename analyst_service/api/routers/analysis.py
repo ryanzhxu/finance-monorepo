@@ -80,6 +80,40 @@ async def _check_sec_edgar() -> str:
         return "unreachable"
 
 
+@router.get("/search")
+async def search_symbols(q: str, limit: int = 6) -> list[dict]:
+    if not q or len(q.strip()) < 1:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://query1.finance.yahoo.com/v1/finance/search",
+                params={
+                    "q": q.strip(),
+                    "quotesCount": limit * 4,
+                    "newsCount": 0,
+                    "enableFuzzyQuery": False,
+                    "quotesQueryId": "tss_match_phrase_query",
+                },
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            quotes = data.get("quotes", [])
+            return [
+                {
+                    "symbol": quote["symbol"],
+                    "name": quote.get("longname") or quote.get("shortname") or "",
+                    "exchange": quote.get("exchange") or "",
+                    "type": quote.get("quoteType") or "",
+                }
+                for quote in quotes
+                if quote.get("quoteType") == "EQUITY" and quote.get("symbol")
+            ][:limit]
+    except Exception:
+        return []
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     config_valid = True

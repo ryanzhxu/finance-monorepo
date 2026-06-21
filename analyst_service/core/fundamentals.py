@@ -60,6 +60,7 @@ class FundamentalsData:
     analyst_downgrades_30d: int | None = None
     freshness: Literal["quarterly", "missing"] = "missing"
     as_of: str | None = None
+    company_name: str | None = None
 
 
 def _utc_now() -> datetime:
@@ -621,6 +622,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         analyst_downgrades_30d=downgrades,
         freshness=freshness,
         as_of=earnings_as_of,
+        company_name=info.get("longName") or info.get("shortName") or None,
     )
 
 

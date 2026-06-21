@@ -174,6 +174,7 @@ def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
         gross_margin_pct=raw.gross_margin_pct,
         freshness=raw.freshness,
         as_of=raw.as_of,
+        company_name=raw.company_name,
     )
     freshness = Freshness.QUARTERLY if raw.freshness == "quarterly" else Freshness.MISSING
     as_of = None

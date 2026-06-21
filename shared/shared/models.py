@@ -156,6 +156,7 @@ class Fundamentals(BaseModel):
     gross_margin_pct: float | None = None
     freshness: str | None = None
     as_of: str | None = None
+    company_name: str | None = None
 
 
 class Sentiment(BaseModel):

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { fetchAnalyzeBundle } from '../api/client'
+import { fetchAnalyzeBundle, fetchSymbolSearch } from '../api/client'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -680,6 +680,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
   const abortedRef = useRef<boolean>(false)
   const fetchIdRef = useRef<number>(0)
   const controllerRef = useRef<AbortController | null>(null)
+  const [suggestions, setSuggestions] = useState<Array<{ symbol: string; name: string }>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
   const [viewState, setViewState] = useState<AnalyzeViewState>(() =>
     requestedSymbol?.cachedBundle
       ? {
@@ -702,6 +706,21 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
           activeSymbol: initialSymbol,
         },
   )
+  const handleSymbolChange = (value: string) => {
+    setSymbolInput(value.toUpperCase())
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    if (value.trim().length < 1) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    searchDebounceRef.current = setTimeout(async () => {
+      const results = await fetchSymbolSearch(value.trim())
+      setSuggestions(results)
+      setShowSuggestions(results.length > 0)
+    }, 300)
+  }
+
   const runAnalysis = async (input: AnalyzeMutationInput) => {
     const normalized = typeof input === 'string' ? input : input.symbol
 
@@ -840,28 +859,70 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     return () => window.clearTimeout(timeout)
   }, [watchlistConfirmation])
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-stone-50 p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="flex-1">
+          <div className="relative flex-1">
             <label htmlFor="symbol" className="mb-2 block text-sm font-medium text-slate-700">
               Symbol
             </label>
             <input
               id="symbol"
               value={symbolInput}
-              onChange={(event) => setSymbolInput(event.target.value.toUpperCase())}
+              onChange={(event) => handleSymbolChange(event.target.value)}
               onKeyDown={(event) => {
+                if (event.key === 'Escape') { setShowSuggestions(false); return }
                 if (event.key === 'Enter') {
+                  setShowSuggestions(false)
                   const normalized = symbolInput.trim().toUpperCase()
                   if (!normalized) return
                   void runAnalysis(normalized)
                 }
               }}
+              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
               placeholder="NVDA"
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none ring-0 transition transition-colors duration-150 focus:border-slate-900 dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100 dark:placeholder-slate-500"
             />
+            {showSuggestions && suggestions.length > 0 ? (
+              <div
+                ref={suggestionsRef}
+                className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-[#161a23]"
+              >
+                {suggestions.map((s) => (
+                  <button
+                    key={s.symbol}
+                    type="button"
+                    onClick={() => {
+                      setSymbolInput(s.symbol)
+                      setSuggestions([])
+                      setShowSuggestions(false)
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {s.symbol}
+                    </span>
+                    <span className="truncate text-sm text-slate-500 dark:text-slate-400">
+                      {s.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="sm:self-end">
             {showLoader ? (
@@ -922,49 +983,49 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
             <div className="space-y-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="flex flex-wrap items-end gap-4">
-                  <div>
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
-                        {analysis!.symbol}
-                      </h2>
-                      {analysis!.company_name ? (
-                        <span className="text-base text-slate-500 dark:text-slate-400">
-                          {analysis!.company_name}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-[20px] text-slate-500 dark:text-slate-400">
+                <div>
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <h2 className="text-[26px] font-medium text-slate-950 dark:text-slate-50">
+                      {analysis!.symbol}
+                    </h2>
+                    {analysis!.company_name ? (
+                      <span className="text-base text-slate-500 dark:text-slate-400">
+                        {analysis!.company_name}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
+                    <p className="text-[20px] text-slate-500 dark:text-slate-400">
                       {formatPrice(entry?.current_price ?? confluenceResponse?.current_price ?? null)}
                     </p>
+                    <span
+                      className={[
+                        'rounded-full px-3 py-1 text-sm font-semibold',
+                        recommendationTone[analysis!.recommendation.direction],
+                      ].join(' ')}
+                    >
+                      {analysis!.recommendation.direction}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isInWatchlist}
+                      onClick={() => {
+                        if (!entryBundle || !analysis) {
+                          return
+                        }
+                        onAddToWatchlist(analysis.symbol, entryBundle)
+                        setWatchlistConfirmation(analysis.symbol)
+                      }}
+                      className={[
+                        'rounded-full px-3 py-1 text-sm font-semibold transition',
+                        isInWatchlist
+                          ? 'cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200',
+                      ].join(' ')}
+                    >
+                      {watchlistButtonLabel}
+                    </button>
                   </div>
-                  <span
-                    className={[
-                      'rounded-full px-3 py-1 text-sm font-semibold',
-                      recommendationTone[analysis!.recommendation.direction],
-                    ].join(' ')}
-                  >
-                    {analysis!.recommendation.direction}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isInWatchlist}
-                    onClick={() => {
-                      if (!entryBundle || !analysis) {
-                        return
-                      }
-                      onAddToWatchlist(analysis.symbol, entryBundle)
-                      setWatchlistConfirmation(analysis.symbol)
-                    }}
-                    className={[
-                      'rounded-full px-3 py-1 text-sm font-semibold transition',
-                      isInWatchlist
-                        ? 'cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                        : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200',
-                    ].join(' ')}
-                  >
-                    {watchlistButtonLabel}
-                  </button>
                 </div>
 
                 <div className="flex items-end gap-6">

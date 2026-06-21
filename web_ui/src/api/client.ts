@@ -135,6 +135,20 @@ export async function fetchAnalystHealth(): Promise<AnalystHealthResponse> {
   }
 }
 
+export async function fetchSymbolSearch(
+  q: string,
+): Promise<Array<{ symbol: string; name: string; exchange: string; type: string }>> {
+  if (!q || q.length < 1) return []
+  try {
+    const resp = await analystClient.get<
+      Array<{ symbol: string; name: string; exchange: string; type: string }>
+    >('/search', { params: { q, limit: 6 } })
+    return resp.data
+  } catch {
+    return []
+  }
+}
+
 export async function fetchScreenerHealth(): Promise<ScreenerHealthResponse> {
   try {
     const response = await screenerClient.get<ScreenerHealthResponse>('/screen/health')
