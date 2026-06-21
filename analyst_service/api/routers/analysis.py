@@ -32,6 +32,7 @@ from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.fibonacci import compute_fibonacci_levels, load_fibonacci_config
 from analyst_service.core.fundamentals import normalize_fundamentals
+from analyst_service.core.cache import backend_name as cache_backend_name, redis_status
 from analyst_service.core.llm_client import llm_available
 from analyst_service.core.settings import load_service_config
 from analyst_service.core.signals import generate_signals
@@ -68,9 +69,13 @@ async def health() -> HealthResponse:
         status="ok" if config_valid else "degraded",
         service="analyst_service",
         config_valid=config_valid,
-        providers={"yfinance": "optional", "alpha_vantage": alpha_vantage_status},
+        providers={
+            "yfinance": "optional",
+            "alpha_vantage": alpha_vantage_status,
+            "redis": redis_status(),
+        },
         llm_available=llm_available(),
-        cache_backend="file",
+        cache_backend=cache_backend_name(),
     )
 
 

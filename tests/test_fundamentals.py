@@ -216,7 +216,7 @@ def test_fetch_fundamentals_uses_alpha_vantage_after_sec_gap(monkeypatch) -> Non
                     "PriceToBookRatio": "40.2",
                     "PriceToSalesRatioTTM": "20.1",
                     "EVToEBITDA": "31.3",
-                    "RevenueGrowthYOY": "0.42",
+                    "QuarterlyRevenueGrowthYOY": "0.42",
                     "GrossProfitTTM": "75000000000",
                     "RevenueTTM": "100000000000",
                 }

@@ -354,11 +354,11 @@ def _fetch_alpha_vantage_overview(symbol: str, key: str) -> dict[str, Any]:
         data = payload if isinstance(payload, dict) else {}
         logger.warning(
             "[%s] Alpha Vantage OVERVIEW returned keys: %s. "
-            "TrailingPE=%s RevenueGrowthYOY=%s GrossProfitTTM=%s",
+            "TrailingPE=%s QuarterlyRevenueGrowthYOY=%s GrossProfitTTM=%s",
             symbol,
             list(data.keys())[:8],
             data.get("TrailingPE"),
-            data.get("RevenueGrowthYOY"),
+            data.get("QuarterlyRevenueGrowthYOY") or data.get("RevenueGrowthYOY"),
             data.get("GrossProfitTTM"),
         )
         return data
@@ -575,7 +575,9 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         if ev_ebitda is None:
             ev_ebitda = _coerce_float(av.get("EVToEBITDA"))
         if revenue_growth is None:
-            revenue_growth = _maybe_percent(av.get("RevenueGrowthYOY"))
+            revenue_growth = _maybe_percent(
+                av.get("QuarterlyRevenueGrowthYOY") or av.get("RevenueGrowthYOY")
+            )
         if gross_margin is None:
             gross_profit = _coerce_float(av.get("GrossProfitTTM"))
             revenue_ttm = _coerce_float(av.get("RevenueTTM"))

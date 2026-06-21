@@ -1,4 +1,11 @@
 services:
+  - type: keyvalue
+    name: finance-cache
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
   - type: web
     name: finance-analyst
     runtime: python
@@ -19,6 +26,11 @@ services:
         sync: false
       - key: ALPHA_VANTAGE_KEY
         sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: finance-cache
+          property: connectionString
       - key: CACHE_TTL_SECONDS
         value: "3600"
       - key: FUNDAMENTAL_CACHE_TTL

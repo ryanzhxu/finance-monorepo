@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 from datetime import date, datetime, time, timezone
 import pandas as pd
 
@@ -15,6 +17,7 @@ from shared.time_utils import (
 from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
 from analyst_service.core.macro import fetch_macro as fetch_raw_macro
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
+from analyst_service.core.cache import get as cache_get, set as cache_set
 
 
 def _empty_frame() -> pd.DataFrame:
@@ -48,6 +51,56 @@ def _frame_trading_date(frame: pd.DataFrame) -> date | None:
 
 def _close_timestamp(trading_date: date) -> datetime:
     return datetime.combine(trading_date, time(hour=16), tzinfo=US_EASTERN).astimezone(timezone.utc)
+
+
+def _cache_ttl(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _deserialize_datetime(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
+def _load_cached_payload(key: str) -> dict[str, object] | None:
+    cached = cache_get(key)
+    if cached is None:
+        return None
+    try:
+        payload = json.loads(cached)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _store_cached_payload(key: str, payload: dict[str, object], ttl: int) -> None:
+    cache_set(key, json.dumps(payload), ttl)
+
+
+def _fundamentals_cache_key(symbol: str) -> str:
+    return f"fundamentals:v1:{symbol.strip().upper()}"
+
+
+def _sentiment_cache_key(symbol: str, price_history: pd.DataFrame | None) -> str:
+    if isinstance(price_history, pd.DataFrame) and not price_history.empty:
+        last_index = price_history.index[-1]
+        last_close = None
+        for column in price_history.columns:
+            if str(column).lower() == "close":
+                series = price_history[column].dropna()
+                if not series.empty:
+                    last_close = float(series.iloc[-1])
+                break
+        return f"sentiment:v1:{symbol.strip().upper()}:{last_index}:{last_close}"
+    return f"sentiment:v1:{symbol.strip().upper()}"
 
 
 def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -> tuple[Freshness, datetime | None]:
@@ -92,6 +145,20 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
 
 
 def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
+    cached_payload = _load_cached_payload(_fundamentals_cache_key(symbol))
+    if cached_payload is not None:
+        cached_value = cached_payload.get("value")
+        cached_freshness = cached_payload.get("freshness")
+        if isinstance(cached_value, dict) and isinstance(cached_freshness, str):
+            try:
+                return FreshValue(
+                    Fundamentals(**cached_value),
+                    Freshness(cached_freshness),
+                    _deserialize_datetime(cached_payload.get("as_of")),
+                )
+            except ValueError:
+                pass
+
     raw = fetch_raw_fundamentals(symbol)
     fundamentals = Fundamentals(
         eps_surprise_pct=raw.eps_surprise_pct,
@@ -115,10 +182,35 @@ def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:
             as_of = datetime.fromisoformat(raw.as_of).replace(tzinfo=timezone.utc)
         except ValueError:
             as_of = None
-    return FreshValue(fundamentals, freshness, as_of)
+    result = FreshValue(fundamentals, freshness, as_of)
+    _store_cached_payload(
+        _fundamentals_cache_key(symbol),
+        {
+            "value": fundamentals.model_dump(mode="json"),
+            "freshness": freshness.value,
+            "as_of": as_of.isoformat() if as_of is not None else None,
+        },
+        _cache_ttl("FUNDAMENTAL_CACHE_TTL", 86400),
+    )
+    return result
 
 
 def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> FreshValue[Sentiment]:
+    cache_key = _sentiment_cache_key(symbol, price_history)
+    cached_payload = _load_cached_payload(cache_key)
+    if cached_payload is not None:
+        cached_value = cached_payload.get("value")
+        cached_freshness = cached_payload.get("freshness")
+        if isinstance(cached_value, dict) and isinstance(cached_freshness, str):
+            try:
+                return FreshValue(
+                    Sentiment(**cached_value),
+                    Freshness(cached_freshness),
+                    _deserialize_datetime(cached_payload.get("as_of")),
+                )
+            except ValueError:
+                pass
+
     raw = fetch_raw_sentiment(symbol, price_history=price_history)
     sentiment = Sentiment(
         put_call_ratio=raw.put_call_ratio,
@@ -143,7 +235,17 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
             as_of = datetime.fromisoformat(raw.institutional_13f_as_of).replace(tzinfo=timezone.utc)
         except ValueError:
             as_of = None
-    return FreshValue(sentiment, freshness, as_of)
+    result = FreshValue(sentiment, freshness, as_of)
+    _store_cached_payload(
+        cache_key,
+        {
+            "value": sentiment.model_dump(mode="json"),
+            "freshness": freshness.value,
+            "as_of": as_of.isoformat() if as_of is not None else None,
+        },
+        _cache_ttl("SENTIMENT_CACHE_TTL", 900),
+    )
+    return result
 
 
 def fetch_macro() -> FreshValue[Macro]:
