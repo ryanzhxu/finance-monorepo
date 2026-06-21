@@ -134,9 +134,8 @@ def _mock_macro_get(url: str, **kwargs):
     raise AssertionError(f"Unexpected macro URL: {url}")
 
 
-def _mock_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
+def _mock_marketaux_headlines(symbol: str) -> list[str]:
     assert symbol == "NVDA"
-    assert limit == 20
     return [
         "NVDA beats earnings estimates with record AI demand",
         "Analysts upgrade NVDA after strong growth outlook",
@@ -158,8 +157,7 @@ def _all_keys(payload):
 def test_analyze_returns_stage_f_blocks_and_signals(monkeypatch, tmp_path) -> None:
     _install_fake_yfinance(monkeypatch)
     monkeypatch.setattr(sentiment_module, "_sec_get", _mock_sentiment_sec_get)
-    monkeypatch.setattr(sentiment_module, "fetch_tiingo_news", _mock_tiingo_news)
-    monkeypatch.setattr(sentiment_module, "fetch_yahoo_rss_headlines", lambda symbol: [])
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_marketaux_headlines)
     monkeypatch.setattr(macro_module.requests, "get", _mock_macro_get)
     monkeypatch.setattr(macro_module, "CACHE_PATH", tmp_path / "fomc-calendar.json")
     monkeypatch.setattr(macro_module, "_today", lambda: macro_module.date(2026, 6, 18))
@@ -188,7 +186,7 @@ def test_analyze_returns_stage_f_blocks_and_signals(monkeypatch, tmp_path) -> No
     assert len(payload["signals"]) >= 12
     assert payload["sentiment"]["news_sentiment_score"] is not None
     assert payload["sentiment"]["news_headline_count"] == 4
-    assert payload["sentiment"]["news_sentiment_source"] == "tiingo"
+    assert payload["sentiment"]["news_sentiment_source"] == "marketaux"
     assert any(signal["dimension"] == "News Sentiment" for signal in payload["signals"])
     assert payload["recommendation"]["direction"] in ["BUY", "HOLD", "SELL"]
     assert 0.0 <= payload["recommendation"]["confidence"] <= 1.0

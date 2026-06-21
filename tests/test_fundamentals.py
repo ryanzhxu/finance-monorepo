@@ -181,3 +181,56 @@ def test_fetch_fundamentals_returns_none_fields_when_sources_fail(monkeypatch) -
     assert data.analyst_downgrades_30d == 0
     assert data.freshness == "missing"
     assert data.as_of is None
+
+
+def test_fetch_fundamentals_uses_alpha_vantage_after_sec_gap(monkeypatch) -> None:
+    info = deepcopy(NVDA_INFO)
+    info.pop("trailingPE")
+    info.pop("priceToBook")
+    info.pop("priceToSalesTrailingTwelveMonths")
+    info.pop("enterpriseToEbitda")
+    info.pop("revenueGrowth")
+    info.pop("grossMargins")
+    _install_fake_yfinance(
+        monkeypatch,
+        info=info,
+        earnings_history=pd.DataFrame(),
+        quarterly_cash_flow=pd.DataFrame(),
+    )
+
+    class FakeResponse:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def fake_get(url: str, *args, **kwargs):
+        if "alphavantage.co" in url:
+            return FakeResponse(
+                {
+                    "TrailingPE": "58.4",
+                    "PriceToBookRatio": "40.2",
+                    "PriceToSalesRatioTTM": "20.1",
+                    "EVToEBITDA": "31.3",
+                    "RevenueGrowthYOY": "0.42",
+                    "GrossProfitTTM": "75000000000",
+                    "RevenueTTM": "100000000000",
+                }
+            )
+        return FakeResponse({})
+
+    monkeypatch.setattr(fundamentals_module.httpx, "get", fake_get)
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.pe_ratio == 58.4
+    assert data.pb_ratio == 40.2
+    assert data.ps_ratio == 20.1
+    assert data.ev_ebitda == 31.3
+    assert data.revenue_growth_yoy_pct == 42.0
+    assert data.gross_margin_pct == 75.0

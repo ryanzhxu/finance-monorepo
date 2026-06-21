@@ -76,9 +76,8 @@ def _mock_sec_get_factory():
     return fake_sec_get
 
 
-def _mock_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
+def _mock_marketaux_headlines(symbol: str) -> list[str]:
     assert symbol == "NVDA"
-    assert limit == 20
     return [
         "NVDA beats earnings estimates as growth stays strong",
         "Analysts upgrade NVDA after record quarter",
@@ -87,16 +86,15 @@ def _mock_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
     ]
 
 
-def _mock_empty_news(symbol: str, limit: int = 20) -> list[str]:
-    _ = (symbol, limit)
+def _mock_empty_news(symbol: str) -> list[str]:
+    _ = symbol
     return []
 
 
 def test_fetch_sentiment_populates_options_hv_and_13f(monkeypatch) -> None:
     _install_fake_yfinance(monkeypatch)
     monkeypatch.setattr(sentiment_module, "_sec_get", _mock_sec_get_factory())
-    monkeypatch.setattr(sentiment_module, "fetch_tiingo_news", _mock_tiingo_news)
-    monkeypatch.setattr(sentiment_module, "fetch_yahoo_rss_headlines", lambda symbol: [])
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_marketaux_headlines)
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
 
@@ -113,7 +111,7 @@ def test_fetch_sentiment_populates_options_hv_and_13f(monkeypatch) -> None:
     assert data.news_sentiment_score is not None
     assert data.news_sentiment_score > 0
     assert data.news_headline_count == 4
-    assert data.news_sentiment_source == "tiingo"
+    assert data.news_sentiment_source == "marketaux"
     assert data.reddit_mention_spike_24h_pct is None
     assert data.reddit_positive_pct is None
 
@@ -121,16 +119,7 @@ def test_fetch_sentiment_populates_options_hv_and_13f(monkeypatch) -> None:
 def test_fetch_sentiment_handles_missing_reddit_credentials(monkeypatch) -> None:
     _install_fake_yfinance(monkeypatch)
     monkeypatch.setattr(sentiment_module, "_sec_get", _mock_sec_get_factory())
-    monkeypatch.setattr(sentiment_module, "fetch_tiingo_news", _mock_empty_news)
-    monkeypatch.setattr(
-        sentiment_module,
-        "fetch_yahoo_rss_headlines",
-        lambda symbol: [
-            "NVDA record revenue keeps momentum strong",
-            "Upgrade cycle continues for NVDA",
-            "NVDA growth outlook remains bullish",
-        ],
-    )
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_marketaux_headlines)
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
 
@@ -139,7 +128,7 @@ def test_fetch_sentiment_handles_missing_reddit_credentials(monkeypatch) -> None
     assert data.reddit_mention_spike_24h_pct is None
     assert data.reddit_positive_pct is None
     assert data.institutional_13f_freshness == "delayed_45d"
-    assert data.news_sentiment_source == "yahoo_rss"
+    assert data.news_sentiment_source == "marketaux"
     assert data.news_sentiment_score is not None
 
 
@@ -154,8 +143,7 @@ def test_fetch_sentiment_does_not_raise_when_one_source_fails(monkeypatch) -> No
 
     monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=lambda symbol: BrokenTicker()))
     monkeypatch.setattr(sentiment_module, "_sec_get", lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")))
-    monkeypatch.setattr(sentiment_module, "fetch_tiingo_news", _mock_empty_news)
-    monkeypatch.setattr(sentiment_module, "fetch_yahoo_rss_headlines", lambda symbol: [])
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_empty_news)
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
 

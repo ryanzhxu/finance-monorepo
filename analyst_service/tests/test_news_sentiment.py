@@ -36,40 +36,51 @@ def test_score_headlines_returns_near_neutral_for_flat_headlines() -> None:
     assert abs(score) < 0.05
 
 
-def test_fetch_tiingo_news_returns_empty_without_api_key(monkeypatch) -> None:
-    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+def test_fetch_marketaux_headlines_returns_empty_without_api_key(monkeypatch) -> None:
+    monkeypatch.delenv("MARKETAUX_API_KEY", raising=False)
 
-    assert sentiment_module.fetch_tiingo_news("NVDA") == []
+    assert sentiment_module.fetch_marketaux_headlines("NVDA") == []
 
 
-def test_fetch_yahoo_rss_headlines_parses_feed(monkeypatch) -> None:
-    xml_payload = """
-    <rss>
-      <channel>
-        <item><title>NVDA beats expectations</title></item>
-        <item><title>Analysts upgrade NVDA</title></item>
-      </channel>
-    </rss>
-    """
+def test_fetch_marketaux_headlines_parses_response(monkeypatch) -> None:
+    json_payload = {
+        "data": [
+            {
+                "title": "NVDA beats expectations",
+                "description": "Revenue growth stayed strong.",
+            },
+            {
+                "title": "Analysts upgrade NVDA",
+                "description": "Demand trends remain healthy.",
+            },
+            {
+                "title": "",
+                "description": "Should be ignored without a title.",
+            },
+        ]
+    }
 
     class FakeResponse:
-        text = xml_payload
+        def json(self):
+            return json_payload
 
         def raise_for_status(self) -> None:
             return None
 
     monkeypatch.setattr(sentiment_module.httpx, "get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setenv("MARKETAUX_API_KEY", "test-key")
 
-    assert sentiment_module.fetch_yahoo_rss_headlines("NVDA") == [
-        "NVDA beats expectations",
-        "Analysts upgrade NVDA",
+    assert sentiment_module.fetch_marketaux_headlines("NVDA") == [
+        "NVDA beats expectations Revenue growth stayed strong.",
+        "Analysts upgrade NVDA Demand trends remain healthy.",
     ]
 
 
-def test_fetch_yahoo_rss_headlines_returns_empty_on_failure(monkeypatch) -> None:
+def test_fetch_marketaux_headlines_returns_empty_on_failure(monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise httpx.HTTPError("boom")
 
     monkeypatch.setattr(sentiment_module.httpx, "get", fail)
+    monkeypatch.setenv("MARKETAUX_API_KEY", "test-key")
 
-    assert sentiment_module.fetch_yahoo_rss_headlines("NVDA") == []
+    assert sentiment_module.fetch_marketaux_headlines("NVDA") == []

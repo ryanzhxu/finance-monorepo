@@ -63,6 +63,17 @@
       },
       "AnalyzeResponse": {
         "properties": {
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name"
+          },
           "confidence": {
             "maximum": 1.0,
             "minimum": 0.0,

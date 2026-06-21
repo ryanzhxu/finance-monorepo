@@ -18,8 +18,7 @@ from shared.models import Sentiment as SharedSentiment
 from analyst_service.core.settings import load_service_config
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
-TIINGO_BASE = "https://api.tiingo.com/tiingo/news"
-YAHOO_RSS_URL = "https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
+MARKETAUX_BASE = "https://api.marketaux.com/v1/news/all"
 _KNOWN_CIKS = {
     "AAPL": "0000320193",
     "AMZN": "0001018724",
@@ -383,19 +382,27 @@ def score_headlines(titles: list[str]) -> float | None:
     return round(max(-1.0, min(1.0, score)), 4)
 
 
-def fetch_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
-    key = os.getenv("TIINGO_API_KEY")
+def fetch_marketaux_headlines(symbol: str) -> list[str]:
+    key = os.getenv("MARKETAUX_API_KEY")
     if not key:
+        logger.warning("MARKETAUX_API_KEY not set — news sentiment unavailable")
         return []
     try:
         response = httpx.get(
-            TIINGO_BASE,
-            params={"tickers": symbol, "limit": limit},
-            headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+            MARKETAUX_BASE,
+            params={
+                "symbols": symbol,
+                "filter_entities": "true",
+                "language": "en",
+                "api_token": key,
+            },
             timeout=8.0,
         )
         response.raise_for_status()
-        articles = response.json()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            return []
+        articles = payload.get("data", [])
         if not isinstance(articles, list):
             return []
         headlines: list[str] = []
@@ -403,25 +410,15 @@ def fetch_tiingo_news(symbol: str, limit: int = 20) -> list[str]:
             if not isinstance(article, dict):
                 continue
             title = str(article.get("title") or "").strip()
+            if not title:
+                continue
             description = str(article.get("description") or "").strip()
             combined = " ".join(part for part in (title, description) if part).strip()
             if combined:
                 headlines.append(combined)
         return headlines
     except Exception as exc:
-        logger.warning("Tiingo news fetch failed for %s: %s", symbol, exc)
-        return []
-
-
-def fetch_yahoo_rss_headlines(symbol: str) -> list[str]:
-    try:
-        response = httpx.get(YAHOO_RSS_URL.format(symbol=symbol), timeout=6.0)
-        response.raise_for_status()
-        root = ET.fromstring(response.text)
-        titles = [item.findtext("title") or "" for item in root.iter("item")]
-        return [title.strip() for title in titles if title and title.strip()]
-    except Exception as exc:
-        logger.warning("Yahoo RSS fetch failed for %s: %s", symbol, exc)
+        logger.warning("Marketaux news fetch failed for %s: %s", symbol, exc)
         return []
 
 
@@ -459,13 +456,9 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
         reddit_mention_spike_24h_pct, reddit_positive_pct = None, None
 
     news_source = None
-    headlines = fetch_tiingo_news(symbol)
+    headlines = fetch_marketaux_headlines(symbol)
     if headlines:
-        news_source = "tiingo"
-    else:
-        headlines = fetch_yahoo_rss_headlines(symbol)
-        if headlines:
-            news_source = "yahoo_rss"
+        news_source = "marketaux"
     news_headline_count = len(headlines) if headlines else None
     news_sentiment_score = score_headlines(headlines) if headlines else None
 

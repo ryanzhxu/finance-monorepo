@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import math
+import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
@@ -12,6 +14,7 @@ import pandas as pd
 from shared.models import Fundamentals as SharedFundamentals
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
+ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
 _OPERATING_CASHFLOW_KEYS = (
     "Operating Cash Flow",
     "OperatingCashFlow",
@@ -39,6 +42,7 @@ _EPS_KEYS = (
     "EarningsPerShareBasicAndDiluted",
     "IncomeLossFromContinuingOperationsPerDilutedShare",
 )
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -338,6 +342,21 @@ def _fetch_sec_companyfacts(cik: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _fetch_alpha_vantage_overview(symbol: str, key: str) -> dict[str, Any]:
+    try:
+        response = httpx.get(
+            ALPHA_VANTAGE_BASE_URL,
+            params={"function": "OVERVIEW", "symbol": symbol, "apikey": key},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else {}
+    except Exception as exc:
+        logger.warning("Alpha Vantage overview fetch failed for %s: %s", symbol, exc)
+        return {}
+
+
 def _quarterly_sec_records(companyfacts: dict[str, Any] | None, concepts: tuple[str, ...]) -> list[dict[str, Any]]:
     if not companyfacts:
         return []
@@ -482,6 +501,9 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
 
     eps_surprise_pct, earnings_as_of = _extract_latest_surprise(earnings_history)
     current_pe = _coerce_float(info.get("trailingPE"))
+    pb_ratio = _coerce_float(info.get("priceToBook"))
+    ps_ratio = _coerce_float(info.get("priceToSalesTrailingTwelveMonths"))
+    ev_ebitda = _coerce_float(info.get("enterpriseToEbitda"))
     pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
     upgrades, downgrades = _extract_recent_recommendation_counts(upgrades_downgrades, now)
     revenue_growth = _maybe_percent(info.get("revenueGrowth"))
@@ -510,6 +532,30 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     if earnings_as_of is None:
         earnings_as_of = _sec_as_of(sec_companyfacts)
 
+    av_key = os.getenv("ALPHA_VANTAGE_KEY")
+    if av_key and any(value is None for value in (current_pe, revenue_growth, gross_margin, fcf_trend)):
+        try:
+            av = _fetch_alpha_vantage_overview(symbol, av_key)
+        except Exception as exc:
+            logger.warning("Alpha Vantage overview fallback failed for %s: %s", symbol, exc)
+            av = {}
+        if current_pe is None:
+            current_pe = _coerce_float(av.get("TrailingPE"))
+            pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
+        if pb_ratio is None:
+            pb_ratio = _coerce_float(av.get("PriceToBookRatio"))
+        if ps_ratio is None:
+            ps_ratio = _coerce_float(av.get("PriceToSalesRatioTTM"))
+        if ev_ebitda is None:
+            ev_ebitda = _coerce_float(av.get("EVToEBITDA"))
+        if revenue_growth is None:
+            revenue_growth = _maybe_percent(av.get("RevenueGrowthYOY"))
+        if gross_margin is None:
+            gross_profit = _coerce_float(av.get("GrossProfitTTM"))
+            revenue_ttm = _coerce_float(av.get("RevenueTTM"))
+            if gross_profit is not None and revenue_ttm and revenue_ttm > 0:
+                gross_margin = round(gross_profit / revenue_ttm * 100.0, 2)
+
     freshness: Literal["quarterly", "missing"] = "quarterly" if any(
         value is not None
         for value in (
@@ -525,11 +571,9 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     return FundamentalsData(
         eps_surprise_pct=eps_surprise_pct,
         pe_ratio=round(current_pe, 2) if current_pe is not None else None,
-        pb_ratio=round(_coerce_float(info.get("priceToBook")), 2) if _coerce_float(info.get("priceToBook")) is not None else None,
-        ps_ratio=round(_coerce_float(info.get("priceToSalesTrailingTwelveMonths")), 2)
-        if _coerce_float(info.get("priceToSalesTrailingTwelveMonths")) is not None
-        else None,
-        ev_ebitda=round(_coerce_float(info.get("enterpriseToEbitda")), 2) if _coerce_float(info.get("enterpriseToEbitda")) is not None else None,
+        pb_ratio=round(pb_ratio, 2) if pb_ratio is not None else None,
+        ps_ratio=round(ps_ratio, 2) if ps_ratio is not None else None,
+        ev_ebitda=round(ev_ebitda, 2) if ev_ebitda is not None else None,
         pe_percentile_5y=pe_percentile,
         revenue_growth_yoy_pct=revenue_growth,
         fcf_trend=fcf_trend,

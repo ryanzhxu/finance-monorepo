@@ -9,16 +9,15 @@ from analyst_service.core import sentiment as sentiment_module
 from tests.test_analyze_integration import (
     _install_fake_yfinance,
     _mock_macro_get,
+    _mock_marketaux_headlines,
     _mock_sentiment_sec_get,
-    _mock_tiingo_news,
 )
 
 
 def test_entry_and_analyze_surface_non_null_current_price(monkeypatch, tmp_path) -> None:
     _install_fake_yfinance(monkeypatch)
     monkeypatch.setattr(sentiment_module, "_sec_get", _mock_sentiment_sec_get)
-    monkeypatch.setattr(sentiment_module, "fetch_tiingo_news", _mock_tiingo_news)
-    monkeypatch.setattr(sentiment_module, "fetch_yahoo_rss_headlines", lambda symbol: [])
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_marketaux_headlines)
     monkeypatch.setattr(macro_module.requests, "get", _mock_macro_get)
     monkeypatch.setattr(macro_module, "CACHE_PATH", tmp_path / "fomc-calendar.json")
     monkeypatch.setattr(macro_module, "_today", lambda: macro_module.date(2026, 6, 18))
