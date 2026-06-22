@@ -81,3 +81,25 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  - type: web
+    name: finance-web-ui-dev
+    runtime: static
+    autoDeployTrigger: commit
+    branch: dev
+    buildCommand: cd web_ui && npm install && npm run build
+    staticPublishPath: web_ui/dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_ANALYST_URL
+        value: https://finance-analyst-dev.onrender.com
+      - key: VITE_SCREENER_URL
+        value: https://finance-screener-dev.onrender.com
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
