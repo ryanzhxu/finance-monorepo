@@ -6,6 +6,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 
 import httpx
+import pandas as pd
 import yfinance as yf
 from yfinance.exceptions import YFRateLimitError
 
@@ -58,17 +59,87 @@ class EntryConfluenceRequest(BaseModel):
     lookback_days: int | None = None
 
 
-async def _check_yfinance() -> str:
-    loop = asyncio.get_event_loop()
-    def _probe():
-        yf.Ticker("AAPL").fast_info  # noqa: B018
+def _probe_yfinance_download() -> str:
+    frame = yf.download("AAPL", period="1mo", interval="1d", progress=False, auto_adjust=False)
+    return "ok" if not frame.empty else "empty"
+
+
+def _probe_yfinance_info() -> str:
+    info = yf.Ticker("AAPL").info or {}
+    return "ok" if isinstance(info, dict) and bool(info) else "empty"
+
+
+def _probe_yfinance_options_chain() -> str:
+    expiries = yf.Ticker("AAPL").options
+    return "ok" if expiries else "empty"
+
+
+def _probe_yfinance_upgrades() -> str:
+    upgrades = yf.Ticker("AAPL").upgrades_downgrades
+    if isinstance(upgrades, pd.DataFrame):
+        return "ok" if not upgrades.empty else "empty"
+    return "empty"
+
+
+async def _run_yfinance_probe(probe) -> str:
+    loop = asyncio.get_running_loop()
     try:
-        await asyncio.wait_for(loop.run_in_executor(None, _probe), timeout=3.0)
-        return "ok"
+        return await asyncio.wait_for(loop.run_in_executor(None, probe), timeout=5.0)
     except YFRateLimitError:
         return "rate_limited"
     except Exception:
         return "unavailable"
+
+
+def _summarize_provider_status(statuses: list[str]) -> str:
+    if any(status == "rate_limited" for status in statuses):
+        return "rate_limited"
+    if any(status == "unavailable" for status in statuses):
+        return "degraded"
+    if any(status == "empty" for status in statuses):
+        return "degraded"
+    return "ok"
+
+
+async def _check_yahoo_search() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://query1.finance.yahoo.com/v1/finance/search",
+                params={
+                    "q": "AAPL",
+                    "quotesCount": 1,
+                    "newsCount": 0,
+                    "enableFuzzyQuery": False,
+                    "quotesQueryId": "tss_match_phrase_query",
+                },
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        quotes = payload.get("quotes", []) if isinstance(payload, dict) else []
+        return "ok" if isinstance(quotes, list) and len(quotes) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_yfinance_feature_statuses() -> dict[str, str]:
+    download_status, info_status, options_status, upgrades_status, search_status = await asyncio.gather(
+        _run_yfinance_probe(_probe_yfinance_download),
+        _run_yfinance_probe(_probe_yfinance_info),
+        _run_yfinance_probe(_probe_yfinance_options_chain),
+        _run_yfinance_probe(_probe_yfinance_upgrades),
+        _check_yahoo_search(),
+    )
+    feature_statuses = {
+        "yfinance.download_ohlcv": download_status,
+        "yfinance.info": info_status,
+        "yfinance.options_chain": options_status,
+        "yfinance.upgrades_downgrades": upgrades_status,
+        "yahoo.search": search_status,
+    }
+    feature_statuses["yfinance"] = _summarize_provider_status(list(feature_statuses.values()))
+    return feature_statuses
 
 
 async def _check_sec_edgar() -> str:
@@ -128,25 +199,27 @@ async def health() -> HealthResponse:
         else "not_configured"
     )
 
-    yfinance_status, sec_status = await asyncio.gather(
-        _check_yfinance(),
+    yahoo_statuses, sec_status = await asyncio.gather(
+        _check_yfinance_feature_statuses(),
         _check_sec_edgar(),
     )
+
+    providers = {
+        "alpha_vantage": alpha_vantage_status,
+        **yahoo_statuses,
+        "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",
+        "tiingo": "not_configured",
+        "reddit": "configured" if os.getenv("REDDIT_CLIENT_ID") else "no_credentials",
+        "stocktwits": "configured" if os.getenv("STOCKTWITS_API_KEY") else "no_credentials",
+        "sec_edgar": sec_status,
+        "redis": redis_status(),
+    }
 
     return HealthResponse(
         status="ok" if config_valid else "degraded",
         service="analyst_service",
         config_valid=config_valid,
-        providers={
-            "yfinance": yfinance_status,
-            "alpha_vantage": alpha_vantage_status,
-            "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",
-            "tiingo": "not_configured",
-            "reddit": "configured" if os.getenv("REDDIT_CLIENT_ID") else "no_credentials",
-            "stocktwits": "configured" if os.getenv("STOCKTWITS_API_KEY") else "no_credentials",
-            "sec_edgar": sec_status,
-            "redis": redis_status(),
-        },
+        providers=providers,
         llm_available=llm_available(),
         cache_backend=cache_backend_name(),
     )
@@ -207,13 +280,13 @@ def _freshness_value(item: FreshValue[object]) -> Freshness | str:
     return item.freshness if label == item.freshness.value else label
 
 
-def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> float:
+def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> float | None:
     if request_price is not None:
         return float(request_price)
     frame = ohlcv.value
-    if hasattr(frame, "empty") and not frame.empty:
+    if hasattr(frame, "empty") and not frame.empty and "close" in frame:
         return float(frame["close"].iloc[-1])
-    raise ValueError("current_price is required when market data is unavailable")
+    return None
 
 
 def _entry_confluence_response(symbol: str, lookback_days: int | None = None) -> EntryConfluenceResponse:
@@ -223,7 +296,6 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
 
     ohlcv = fetch_ohlcv(symbol, None)
     fundamentals_fresh, sentiment_fresh, macro_fresh = fetch_analysis_context(symbol, ohlcv.value)
-    current_price = _current_price(None, ohlcv)
     technicals = compute_technicals(ohlcv.value, support_window=int(config["entry_rules"]["support_window"]))
     fundamentals = normalize_fundamentals(fundamentals_fresh.value)
     sentiment = sentiment_fresh.value or Sentiment()
@@ -239,6 +311,19 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
         "macro": _freshness_value(macro_fresh),
     }
     data_quality_score = float(compute_analysis_data_quality(technicals, fundamentals, sentiment, macro))
+    current_price = _current_price(None, ohlcv)
+    if current_price is None:
+        return EntryConfluenceResponse(
+            symbol=symbol,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            current_price=None,
+            classical={},
+            fibonacci=None,
+            confluence=None,
+            data_freshness=freshness,
+            data_quality_score=data_quality_score,
+        )
+
     signals = generate_signals(technicals, fundamentals, sentiment, macro, config["weights"], config["thresholds"])
     provisional = aggregate_recommendation(
         signals,
@@ -264,22 +349,20 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
         data_freshness=freshness,
         data_quality_score=int(data_quality_score),
     )
-    fibonacci = compute_fibonacci_levels(symbol, ohlcv.value, effective_lookback)
-    atr_14 = float(technicals.atr_14 or max(current_price * 0.02, 0.01))
-    confluence = compute_confluence(
-        classical=classical,
-        fibonacci=fibonacci,
-        current_price=current_price,
-        atr_14=atr_14,
-        overlap_tolerance_atr=float(fib_config["overlap_tolerance_atr"]),
-    )
-    return EntryConfluenceResponse(
-        symbol=symbol,
-        generated_at=datetime.now(timezone.utc).isoformat(),
-        current_price=classical.current_price,
-        classical=classical.model_dump(mode="json"),
-        fibonacci=FibonacciLevels(**asdict(fibonacci)),
-        confluence=ConfluenceZone(
+    fibonacci_model = None
+    confluence_model = None
+    try:
+        fibonacci = compute_fibonacci_levels(symbol, ohlcv.value, effective_lookback)
+        atr_14 = float(technicals.atr_14 or max(current_price * 0.02, 0.01))
+        confluence = compute_confluence(
+            classical=classical,
+            fibonacci=fibonacci,
+            current_price=current_price,
+            atr_14=atr_14,
+            overlap_tolerance_atr=float(fib_config["overlap_tolerance_atr"]),
+        )
+        fibonacci_model = FibonacciLevels(**asdict(fibonacci))
+        confluence_model = ConfluenceZone(
             classical_zone=list(confluence.classical_zone),
             fibonacci_golden_pocket=list(confluence.fibonacci_golden_pocket),
             overlap=confluence.overlap,
@@ -288,7 +371,17 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
             high_conviction=confluence.high_conviction,
             divergence_note=confluence.divergence_note,
             methods_agreeing=confluence.methods_agreeing,
-        ),
+        )
+    except ValueError:
+        pass
+
+    return EntryConfluenceResponse(
+        symbol=symbol,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        current_price=classical.current_price,
+        classical=classical.model_dump(mode="json"),
+        fibonacci=fibonacci_model,
+        confluence=confluence_model,
         data_freshness=freshness,
         data_quality_score=data_quality_score,
     )
