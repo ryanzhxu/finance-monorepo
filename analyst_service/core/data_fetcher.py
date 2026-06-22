@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import date, datetime, time, timezone
+
+import httpx
 import pandas as pd
 
 from shared.data_quality import FreshValue, utc_now
@@ -19,6 +22,10 @@ from analyst_service.core.macro import fetch_macro as fetch_raw_macro
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
 
+logger = logging.getLogger(__name__)
+
+ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
+
 
 def _empty_frame() -> pd.DataFrame:
     return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
@@ -27,7 +34,8 @@ def _empty_frame() -> pd.DataFrame:
 def _estimated_ohlcv(current_price: float | None) -> pd.DataFrame:
     if current_price is None:
         return _empty_frame()
-    index = pd.bdate_range(end=pd.Timestamp.utcnow().normalize(), periods=260)
+    end = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    index = pd.bdate_range(end=end, periods=260)
     close = pd.Series(float(current_price), index=index)
     return pd.DataFrame(
         {
@@ -51,6 +59,130 @@ def _frame_trading_date(frame: pd.DataFrame) -> date | None:
 
 def _close_timestamp(trading_date: date) -> datetime:
     return datetime.combine(trading_date, time(hour=16), tzinfo=US_EASTERN).astimezone(timezone.utc)
+
+
+def _alpha_vantage_key() -> str | None:
+    return os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
+
+
+def _coerce_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_alpha_vantage_quota_payload(payload: dict[str, object]) -> bool:
+    for key in ("Information", "Note"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+    return False
+
+
+def _normalize_ohlcv_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if isinstance(frame.columns, pd.MultiIndex):
+        frame.columns = [column[0] for column in frame.columns]
+    working = frame.rename(columns=str.lower).rename(columns={"adj close": "adj_close"})
+    required = ["open", "high", "low", "close", "volume"]
+    if any(column not in working.columns for column in required):
+        return _empty_frame()
+    cleaned = working[required].apply(pd.to_numeric, errors="coerce").dropna(how="all")
+    if cleaned.empty:
+        return _empty_frame()
+    cleaned.index = pd.to_datetime(cleaned.index)
+    return cleaned.sort_index()
+
+
+def _fetch_alpha_vantage_ohlcv(symbol: str, key: str) -> pd.DataFrame:
+    try:
+        response = httpx.get(
+            ALPHA_VANTAGE_BASE_URL,
+            params={
+                "function": "TIME_SERIES_DAILY",
+                "symbol": symbol,
+                "outputsize": "full",
+                "apikey": key,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        logger.warning("[%s] Alpha Vantage daily series fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        return _empty_frame()
+
+    if not isinstance(payload, dict):
+        return _empty_frame()
+    if _is_alpha_vantage_quota_payload(payload):
+        logger.warning("[%s] Alpha Vantage daily series quota exhausted", symbol)
+        return _empty_frame()
+
+    raw_series = payload.get("Time Series (Daily)")
+    if not isinstance(raw_series, dict) or not raw_series:
+        return _empty_frame()
+
+    rows: list[dict[str, object]] = []
+    for observed_at, values in raw_series.items():
+        if not isinstance(values, dict):
+            continue
+        rows.append(
+            {
+                "date": observed_at,
+                "open": _coerce_float(values.get("1. open")),
+                "high": _coerce_float(values.get("2. high")),
+                "low": _coerce_float(values.get("3. low")),
+                "close": _coerce_float(values.get("4. close")),
+                "volume": _coerce_float(values.get("5. volume")),
+            }
+        )
+
+    if not rows:
+        return _empty_frame()
+
+    frame = pd.DataFrame.from_records(rows).set_index("date")
+    normalized = _normalize_ohlcv_frame(frame)
+    if normalized.empty:
+        return normalized
+    return normalized.tail(400)
+
+
+def _fetch_alpha_vantage_quote(symbol: str, key: str) -> float | None:
+    try:
+        response = httpx.get(
+            ALPHA_VANTAGE_BASE_URL,
+            params={"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": key},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        logger.warning("[%s] Alpha Vantage quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+    if _is_alpha_vantage_quota_payload(payload):
+        logger.warning("[%s] Alpha Vantage quote quota exhausted", symbol)
+        return None
+
+    quote = payload.get("Global Quote")
+    if not isinstance(quote, dict):
+        return None
+    return _coerce_float(quote.get("05. price"))
+
+
+def _fetch_yfinance_ohlcv(symbol: str) -> pd.DataFrame:
+    try:
+        import yfinance as yf
+
+        frame = yf.download(symbol, period="18mo", interval="1d", progress=False, auto_adjust=False)
+    except Exception as exc:
+        logger.warning("[%s] yfinance download raised %s: %s", symbol, type(exc).__name__, exc)
+        return _empty_frame()
+    return _normalize_ohlcv_frame(frame)
 
 
 def _cache_ttl(name: str, default: int) -> int:
@@ -147,26 +279,24 @@ def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -
 
 
 def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[pd.DataFrame]:
-    try:
-        import yfinance as yf
+    av_key = _alpha_vantage_key()
+    if av_key:
+        av_frame = _fetch_alpha_vantage_ohlcv(symbol, av_key)
+        if not av_frame.empty:
+            freshness, as_of = classify_price_freshness(av_frame)
+            return FreshValue(av_frame, freshness, as_of)
 
-        frame = yf.download(symbol, period="18mo", interval="1d", progress=False, auto_adjust=False)
-        if isinstance(frame.columns, pd.MultiIndex):
-            frame.columns = [column[0] for column in frame.columns]
-        if frame.empty:
-            estimated = _estimated_ohlcv(current_price)
-            freshness = Freshness.ESTIMATED if not estimated.empty else Freshness.MISSING
-            return FreshValue(estimated, freshness, utc_now() if not estimated.empty else None)
-        frame = frame.rename(columns=str.lower)
-        frame = frame.rename(columns={"adj close": "adj_close"})
-        required = ["open", "high", "low", "close", "volume"]
-        cleaned = frame[required].dropna(how="all")
-        freshness, as_of = classify_price_freshness(cleaned)
-        return FreshValue(cleaned, freshness, as_of)
-    except Exception:
-        estimated = _estimated_ohlcv(current_price)
-        freshness = Freshness.ESTIMATED if not estimated.empty else Freshness.MISSING
-        return FreshValue(estimated, freshness, utc_now() if not estimated.empty else None)
+    yahoo_frame = _fetch_yfinance_ohlcv(symbol)
+    if not yahoo_frame.empty:
+        freshness, as_of = classify_price_freshness(yahoo_frame)
+        return FreshValue(yahoo_frame, freshness, as_of)
+
+    fallback_price = current_price
+    if fallback_price is None and av_key:
+        fallback_price = _fetch_alpha_vantage_quote(symbol, av_key)
+    estimated = _estimated_ohlcv(fallback_price)
+    freshness = Freshness.ESTIMATED if not estimated.empty else Freshness.MISSING
+    return FreshValue(estimated, freshness, utc_now() if not estimated.empty else None)
 
 
 def fetch_fundamentals(symbol: str) -> FreshValue[Fundamentals]:

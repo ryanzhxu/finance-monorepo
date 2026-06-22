@@ -85,7 +85,7 @@ def _install_sparse_yfinance(monkeypatch) -> None:
     monkeypatch.setattr(fundamentals_module, "_utc_now", lambda: FIXED_NOW)
 
 
-def test_nonlocal_yfinance_shape_can_pass_health_while_fundamentals_are_sparse(monkeypatch) -> None:
+def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_is_sparse(monkeypatch) -> None:
     _install_sparse_yfinance(monkeypatch)
     monkeypatch.delenv("ALPHA_VANTAGE_KEY", raising=False)
     monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
@@ -93,7 +93,11 @@ def test_nonlocal_yfinance_shape_can_pass_health_while_fundamentals_are_sparse(m
     async def fake_check_sec_edgar() -> str:
         return "unreachable"
 
+    async def fake_check_yahoo_search() -> str:
+        return "ok"
+
     monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_check_sec_edgar)
+    monkeypatch.setattr(analysis_router, "_check_yahoo_search", fake_check_yahoo_search)
     class FakeResponse:
         def __init__(self, payload) -> None:
             self._payload = payload
@@ -125,7 +129,12 @@ def test_nonlocal_yfinance_shape_can_pass_health_while_fundamentals_are_sparse(m
     health = client.get("/health")
 
     assert health.status_code == 200
-    assert health.json()["providers"]["yfinance"] == "ok"
+    providers = health.json()["providers"]
+    assert providers["yfinance"] == "degraded"
+    assert providers["yfinance.download_ohlcv"] == "ok"
+    assert providers["yfinance.info"] == "empty"
+    assert providers["yfinance.upgrades_downgrades"] == "unavailable"
+    assert providers["yahoo.search"] == "ok"
 
     data = fundamentals_module.fetch_fundamentals("NVDA")
 

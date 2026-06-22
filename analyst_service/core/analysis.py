@@ -31,13 +31,13 @@ def _freshness_value(item: FreshValue[object]) -> Freshness | str:
     return item.freshness if label == item.freshness.value else label
 
 
-def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> float:
+def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> float | None:
     if request_price is not None:
         return float(request_price)
     frame = ohlcv.value
-    if hasattr(frame, "empty") and not frame.empty:
+    if hasattr(frame, "empty") and not frame.empty and "close" in frame:
         return float(frame["close"].iloc[-1])
-    raise ValueError("current_price is required when market data is unavailable")
+    return None
 
 
 async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
@@ -74,7 +74,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         apply_overrides=False,
     )
     entry: EntryBlock | None = None
-    if request.include_entry:
+    if request.include_entry and current_price is not None:
         entry = compute_entry(
             current_price=current_price,
             technicals=technicals,
