@@ -38,6 +38,7 @@ from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.fibonacci import compute_fibonacci_levels, load_fibonacci_config
 from analyst_service.core.fundamentals import normalize_fundamentals
+from analyst_service.core.provider_clients.stockdata import search_stockdata_symbols, stockdata_api_key
 from analyst_service.core.cache import backend_name as cache_backend_name, redis_status
 from analyst_service.core.llm_client import llm_available
 from analyst_service.core.settings import load_service_config
@@ -92,6 +93,8 @@ async def _run_yfinance_probe(probe) -> str:
 
 
 def _summarize_provider_status(statuses: list[str]) -> str:
+    if statuses and all(status == "not_configured" for status in statuses):
+        return "not_configured"
     if any(status == "rate_limited" for status in statuses):
         return "rate_limited"
     if any(status == "unavailable" for status in statuses):
@@ -151,10 +154,71 @@ async def _check_sec_edgar() -> str:
         return "unreachable"
 
 
+async def _check_stockdata_quote() -> str:
+    api_key = stockdata_api_key()
+    if not api_key:
+        return "not_configured"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://api.stockdata.org/v1/data/quote",
+                params={"symbols": "AAPL", "api_token": api_key},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        rows = payload.get("data") if isinstance(payload, dict) else None
+        return "ok" if isinstance(rows, list) and len(rows) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_stockdata_eod() -> str:
+    api_key = stockdata_api_key()
+    if not api_key:
+        return "not_configured"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://api.stockdata.org/v1/data/eod",
+                params={"symbols": "AAPL", "date_from": "2026-01-01", "date_to": "2026-03-31", "sort": "asc", "api_token": api_key},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        rows = payload.get("data") if isinstance(payload, dict) else None
+        return "ok" if isinstance(rows, list) and len(rows) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_stockdata_search() -> str:
+    api_key = stockdata_api_key()
+    if not api_key:
+        return "not_configured"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://api.stockdata.org/v1/entity/search",
+                params={"search": "AAPL", "api_token": api_key},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        rows = payload.get("data") if isinstance(payload, dict) else None
+        return "ok" if isinstance(rows, list) and len(rows) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
 @router.get("/search")
 async def search_symbols(q: str, limit: int = 6) -> list[dict]:
     if not q or len(q.strip()) < 1:
         return []
+    if stockdata_api_key():
+        try:
+            stockdata_results = search_stockdata_symbols(q, limit=limit)
+            if stockdata_results:
+                return stockdata_results
+        except Exception:
+            pass
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
@@ -199,12 +263,22 @@ async def health() -> HealthResponse:
         else "not_configured"
     )
 
-    yahoo_statuses, sec_status = await asyncio.gather(
+    yahoo_statuses, sec_status, stockdata_quote_status, stockdata_eod_status, stockdata_search_status = await asyncio.gather(
         _check_yfinance_feature_statuses(),
         _check_sec_edgar(),
+        _check_stockdata_quote(),
+        _check_stockdata_eod(),
+        _check_stockdata_search(),
     )
+    stockdata_statuses = {
+        "stockdata.quote": stockdata_quote_status,
+        "stockdata.eod": stockdata_eod_status,
+        "stockdata.search": stockdata_search_status,
+    }
+    stockdata_statuses["stockdata"] = _summarize_provider_status(list(stockdata_statuses.values()))
 
     providers = {
+        **stockdata_statuses,
         "alpha_vantage": alpha_vantage_status,
         **yahoo_statuses,
         "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",

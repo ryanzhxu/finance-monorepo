@@ -19,6 +19,11 @@ from shared.time_utils import (
 )
 from analyst_service.core.fundamentals import fetch_fundamentals as fetch_raw_fundamentals
 from analyst_service.core.macro import fetch_macro as fetch_raw_macro
+from analyst_service.core.provider_clients.stockdata import (
+    fetch_stockdata_eod,
+    fetch_stockdata_quote,
+    stockdata_api_key,
+)
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
 
@@ -288,6 +293,16 @@ def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -
 
 
 def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[pd.DataFrame]:
+    if stockdata_api_key():
+        try:
+            stockdata_frame = fetch_stockdata_eod(symbol)
+        except Exception as exc:
+            logger.warning("[%s] StockData EOD fetch raised %s: %s", symbol, type(exc).__name__, exc)
+            stockdata_frame = _empty_frame()
+        if not stockdata_frame.empty:
+            freshness, as_of = classify_price_freshness(stockdata_frame)
+            return FreshValue(stockdata_frame, freshness, as_of)
+
     av_key = _alpha_vantage_key()
     if av_key:
         av_frame = _fetch_alpha_vantage_ohlcv(symbol, av_key)
@@ -301,6 +316,11 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
         return FreshValue(yahoo_frame, freshness, as_of)
 
     fallback_price = current_price
+    if fallback_price is None and stockdata_api_key():
+        try:
+            fallback_price = fetch_stockdata_quote(symbol)
+        except Exception as exc:
+            logger.warning("[%s] StockData quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
     if fallback_price is None and av_key:
         fallback_price = _fetch_alpha_vantage_quote(symbol, av_key)
     estimated = _estimated_ohlcv(fallback_price)
