@@ -34,6 +34,7 @@ def _empty_ohlcv() -> pd.DataFrame:
 
 
 def test_fetch_ohlcv_prefers_alpha_vantage(monkeypatch) -> None:
+    monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
     monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
     monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", lambda symbol, key: _price_frame(101.5))
 
@@ -50,6 +51,7 @@ def test_fetch_ohlcv_prefers_alpha_vantage(monkeypatch) -> None:
 
 
 def test_fetch_ohlcv_uses_alpha_vantage_quote_when_history_is_missing(monkeypatch) -> None:
+    monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
     monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
     monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", lambda symbol, key: _empty_ohlcv())
     monkeypatch.setattr(data_fetcher, "_fetch_yfinance_ohlcv", lambda symbol: _empty_ohlcv())
@@ -60,6 +62,22 @@ def test_fetch_ohlcv_uses_alpha_vantage_quote_when_history_is_missing(monkeypatc
     assert result.freshness == Freshness.ESTIMATED
     assert not result.value.empty
     assert float(result.value["close"].iloc[-1]) == 142.25
+
+
+def test_fetch_ohlcv_prefers_stockdata_when_configured(monkeypatch) -> None:
+    monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: "stockdata-key")
+    monkeypatch.setattr(data_fetcher, "fetch_stockdata_eod", lambda symbol: _price_frame(109.75))
+
+    def fail_alpha(symbol: str, key: str) -> pd.DataFrame:
+        raise AssertionError("alpha vantage fallback should not run when StockData history is present")
+
+    monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
+    monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", fail_alpha)
+
+    result = data_fetcher.fetch_ohlcv("NVDA")
+
+    assert not result.value.empty
+    assert float(result.value["close"].iloc[-1]) == 109.75
 
 
 def test_analyze_symbol_returns_without_raising_when_price_history_is_missing(monkeypatch) -> None:
@@ -197,3 +215,63 @@ def test_health_route_reports_feature_level_yahoo_statuses(monkeypatch) -> None:
     assert payload["providers"]["yfinance.download_ohlcv"] == "rate_limited"
     assert payload["providers"]["yfinance.upgrades_downgrades"] == "empty"
     assert payload["providers"]["yahoo.search"] == "ok"
+
+
+def test_search_route_prefers_stockdata_results(monkeypatch) -> None:
+    monkeypatch.setattr(analysis_router, "stockdata_api_key", lambda: "stockdata-key")
+    monkeypatch.setattr(
+        analysis_router,
+        "search_stockdata_symbols",
+        lambda query, limit=6: [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "IEXG", "type": "EQUITY"}],
+    )
+
+    client = TestClient(app)
+    response = client.get("/search", params={"q": "nvda", "limit": 6})
+
+    assert response.status_code == 200
+    assert response.json() == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "IEXG", "type": "EQUITY"}]
+
+
+def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
+    async def fake_yfinance_statuses() -> dict[str, str]:
+        return {
+            "yfinance.download_ohlcv": "rate_limited",
+            "yfinance.info": "rate_limited",
+            "yfinance.options_chain": "rate_limited",
+            "yfinance.upgrades_downgrades": "empty",
+            "yahoo.search": "ok",
+            "yfinance": "rate_limited",
+        }
+
+    async def fake_sec_status() -> str:
+        return "reachable"
+
+    async def fake_stockdata_quote() -> str:
+        return "ok"
+
+    async def fake_stockdata_eod() -> str:
+        return "ok"
+
+    async def fake_stockdata_search() -> str:
+        return "ok"
+
+    monkeypatch.setattr(analysis_router, "_check_yfinance_feature_statuses", fake_yfinance_statuses)
+    monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_sec_status)
+    monkeypatch.setattr(analysis_router, "_check_stockdata_quote", fake_stockdata_quote)
+    monkeypatch.setattr(analysis_router, "_check_stockdata_eod", fake_stockdata_eod)
+    monkeypatch.setattr(analysis_router, "_check_stockdata_search", fake_stockdata_search)
+    monkeypatch.setattr(analysis_router, "load_service_config", lambda: {})
+    monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
+    monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
+    monkeypatch.setattr(analysis_router, "redis_status", lambda: "not_configured")
+    monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
+
+    client = TestClient(app)
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["providers"]["stockdata"] == "ok"
+    assert payload["providers"]["stockdata.quote"] == "ok"
+    assert payload["providers"]["stockdata.eod"] == "ok"
+    assert payload["providers"]["stockdata.search"] == "ok"
