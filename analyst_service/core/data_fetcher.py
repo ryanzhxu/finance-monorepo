@@ -24,6 +24,7 @@ from analyst_service.core.provider_clients.stockdata import (
     fetch_stockdata_quote,
     stockdata_api_key,
 )
+from analyst_service.core.regime import classify_regime
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
 
@@ -188,6 +189,27 @@ def _fetch_yfinance_ohlcv(symbol: str) -> pd.DataFrame:
         logger.warning("[%s] yfinance download raised %s: %s", symbol, type(exc).__name__, exc)
         return _empty_frame()
     return _normalize_ohlcv_frame(frame)
+
+
+def _fetch_spy_vs_ma200_pct() -> float | None:
+    try:
+        import yfinance as yf
+
+        spy = yf.Ticker("SPY")
+        spy_hist = spy.history(period="1y", interval="1d")
+        normalized = _normalize_ohlcv_frame(spy_hist)
+        if normalized.empty or "close" not in normalized:
+            return None
+        closes = normalized["close"].dropna()
+        if closes.empty:
+            return None
+        spy_ma200 = closes.tail(200).mean()
+        if pd.isna(spy_ma200) or not spy_ma200:
+            return None
+        spy_price = closes.iloc[-1]
+        return round((float(spy_price) - float(spy_ma200)) / float(spy_ma200) * 100.0, 2)
+    except Exception:
+        return None
 
 
 def _cache_ttl(name: str, default: int) -> int:
@@ -435,6 +457,7 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
 
 def fetch_macro() -> FreshValue[Macro]:
     raw = fetch_raw_macro()
+    spy_vs_ma200_pct = _fetch_spy_vs_ma200_pct()
     macro = Macro(
         days_to_next_fomc=raw.days_to_next_fomc,
         next_fomc_date=raw.next_fomc_date,
@@ -443,6 +466,12 @@ def fetch_macro() -> FreshValue[Macro]:
         treasury_10y=raw.treasury_10y,
         vix=raw.vix,
         freshness=raw.freshness,
+        market_regime=classify_regime(
+            raw.vix,
+            raw.treasury_10y,
+            spy_vs_ma200_pct,
+            raw.days_to_next_fomc,
+        ),
     )
     freshness_map = {
         "live": Freshness.LIVE,

@@ -209,6 +209,9 @@ class EntryBlock(BaseModel):
     breakout_volume_confirmed: bool
     entry_assessment: EntryAssessment
     reason: str
+    regime: str | None = None
+    regime_override: bool = False
+    regime_override_reason: str | None = None
 
 
 class FibonacciLevels(BaseModel):
@@ -254,6 +257,20 @@ class Recommendation(BaseModel):
     direction: Direction
     confidence: float = Field(ge=0.0, le=1.0)
     signal_vote: dict[Direction, int]
+    technical_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    fundamental_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    sentiment_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    macro_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    conflict_detected: bool = False
+    conflict_summary: str | None = None
     weighted_score: float
     technical_target_high: float | None = None
     technical_target_low: float | None = None

@@ -391,6 +391,33 @@
             "title": "Reason",
             "type": "string"
           },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "regime_override": {
+            "default": false,
+            "title": "Regime Override",
+            "type": "boolean"
+          },
+          "regime_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime Override Reason"
+          },
           "resistance_levels": {
             "items": {
               "type": "number"
@@ -665,6 +692,33 @@
           "reason": {
             "title": "Reason",
             "type": "string"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "regime_override": {
+            "default": false,
+            "title": "Regime Override",
+            "type": "boolean"
+          },
+          "regime_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime Override Reason"
           },
           "resistance_levels": {
             "items": {
@@ -1215,11 +1269,47 @@
             "title": "Confidence",
             "type": "number"
           },
+          "conflict_detected": {
+            "default": false,
+            "title": "Conflict Detected",
+            "type": "boolean"
+          },
+          "conflict_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Summary"
+          },
           "direction": {
             "$ref": "#/components/schemas/Direction"
           },
+          "fundamental_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Fundamental Vote",
+            "type": "object"
+          },
           "horizon": {
             "$ref": "#/components/schemas/Horizon"
+          },
+          "macro_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Macro Vote",
+            "type": "object"
           },
           "review_action": {
             "title": "Review Action",
@@ -1231,6 +1321,16 @@
             },
             "title": "Risk Flags",
             "type": "array"
+          },
+          "sentiment_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Sentiment Vote",
+            "type": "object"
           },
           "signal_vote": {
             "additionalProperties": {
@@ -1274,6 +1374,16 @@
               }
             ],
             "title": "Technical Target Low"
+          },
+          "technical_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Technical Vote",
+            "type": "object"
           },
           "weighted_score": {
             "title": "Weighted Score",

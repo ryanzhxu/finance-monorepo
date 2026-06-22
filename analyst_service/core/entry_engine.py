@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from shared.enums import Direction, EntryAssessment, Horizon
+from shared.enums import Direction, EntryAssessment, Horizon, MarketRegime
 from shared.models import EntryBlock, Fundamentals, Technicals
 
 
@@ -55,6 +55,27 @@ def decide_entry_assessment(
     return EntryAssessment.WAIT_FOR_PULLBACK
 
 
+def _apply_regime_override(
+    assessment: EntryAssessment,
+    regime: str | None,
+) -> tuple[EntryAssessment, bool, str | None]:
+    if assessment == EntryAssessment.AVOID or regime is None:
+        return assessment, False, None
+
+    normalized_regime = regime if regime in {member.value for member in MarketRegime} else None
+    if normalized_regime == MarketRegime.RISK_OFF.value:
+        if assessment == EntryAssessment.BUY_NOW:
+            return EntryAssessment.WAIT_FOR_PULLBACK, True, "risk-off suppresses buy_now"
+        if assessment == EntryAssessment.WAIT_FOR_BREAKOUT:
+            return EntryAssessment.AVOID, True, "risk-off suppresses breakout trades"
+        if assessment == EntryAssessment.SHORT_TERM_TRADE_ONLY:
+            return EntryAssessment.AVOID, True, "risk-off suppresses short-term trades"
+        if assessment == EntryAssessment.LONG_TERM_CANDIDATE:
+            return EntryAssessment.WAIT_FOR_PULLBACK, True, "risk-off suppresses long-term entries"
+
+    return assessment, False, None
+
+
 def compute_entry(
     current_price: float,
     technicals: Technicals,
@@ -63,6 +84,7 @@ def compute_entry(
     horizon: Horizon,
     rules: dict[str, Any],
     risk_flags: list[str] | None = None,
+    regime: str | None = None,
 ) -> EntryBlock:
     atr = float(technicals.atr_14 or max(current_price * 0.02, 0.01))
     support_levels = technicals.support_levels or [round(current_price - atr, 2), round(current_price - (2 * atr), 2)]
@@ -123,11 +145,12 @@ def compute_entry(
         risk_reward_ratio=risk_reward,
         rr_min=rr_min,
     )
-    aggressive_entry = _round(current_price) if assessment == EntryAssessment.BUY_NOW else None
+    final_assessment, regime_override, regime_override_reason = _apply_regime_override(assessment, regime)
+    aggressive_entry = _round(current_price) if final_assessment == EntryAssessment.BUY_NOW else None
     pullback_target = max(ideal_low, min(support1, acceptable_entry_cap))
-    conservative_entry = _round(pullback_target) if assessment == EntryAssessment.WAIT_FOR_PULLBACK else None
+    conservative_entry = _round(pullback_target) if final_assessment == EntryAssessment.WAIT_FOR_PULLBACK else None
     reason = _reason(
-        assessment,
+        final_assessment,
         current_price,
         support1,
         resistance1,
@@ -137,6 +160,8 @@ def compute_entry(
         rr_min,
         pullback_target,
     )
+    if regime_override and regime_override_reason and regime is not None:
+        reason = f"{reason} [Regime override: {regime} — {regime_override_reason}]"
     return EntryBlock(
         current_price=_round(current_price) or current_price,
         ideal_buy_zone=(_round(ideal_low) or ideal_low, _round(ideal_high) or ideal_high),
@@ -150,8 +175,11 @@ def compute_entry(
         risk_reward_ratio=None if risk_reward is None else round(float(risk_reward), 2),
         is_overextended=is_overextended,
         breakout_volume_confirmed=breakout_volume_confirmed,
-        entry_assessment=assessment,
+        entry_assessment=final_assessment,
         reason=reason,
+        regime=regime,
+        regime_override=regime_override,
+        regime_override_reason=regime_override_reason,
     )
 
 

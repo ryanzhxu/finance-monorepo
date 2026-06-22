@@ -83,6 +83,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
             horizon=request.horizon,
             rules=config["entry_rules"],
             risk_flags=provisional.risk_flags,
+            regime=macro.market_regime.value if hasattr(macro.market_regime, "value") else macro.market_regime,
         )
     recommendation = aggregate_recommendation(
         signals,
