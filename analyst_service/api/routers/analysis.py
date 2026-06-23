@@ -38,6 +38,10 @@ from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.fibonacci import compute_fibonacci_levels, load_fibonacci_config
 from analyst_service.core.fundamentals import normalize_fundamentals
+from analyst_service.core.provider_clients.finance_query import (
+    finance_query_base_url,
+    search_finance_query_symbols,
+)
 from analyst_service.core.provider_clients.stockdata import search_stockdata_symbols, stockdata_api_key
 from analyst_service.core.cache import backend_name as cache_backend_name, redis_status
 from analyst_service.core.llm_client import llm_available
@@ -208,6 +212,44 @@ async def _check_stockdata_search() -> str:
         return "unavailable"
 
 
+async def _check_finance_query_quote() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{finance_query_base_url()}/quote/AAPL", params={"logo": "true"})
+            response.raise_for_status()
+            payload = response.json()
+        return "ok" if isinstance(payload, dict) and bool(payload.get("symbol")) else "empty"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_finance_query_chart() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{finance_query_base_url()}/chart/AAPL",
+                params={"interval": "1d", "range": "1mo"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        candles = payload.get("candles") if isinstance(payload, dict) else None
+        return "ok" if isinstance(candles, list) and len(candles) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
+async def _check_finance_query_search() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{finance_query_base_url()}/lookup", params={"q": "AAPL"})
+            response.raise_for_status()
+            payload = response.json()
+        quotes = payload.get("quotes") if isinstance(payload, dict) else None
+        return "ok" if isinstance(quotes, list) and len(quotes) > 0 else "empty"
+    except Exception:
+        return "unavailable"
+
+
 @router.get("/search")
 async def search_symbols(q: str, limit: int = 6) -> list[dict]:
     if not q or len(q.strip()) < 1:
@@ -219,6 +261,12 @@ async def search_symbols(q: str, limit: int = 6) -> list[dict]:
                 return stockdata_results
         except Exception:
             pass
+    try:
+        finance_query_results = search_finance_query_symbols(q, limit=limit)
+        if finance_query_results:
+            return finance_query_results
+    except Exception:
+        pass
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
@@ -263,12 +311,15 @@ async def health() -> HealthResponse:
         else "not_configured"
     )
 
-    yahoo_statuses, sec_status, stockdata_quote_status, stockdata_eod_status, stockdata_search_status = await asyncio.gather(
+    yahoo_statuses, sec_status, stockdata_quote_status, stockdata_eod_status, stockdata_search_status, finance_query_quote_status, finance_query_chart_status, finance_query_search_status = await asyncio.gather(
         _check_yfinance_feature_statuses(),
         _check_sec_edgar(),
         _check_stockdata_quote(),
         _check_stockdata_eod(),
         _check_stockdata_search(),
+        _check_finance_query_quote(),
+        _check_finance_query_chart(),
+        _check_finance_query_search(),
     )
     stockdata_statuses = {
         "stockdata.quote": stockdata_quote_status,
@@ -276,9 +327,16 @@ async def health() -> HealthResponse:
         "stockdata.search": stockdata_search_status,
     }
     stockdata_statuses["stockdata"] = _summarize_provider_status(list(stockdata_statuses.values()))
+    finance_query_statuses = {
+        "finance_query.quote": finance_query_quote_status,
+        "finance_query.chart": finance_query_chart_status,
+        "finance_query.search": finance_query_search_status,
+    }
+    finance_query_statuses["finance_query"] = _summarize_provider_status(list(finance_query_statuses.values()))
 
     providers = {
         **stockdata_statuses,
+        **finance_query_statuses,
         "alpha_vantage": alpha_vantage_status,
         **yahoo_statuses,
         "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",

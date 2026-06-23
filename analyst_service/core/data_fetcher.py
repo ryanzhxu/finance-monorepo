@@ -24,6 +24,11 @@ from analyst_service.core.provider_clients.stockdata import (
     fetch_stockdata_quote,
     stockdata_api_key,
 )
+from analyst_service.core.provider_clients.finance_query import (
+    fetch_finance_query_chart,
+    fetch_finance_query_quote,
+)
+from analyst_service.core.regime import classify_regime
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
 
@@ -190,6 +195,27 @@ def _fetch_yfinance_ohlcv(symbol: str) -> pd.DataFrame:
     return _normalize_ohlcv_frame(frame)
 
 
+def _fetch_spy_vs_ma200_pct() -> float | None:
+    try:
+        import yfinance as yf
+
+        spy = yf.Ticker("SPY")
+        spy_hist = spy.history(period="1y", interval="1d")
+        normalized = _normalize_ohlcv_frame(spy_hist)
+        if normalized.empty or "close" not in normalized:
+            return None
+        closes = normalized["close"].dropna()
+        if closes.empty:
+            return None
+        spy_ma200 = closes.tail(200).mean()
+        if pd.isna(spy_ma200) or not spy_ma200:
+            return None
+        spy_price = closes.iloc[-1]
+        return round((float(spy_price) - float(spy_ma200)) / float(spy_ma200) * 100.0, 2)
+    except Exception:
+        return None
+
+
 def _cache_ttl(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, str(default)))
@@ -223,7 +249,7 @@ def _store_cached_payload(key: str, payload: dict[str, object], ttl: int) -> Non
 
 
 def _fundamentals_cache_key(symbol: str) -> str:
-    return f"fundamentals:v2:{symbol.strip().upper()}"
+    return f"fundamentals:v3:{symbol.strip().upper()}"
 
 
 def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Freshness) -> bool:
@@ -248,6 +274,15 @@ def _is_sparse_fundamentals_payload(fundamentals: Fundamentals, freshness: Fresh
 def _fundamentals_cache_ttl(fundamentals: Fundamentals, freshness: Freshness) -> int:
     if _is_sparse_fundamentals_payload(fundamentals, freshness):
         return _cache_ttl("FUNDAMENTAL_SPARSE_CACHE_TTL", 300)
+    if any(
+        value is None
+        for value in (
+            fundamentals.eps_surprise_pct,
+            fundamentals.pe_percentile_5y,
+            fundamentals.as_of,
+        )
+    ):
+        return _cache_ttl("FUNDAMENTAL_SPARSE_CACHE_TTL", 300)
     return _cache_ttl("FUNDAMENTAL_CACHE_TTL", 86400)
 
 
@@ -261,8 +296,8 @@ def _sentiment_cache_key(symbol: str, price_history: pd.DataFrame | None) -> str
                 if not series.empty:
                     last_close = float(series.iloc[-1])
                 break
-        return f"sentiment:v1:{symbol.strip().upper()}:{last_index}:{last_close}"
-    return f"sentiment:v1:{symbol.strip().upper()}"
+        return f"sentiment:v2:{symbol.strip().upper()}:{last_index}:{last_close}"
+    return f"sentiment:v2:{symbol.strip().upper()}"
 
 
 def classify_price_freshness(frame: pd.DataFrame, now: datetime | None = None) -> tuple[Freshness, datetime | None]:
@@ -294,6 +329,15 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
             freshness, as_of = classify_price_freshness(stockdata_frame)
             return FreshValue(stockdata_frame, freshness, as_of)
 
+    try:
+        finance_query_frame = fetch_finance_query_chart(symbol, interval="1d", range_="2y")
+    except Exception as exc:
+        logger.warning("[%s] finance-query chart fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        finance_query_frame = _empty_frame()
+    if not finance_query_frame.empty:
+        freshness, as_of = classify_price_freshness(finance_query_frame)
+        return FreshValue(finance_query_frame, freshness, as_of)
+
     av_key = _alpha_vantage_key()
     if av_key:
         av_frame = _fetch_alpha_vantage_ohlcv(symbol, av_key)
@@ -312,6 +356,17 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
             fallback_price = fetch_stockdata_quote(symbol)
         except Exception as exc:
             logger.warning("[%s] StockData quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
+    if fallback_price is None:
+        try:
+            finance_query_quote = fetch_finance_query_quote(symbol)
+        except Exception as exc:
+            logger.warning("[%s] finance-query quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        else:
+            fallback_price = _coerce_float(
+                finance_query_quote.get("currentPrice")
+                or finance_query_quote.get("regularMarketPrice")
+                or finance_query_quote.get("previousClose")
+            )
     if fallback_price is None and av_key:
         fallback_price = _fetch_alpha_vantage_quote(symbol, av_key)
     estimated = _estimated_ohlcv(fallback_price)
@@ -426,6 +481,7 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> F
 
 def fetch_macro() -> FreshValue[Macro]:
     raw = fetch_raw_macro()
+    spy_vs_ma200_pct = _fetch_spy_vs_ma200_pct()
     macro = Macro(
         days_to_next_fomc=raw.days_to_next_fomc,
         next_fomc_date=raw.next_fomc_date,
@@ -434,6 +490,12 @@ def fetch_macro() -> FreshValue[Macro]:
         treasury_10y=raw.treasury_10y,
         vix=raw.vix,
         freshness=raw.freshness,
+        market_regime=classify_regime(
+            raw.vix,
+            raw.treasury_10y,
+            spy_vs_ma200_pct,
+            raw.days_to_next_fomc,
+        ),
     )
     freshness_map = {
         "live": Freshness.LIVE,

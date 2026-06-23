@@ -12,6 +12,11 @@ import httpx
 import pandas as pd
 
 from shared.models import Fundamentals as SharedFundamentals
+from analyst_service.core.provider_clients.finance_query import (
+    fetch_finance_query_chart,
+    fetch_finance_query_quote,
+)
+from analyst_service.core.provider_clients.stockdata import fetch_stockdata_eod, stockdata_api_key
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
 ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
@@ -225,6 +230,26 @@ def _compute_pe_percentile(
     return round(max(0.0, min(100.0, percentile)), 2)
 
 
+def _earnings_history_ttm_pe_ratio(current_price: float | None, earnings_history: pd.DataFrame | None) -> float | None:
+    if current_price is None or current_price <= 0:
+        return None
+    frame = _safe_frame(earnings_history)
+    if frame is None or frame.empty:
+        return None
+    try:
+        frame.index = pd.to_datetime(frame.index)
+    except Exception:
+        return None
+    frame = frame.sort_index()
+    eps_values = pd.to_numeric(frame.get("epsActual"), errors="coerce").dropna()
+    if len(eps_values) < 4:
+        return None
+    ttm_eps = float(eps_values.tail(4).sum())
+    if not math.isfinite(ttm_eps) or ttm_eps <= 0:
+        return None
+    return round(float(current_price) / ttm_eps, 2)
+
+
 def _extract_statement_series(frame: pd.DataFrame | None, candidates: tuple[str, ...]) -> pd.Series | None:
     working = _safe_frame(frame)
     if working is None or working.empty:
@@ -405,6 +430,14 @@ def _alpha_vantage_key() -> str | None:
     return os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
 
 
+def _alpha_vantage_trailing_pe(overview: dict[str, Any]) -> float | None:
+    return _coerce_float(overview.get("TrailingPE") or overview.get("PERatio"))
+
+
+def _alpha_vantage_price_to_book(overview: dict[str, Any]) -> float | None:
+    return _coerce_float(overview.get("PriceToBookRatio"))
+
+
 def _alpha_vantage_revenue_growth(overview: dict[str, Any]) -> float | None:
     return _maybe_percent(overview.get("QuarterlyRevenueGrowthYOY") or overview.get("RevenueGrowthYOY"))
 
@@ -448,6 +481,46 @@ def _alpha_vantage_latest_surprise(earnings: dict[str, Any]) -> float | None:
     return ranked_rows[-1][1]
 
 
+def _alpha_vantage_latest_quarter(overview: dict[str, Any]) -> str | None:
+    return _iso_date(overview.get("LatestQuarter"))
+
+
+def _alpha_vantage_earnings_history(earnings: dict[str, Any]) -> pd.DataFrame | None:
+    quarterly = earnings.get("quarterlyEarnings")
+    if not isinstance(quarterly, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in quarterly:
+        if not isinstance(item, dict):
+            continue
+        reported_date = _safe_timestamp(item.get("reportedDate"))
+        fiscal_date = _safe_timestamp(item.get("fiscalDateEnding"))
+        index_date = reported_date or fiscal_date
+        eps_actual = _coerce_float(item.get("reportedEPS"))
+        if index_date is None or eps_actual is None:
+            continue
+        surprise_pct = _maybe_percent(item.get("surprisePercentage") or item.get("surprisePercent"))
+        if surprise_pct is None:
+            estimated_eps = _coerce_float(item.get("estimatedEPS"))
+            if estimated_eps not in (None, 0):
+                surprise_pct = round(((eps_actual - estimated_eps) / abs(estimated_eps)) * 100.0, 2)
+        rows.append(
+            {
+                "date": index_date,
+                "epsActual": eps_actual,
+                "surprisePercent": surprise_pct,
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).set_index("date").sort_index()
+    frame.index = pd.to_datetime(frame.index)
+    return frame
+
+
 def _fetch_yahoo_search_name(symbol: str) -> str | None:
     try:
         response = httpx.get(
@@ -488,6 +561,66 @@ def _fetch_yahoo_search_name(symbol: str) -> str | None:
         if isinstance(name, str) and name.strip():
             return name.strip()
     return None
+
+
+def _finance_query_earnings_history(quote: dict[str, Any]) -> pd.DataFrame | None:
+    history = quote.get("earningsHistory", {}).get("history")
+    if not isinstance(history, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        quarter = item.get("quarter")
+        try:
+            timestamp = pd.to_datetime(quarter, unit="s", utc=True, errors="coerce")
+        except Exception:
+            timestamp = pd.NaT
+        if pd.isna(timestamp):
+            continue
+        rows.append(
+            {
+                "date": timestamp.tz_convert(None),
+                "epsActual": _coerce_float(item.get("epsActual")),
+                "surprisePercent": _coerce_float(item.get("surprisePercent")),
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).dropna(subset=["date"]).set_index("date").sort_index()
+    return frame if not frame.empty else None
+
+
+def _finance_query_upgrade_history(quote: dict[str, Any]) -> pd.DataFrame | None:
+    history = quote.get("upgradeDowngradeHistory", {}).get("history")
+    if not isinstance(history, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        timestamp = pd.to_datetime(item.get("epochGradeDate"), unit="s", utc=True, errors="coerce")
+        if pd.isna(timestamp):
+            continue
+        rows.append(
+            {
+                "date": timestamp,
+                "action": item.get("action"),
+                "toGrade": item.get("toGrade"),
+                "fromGrade": item.get("fromGrade"),
+                "firm": item.get("firm"),
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).dropna(subset=["date"]).set_index("date").sort_index()
+    return frame if not frame.empty else None
 
 
 def _quarterly_sec_records(companyfacts: dict[str, Any] | None, concepts: tuple[str, ...]) -> list[dict[str, Any]]:
@@ -607,12 +740,20 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         av_earnings = _fetch_alpha_vantage_earnings(symbol, av_key)
 
     av_eps_surprise_pct = _alpha_vantage_latest_surprise(av_earnings)
-    av_current_pe = _coerce_float(av_overview.get("TrailingPE"))
-    av_pb_ratio = _coerce_float(av_overview.get("PriceToBookRatio"))
+    av_earnings_history = _alpha_vantage_earnings_history(av_earnings)
+    av_current_pe = _alpha_vantage_trailing_pe(av_overview)
+    av_pb_ratio = _alpha_vantage_price_to_book(av_overview)
     av_ps_ratio = _coerce_float(av_overview.get("PriceToSalesRatioTTM"))
     av_ev_ebitda = _coerce_float(av_overview.get("EVToEBITDA"))
     av_revenue_growth = _alpha_vantage_revenue_growth(av_overview)
     av_gross_margin = _alpha_vantage_gross_margin(av_overview)
+    try:
+        finance_query_quote = fetch_finance_query_quote(symbol)
+    except Exception as exc:
+        logger.warning("[%s] finance-query quote fetch raised: %s", symbol, exc)
+        finance_query_quote = {}
+    fq_earnings_history = _finance_query_earnings_history(finance_query_quote)
+    fq_upgrades_downgrades = _finance_query_upgrade_history(finance_query_quote)
 
     ticker = None
     try:
@@ -659,19 +800,63 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         price_history = ticker.history(period="5y", interval="1d", auto_adjust=False) if ticker is not None else None
     except Exception:
         price_history = None
+    stockdata_price_history = None
+    if _safe_frame(price_history) is None or _safe_frame(price_history).empty:
+        if stockdata_api_key():
+            try:
+                stockdata_price_history = fetch_stockdata_eod(symbol, total_days=(365 * 5) + 30)
+            except Exception:
+                stockdata_price_history = None
+    finance_query_price_history = None
+    if (_safe_frame(price_history) is None or _safe_frame(price_history).empty) and (
+        stockdata_price_history is None or stockdata_price_history.empty
+    ):
+        try:
+            finance_query_price_history = fetch_finance_query_chart(symbol, interval="1d", range_="5y")
+        except Exception:
+            finance_query_price_history = None
 
-    yf_eps_surprise_pct, earnings_as_of = _extract_latest_surprise(earnings_history)
+    effective_price_history = _safe_frame(price_history)
+    if effective_price_history is None or effective_price_history.empty:
+        effective_price_history = _safe_frame(stockdata_price_history)
+    if effective_price_history is None or effective_price_history.empty:
+        effective_price_history = _safe_frame(finance_query_price_history)
+
+    yf_eps_surprise_pct, _ = _extract_latest_surprise(earnings_history)
+
+    effective_earnings_history = earnings_history
+    if _safe_frame(effective_earnings_history) is None or _safe_frame(effective_earnings_history).empty:
+        effective_earnings_history = fq_earnings_history
+    if _safe_frame(effective_earnings_history) is None or _safe_frame(effective_earnings_history).empty:
+        effective_earnings_history = av_earnings_history
+
+    fallback_eps_surprise_pct, earnings_as_of = _extract_latest_surprise(effective_earnings_history)
     eps_surprise_pct = av_eps_surprise_pct if av_eps_surprise_pct is not None else yf_eps_surprise_pct
+    if eps_surprise_pct is None:
+        eps_surprise_pct = fallback_eps_surprise_pct
     current_pe = av_current_pe if av_current_pe is not None else _coerce_float(info.get("trailingPE"))
-    pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(info.get("priceToBook"))
-    ps_ratio = _coerce_float(info.get("priceToSalesTrailingTwelveMonths"))
-    ev_ebitda = _coerce_float(info.get("enterpriseToEbitda"))
-    pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
+    pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(
+        finance_query_quote.get("priceToBook") or info.get("priceToBook")
+    )
+    ps_ratio = _coerce_float(
+        finance_query_quote.get("priceToSalesTrailing12Months") or info.get("priceToSalesTrailingTwelveMonths")
+    )
+    ev_ebitda = _coerce_float(finance_query_quote.get("enterpriseToEbitda") or info.get("enterpriseToEbitda"))
+    pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, effective_price_history, now)
+    upgrades_frame = _safe_frame(upgrades_downgrades)
     upgrades, downgrades = _extract_recent_recommendation_counts(upgrades_downgrades, now)
-    revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(info.get("revenueGrowth"))
-    gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(info.get("grossMargins"))
+    if upgrades_frame is None or upgrades_frame.empty:
+        upgrades, downgrades = _extract_recent_recommendation_counts(fq_upgrades_downgrades, now)
+    revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(
+        finance_query_quote.get("revenueGrowth") or info.get("revenueGrowth")
+    )
+    gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(
+        finance_query_quote.get("grossMargins") or info.get("grossMargins")
+    )
     fcf_trend = _extract_fcf_trend(_safe_frame(quarterly_cash_flow))
-    current_price = _extract_current_price(info, _safe_frame(price_history))
+    current_price = _extract_current_price(finance_query_quote or info, effective_price_history)
+    if current_pe is None:
+        current_pe = _earnings_history_ttm_pe_ratio(current_price, effective_earnings_history)
 
     sec_companyfacts: dict[str, Any] | None = None
     if None in (revenue_growth, gross_margin, fcf_trend, earnings_as_of, current_pe):
@@ -684,7 +869,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
 
     if current_pe is None:
         current_pe = _sec_pe_ratio(sec_companyfacts, current_price)
-        pe_percentile = _compute_pe_percentile(current_pe, earnings_history, price_history, now)
+        pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, effective_price_history, now)
     if revenue_growth is None:
         revenue_growth = _sec_revenue_growth(sec_companyfacts)
     if gross_margin is None:
@@ -693,12 +878,20 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         fcf_trend = _sec_fcf_trend(sec_companyfacts)
     if earnings_as_of is None:
         earnings_as_of = _sec_as_of(sec_companyfacts)
+    if earnings_as_of is None:
+        earnings_as_of = _alpha_vantage_latest_quarter(av_overview)
 
     if ps_ratio is None:
         ps_ratio = av_ps_ratio
     if ev_ebitda is None:
         ev_ebitda = av_ev_ebitda
 
+    if company_name is None:
+        company_name = (
+            finance_query_quote.get("longName")
+            or finance_query_quote.get("shortName")
+            or None
+        )
     if company_name is None:
         company_name = _fetch_yahoo_search_name(symbol)
     if company_name is None and av_overview:

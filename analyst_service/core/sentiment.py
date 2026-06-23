@@ -16,6 +16,7 @@ import pandas as pd
 
 from shared.models import Sentiment as SharedSentiment
 from analyst_service.core.settings import load_service_config
+from analyst_service.core.provider_clients.finance_query import fetch_finance_query_quote
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
 MARKETAUX_BASE = "https://api.marketaux.com/v1/news/all"
@@ -61,6 +62,10 @@ def _coerce_float(value: Any) -> float | None:
 
 def _load_yfinance() -> Any:
     return importlib.import_module("yfinance")
+
+
+def _alpha_vantage_key() -> str | None:
+    return os.getenv("ALPHA_VANTAGE_KEY") or os.getenv("ALPHA_VANTAGE_API_KEY")
 
 
 def _news_sentiment_config() -> dict[str, Any]:
@@ -134,6 +139,23 @@ def _compute_put_call_ratio(ticker: Any) -> float | None:
     if call_volume is None or put_volume is None or call_volume <= 0:
         return None
     return round(put_volume / call_volume, 4)
+
+
+def _fetch_alpha_vantage_put_call_ratio(symbol: str, key: str) -> float | None:
+    response = httpx.get(
+        "https://www.alphavantage.co/query",
+        params={
+            "function": "HISTORICAL_PUT_CALL_RATIO",
+            "symbol": symbol,
+            "apikey": key,
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        return None
+    return _coerce_float(payload.get("put_call_ratio_full_chain"))
 
 
 def _extract_cik(symbol: str, info: dict[str, Any]) -> str | None:
@@ -426,6 +448,11 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
     info: dict[str, Any] = {}
     put_call_ratio = None
     short_interest_pct = None
+    av_key = _alpha_vantage_key()
+    try:
+        finance_query_quote = fetch_finance_query_quote(symbol)
+    except Exception:
+        finance_query_quote = {}
 
     try:
         yf = _load_yfinance()
@@ -438,10 +465,21 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
             put_call_ratio = _compute_put_call_ratio(ticker)
         except Exception:
             put_call_ratio = None
-        short_interest_raw = _coerce_float(info.get("shortPercentOfFloat"))
+        short_interest_raw = _coerce_float(
+            info.get("shortPercentOfFloat")
+            or finance_query_quote.get("shortPercentOfFloat")
+        )
         short_interest_pct = None if short_interest_raw is None else round(short_interest_raw * 100.0, 2)
     except Exception:
         ticker = None
+        short_interest_raw = _coerce_float(finance_query_quote.get("shortPercentOfFloat"))
+        short_interest_pct = None if short_interest_raw is None else round(short_interest_raw * 100.0, 2)
+
+    if put_call_ratio is None and av_key:
+        try:
+            put_call_ratio = _fetch_alpha_vantage_put_call_ratio(symbol, av_key)
+        except Exception:
+            put_call_ratio = None
 
     iv_rank_approx = _compute_hv_rank(price_history)
 

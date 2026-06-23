@@ -83,6 +83,14 @@ def _install_sparse_yfinance(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "yfinance", fake_module)
     monkeypatch.setattr(analysis_router, "yf", fake_module)
     monkeypatch.setattr(fundamentals_module, "_utc_now", lambda: FIXED_NOW)
+    monkeypatch.setattr(fundamentals_module, "fetch_finance_query_quote", lambda symbol: {})
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_chart",
+        lambda symbol, interval="1d", range_="5y": pd.DataFrame(),
+    )
+    monkeypatch.setattr(fundamentals_module, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(sentiment_module, "fetch_finance_query_quote", lambda symbol: {})
 
 
 def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_is_sparse(monkeypatch) -> None:
@@ -98,6 +106,9 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
 
     monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_check_sec_edgar)
     monkeypatch.setattr(analysis_router, "_check_yahoo_search", fake_check_yahoo_search)
+    monkeypatch.setattr(analysis_router, "_check_finance_query_quote", lambda: fake_check_yahoo_search())
+    monkeypatch.setattr(analysis_router, "_check_finance_query_chart", lambda: fake_check_yahoo_search())
+    monkeypatch.setattr(analysis_router, "_check_finance_query_search", lambda: fake_check_yahoo_search())
     class FakeResponse:
         def __init__(self, payload) -> None:
             self._payload = payload
@@ -124,6 +135,44 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
         raise httpx.HTTPError("boom")
 
     monkeypatch.setattr(fundamentals_module.httpx, "get", fake_httpx_get)
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_quote",
+        lambda symbol: {
+            "longName": "NVIDIA Corporation",
+            "priceToBook": 26.107807,
+            "priceToSalesTrailing12Months": 20.131376,
+            "enterpriseToEbitda": 30.561,
+            "revenueGrowth": 0.852,
+            "grossMargins": 0.74144995,
+            "upgradeDowngradeHistory": {
+                "history": [
+                    {"epochGradeDate": 1780418448, "action": "up"},
+                    {"epochGradeDate": 1780335598, "action": "down"},
+                ]
+            },
+            "earningsHistory": {
+                "history": [
+                    {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
+                    {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
+                ]
+            },
+        },
+    )
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_chart",
+        lambda symbol, interval="1d", range_="5y": pd.DataFrame(
+            {
+                "open": [180.0, 190.0],
+                "high": [181.0, 191.0],
+                "low": [179.0, 189.0],
+                "close": [180.0, 190.0],
+                "volume": [1_000_000.0, 1_100_000.0],
+            },
+            index=pd.to_datetime(["2026-01-31", "2026-04-30"]),
+        ),
+    )
 
     client = TestClient(app)
     health = client.get("/health")
@@ -135,16 +184,17 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
     assert providers["yfinance.info"] == "empty"
     assert providers["yfinance.upgrades_downgrades"] == "unavailable"
     assert providers["yahoo.search"] == "ok"
+    assert providers["finance_query"] == "ok"
 
     data = fundamentals_module.fetch_fundamentals("NVDA")
 
     assert data.company_name == "NVIDIA Corporation"
-    assert data.analyst_upgrades_30d is None
-    assert data.analyst_downgrades_30d is None
+    assert data.analyst_upgrades_30d == 1
+    assert data.analyst_downgrades_30d == 1
     assert data.pe_ratio is None
-    assert data.revenue_growth_yoy_pct is None
-    assert data.gross_margin_pct is None
-    assert data.freshness == "missing"
+    assert data.revenue_growth_yoy_pct == 85.2
+    assert data.gross_margin_pct == 74.14
+    assert data.freshness == "quarterly"
 
 
 def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(monkeypatch, tmp_path) -> None:
@@ -183,6 +233,46 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
         raise httpx.HTTPError("boom")
 
     monkeypatch.setattr(fundamentals_module.httpx, "get", fake_httpx_get)
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_quote",
+        lambda symbol: {
+            "longName": "NVIDIA Corporation",
+            "priceToBook": 26.107807,
+            "priceToSalesTrailing12Months": 20.131376,
+            "enterpriseToEbitda": 30.561,
+            "revenueGrowth": 0.852,
+            "grossMargins": 0.74144995,
+            "shortPercentOfFloat": 0.012200001,
+            "upgradeDowngradeHistory": {
+                "history": [
+                    {"epochGradeDate": 1780418448, "action": "up"},
+                    {"epochGradeDate": 1780335598, "action": "down"},
+                ]
+            },
+            "earningsHistory": {
+                "history": [
+                    {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
+                    {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
+                ]
+            },
+        },
+    )
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_chart",
+        lambda symbol, interval="1d", range_="5y": pd.DataFrame(
+            {
+                "open": [180.0, 190.0],
+                "high": [181.0, 191.0],
+                "low": [179.0, 189.0],
+                "close": [180.0, 190.0],
+                "volume": [1_000_000.0, 1_100_000.0],
+            },
+            index=pd.to_datetime(["2026-01-31", "2026-04-30"]),
+        ),
+    )
+    monkeypatch.setattr(sentiment_module, "fetch_finance_query_quote", lambda symbol: {"shortPercentOfFloat": 0.012200001})
     monkeypatch.setattr(
         sentiment_module,
         "_sec_get",
@@ -235,10 +325,14 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
     assert payload["symbol"] == "NVDA"
     assert payload["company_name"] == "NVIDIA Corporation"
     assert payload["fundamentals"]["company_name"] == "NVIDIA Corporation"
-    assert payload["fundamentals"]["analyst_upgrades_30d"] is None
-    assert payload["fundamentals"]["analyst_downgrades_30d"] is None
+    assert payload["fundamentals"]["analyst_upgrades_30d"] == 1
+    assert payload["fundamentals"]["analyst_downgrades_30d"] == 1
     assert payload["fundamentals"]["pe_ratio"] is None
-    assert payload["data_quality_score"] < 70
+    assert payload["fundamentals"]["pb_ratio"] == 26.11
+    assert payload["fundamentals"]["revenue_growth_yoy_pct"] == 85.2
+    assert payload["fundamentals"]["gross_margin_pct"] == 74.14
+    assert payload["sentiment"]["short_interest_pct"] == 1.22
+    assert payload["data_quality_score"] >= 70
     assert payload["recommendation"]["direction"] in ["BUY", "HOLD", "SELL"]
     assert payload["entry"] is not None
     assert payload["data_freshness"]["price"] is not None
