@@ -140,6 +140,7 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
         "fetch_finance_query_quote",
         lambda symbol: {
             "longName": "NVIDIA Corporation",
+            "currentPrice": 208.65,
             "priceToBook": 26.107807,
             "priceToSalesTrailing12Months": 20.131376,
             "enterpriseToEbitda": 30.561,
@@ -153,6 +154,8 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
             },
             "earningsHistory": {
                 "history": [
+                    {"quarter": 1753920000, "epsActual": 1.05, "surprisePercent": 0.0410},
+                    {"quarter": 1761868800, "epsActual": 1.30, "surprisePercent": 0.0346},
                     {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
                     {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
                 ]
@@ -191,7 +194,7 @@ def test_nonlocal_yfinance_shape_reports_degraded_feature_health_when_metadata_i
     assert data.company_name == "NVIDIA Corporation"
     assert data.analyst_upgrades_30d == 1
     assert data.analyst_downgrades_30d == 1
-    assert data.pe_ratio is None
+    assert data.pe_ratio == 35.73
     assert data.revenue_growth_yoy_pct == 85.2
     assert data.gross_margin_pct == 74.14
     assert data.freshness == "quarterly"
@@ -238,6 +241,7 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
         "fetch_finance_query_quote",
         lambda symbol: {
             "longName": "NVIDIA Corporation",
+            "currentPrice": 208.65,
             "priceToBook": 26.107807,
             "priceToSalesTrailing12Months": 20.131376,
             "enterpriseToEbitda": 30.561,
@@ -252,6 +256,8 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
             },
             "earningsHistory": {
                 "history": [
+                    {"quarter": 1753920000, "epsActual": 1.05, "surprisePercent": 0.0410},
+                    {"quarter": 1761868800, "epsActual": 1.30, "surprisePercent": 0.0346},
                     {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
                     {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
                 ]
@@ -327,7 +333,7 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
     assert payload["fundamentals"]["company_name"] == "NVIDIA Corporation"
     assert payload["fundamentals"]["analyst_upgrades_30d"] == 1
     assert payload["fundamentals"]["analyst_downgrades_30d"] == 1
-    assert payload["fundamentals"]["pe_ratio"] is None
+    assert payload["fundamentals"]["pe_ratio"] == 35.73
     assert payload["fundamentals"]["pb_ratio"] == 26.11
     assert payload["fundamentals"]["revenue_growth_yoy_pct"] == 85.2
     assert payload["fundamentals"]["gross_margin_pct"] == 74.14

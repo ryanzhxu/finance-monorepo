@@ -392,6 +392,7 @@ def test_fetch_fundamentals_uses_finance_query_for_yahoo_shaped_fallbacks(monkey
         "fetch_finance_query_quote",
         lambda symbol: {
             "longName": "NVIDIA Corporation",
+            "currentPrice": 208.65,
             "priceToBook": 26.107807,
             "priceToSalesTrailing12Months": 20.131376,
             "enterpriseToEbitda": 30.561,
@@ -405,6 +406,8 @@ def test_fetch_fundamentals_uses_finance_query_for_yahoo_shaped_fallbacks(monkey
             },
             "earningsHistory": {
                 "history": [
+                    {"quarter": 1753920000, "epsActual": 1.05, "surprisePercent": 0.0410},
+                    {"quarter": 1761868800, "epsActual": 1.30, "surprisePercent": 0.0346},
                     {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
                     {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
                 ]
@@ -431,6 +434,7 @@ def test_fetch_fundamentals_uses_finance_query_for_yahoo_shaped_fallbacks(monkey
 
     assert data.company_name == "NVIDIA Corporation"
     assert data.eps_surprise_pct == 5.54
+    assert data.pe_ratio == 35.73
     assert data.pb_ratio == 26.11
     assert data.ps_ratio == 20.13
     assert data.ev_ebitda == 30.56

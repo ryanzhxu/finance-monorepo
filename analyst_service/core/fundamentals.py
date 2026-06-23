@@ -230,6 +230,26 @@ def _compute_pe_percentile(
     return round(max(0.0, min(100.0, percentile)), 2)
 
 
+def _earnings_history_ttm_pe_ratio(current_price: float | None, earnings_history: pd.DataFrame | None) -> float | None:
+    if current_price is None or current_price <= 0:
+        return None
+    frame = _safe_frame(earnings_history)
+    if frame is None or frame.empty:
+        return None
+    try:
+        frame.index = pd.to_datetime(frame.index)
+    except Exception:
+        return None
+    frame = frame.sort_index()
+    eps_values = pd.to_numeric(frame.get("epsActual"), errors="coerce").dropna()
+    if len(eps_values) < 4:
+        return None
+    ttm_eps = float(eps_values.tail(4).sum())
+    if not math.isfinite(ttm_eps) or ttm_eps <= 0:
+        return None
+    return round(float(current_price) / ttm_eps, 2)
+
+
 def _extract_statement_series(frame: pd.DataFrame | None, candidates: tuple[str, ...]) -> pd.Series | None:
     working = _safe_frame(frame)
     if working is None or working.empty:
@@ -835,6 +855,8 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     )
     fcf_trend = _extract_fcf_trend(_safe_frame(quarterly_cash_flow))
     current_price = _extract_current_price(finance_query_quote or info, effective_price_history)
+    if current_pe is None:
+        current_pe = _earnings_history_ttm_pe_ratio(current_price, effective_earnings_history)
 
     sec_companyfacts: dict[str, Any] | None = None
     if None in (revenue_growth, gross_margin, fcf_trend, earnings_as_of, current_pe):
