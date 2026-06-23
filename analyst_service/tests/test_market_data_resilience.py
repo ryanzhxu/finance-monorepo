@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 
+import httpx
 import pandas as pd
 from fastapi.testclient import TestClient
 
@@ -11,6 +12,7 @@ from analyst_service.api.routers import analysis as analysis_router
 from analyst_service.core import analysis as analysis_module
 from analyst_service.core import data_fetcher
 from analyst_service.core.provider_clients import finance_query as finance_query_client
+from analyst_service.core.provider_clients import stockdata as stockdata_client
 from shared.data_quality import FreshValue
 from shared.enums import Direction, Freshness, MarketRegime
 from shared.models import AnalyzeRequest, Fundamentals, Macro, Recommendation, Sentiment
@@ -306,6 +308,31 @@ def test_search_finance_query_symbols_reads_camel_case_names(monkeypatch) -> Non
     results = finance_query_client.search_finance_query_symbols("nvda", limit=6)
 
     assert results == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}]
+
+
+def test_stockdata_request_redacts_api_token_in_errors(monkeypatch) -> None:
+    request = httpx.Request(
+        "GET",
+        "https://api.stockdata.org/v1/data/eod?symbols=NVDA&api_token=super-secret-token",
+    )
+    response = httpx.Response(402, request=request)
+
+    def fail_get(*args, **kwargs):
+        raise httpx.HTTPStatusError("payment required", request=request, response=response)
+
+    monkeypatch.setattr(stockdata_client, "stockdata_api_key", lambda: "super-secret-token")
+    monkeypatch.setattr(stockdata_client.httpx, "get", fail_get)
+
+    try:
+        stockdata_client._request("/data/eod", {"symbols": "NVDA"})
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+    assert "super-secret-token" not in message
+    assert "api_token" not in message
+    assert "StockData HTTP 402 for /data/eod" in message
 
 
 def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
