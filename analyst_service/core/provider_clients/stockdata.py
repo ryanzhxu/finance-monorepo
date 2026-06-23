@@ -19,12 +19,20 @@ def _request(path: str, params: dict[str, Any], timeout: float = _DEFAULT_TIMEOU
     api_key = stockdata_api_key()
     if not api_key:
         return {}
-    response = httpx.get(
-        f"{STOCKDATA_BASE_URL}{path}",
-        params={**params, "api_token": api_key},
-        timeout=timeout,
-    )
-    response.raise_for_status()
+    try:
+        response = httpx.get(
+            f"{STOCKDATA_BASE_URL}{path}",
+            params={**params, "api_token": api_key},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        reason = exc.response.reason_phrase if exc.response is not None else "request failed"
+        raise RuntimeError(f"StockData HTTP {status_code} for {path}: {reason}") from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(f"StockData request failed for {path}: {type(exc).__name__}") from exc
+
     payload = response.json()
     return payload if isinstance(payload, dict) else {}
 
