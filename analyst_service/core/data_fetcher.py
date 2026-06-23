@@ -24,6 +24,10 @@ from analyst_service.core.provider_clients.stockdata import (
     fetch_stockdata_quote,
     stockdata_api_key,
 )
+from analyst_service.core.provider_clients.finance_query import (
+    fetch_finance_query_chart,
+    fetch_finance_query_quote,
+)
 from analyst_service.core.regime import classify_regime
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
@@ -325,6 +329,15 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
             freshness, as_of = classify_price_freshness(stockdata_frame)
             return FreshValue(stockdata_frame, freshness, as_of)
 
+    try:
+        finance_query_frame = fetch_finance_query_chart(symbol, interval="1d", range_="2y")
+    except Exception as exc:
+        logger.warning("[%s] finance-query chart fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        finance_query_frame = _empty_frame()
+    if not finance_query_frame.empty:
+        freshness, as_of = classify_price_freshness(finance_query_frame)
+        return FreshValue(finance_query_frame, freshness, as_of)
+
     av_key = _alpha_vantage_key()
     if av_key:
         av_frame = _fetch_alpha_vantage_ohlcv(symbol, av_key)
@@ -343,6 +356,17 @@ def fetch_ohlcv(symbol: str, current_price: float | None = None) -> FreshValue[p
             fallback_price = fetch_stockdata_quote(symbol)
         except Exception as exc:
             logger.warning("[%s] StockData quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
+    if fallback_price is None:
+        try:
+            finance_query_quote = fetch_finance_query_quote(symbol)
+        except Exception as exc:
+            logger.warning("[%s] finance-query quote fetch raised %s: %s", symbol, type(exc).__name__, exc)
+        else:
+            fallback_price = _coerce_float(
+                finance_query_quote.get("currentPrice")
+                or finance_query_quote.get("regularMarketPrice")
+                or finance_query_quote.get("previousClose")
+            )
     if fallback_price is None and av_key:
         fallback_price = _fetch_alpha_vantage_quote(symbol, av_key)
     estimated = _estimated_ohlcv(fallback_price)

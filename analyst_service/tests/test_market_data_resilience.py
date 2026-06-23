@@ -35,6 +35,7 @@ def _empty_ohlcv() -> pd.DataFrame:
 
 def test_fetch_ohlcv_prefers_alpha_vantage(monkeypatch) -> None:
     monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_chart", lambda symbol, interval="1d", range_="2y": _empty_ohlcv())
     monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
     monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", lambda symbol, key: _price_frame(101.5))
 
@@ -52,6 +53,8 @@ def test_fetch_ohlcv_prefers_alpha_vantage(monkeypatch) -> None:
 
 def test_fetch_ohlcv_uses_alpha_vantage_quote_when_history_is_missing(monkeypatch) -> None:
     monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_chart", lambda symbol, interval="1d", range_="2y": _empty_ohlcv())
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_quote", lambda symbol: {})
     monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
     monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", lambda symbol, key: _empty_ohlcv())
     monkeypatch.setattr(data_fetcher, "_fetch_yfinance_ohlcv", lambda symbol: _empty_ohlcv())
@@ -62,6 +65,42 @@ def test_fetch_ohlcv_uses_alpha_vantage_quote_when_history_is_missing(monkeypatc
     assert result.freshness == Freshness.ESTIMATED
     assert not result.value.empty
     assert float(result.value["close"].iloc[-1]) == 142.25
+
+
+def test_fetch_ohlcv_prefers_finance_query_when_stockdata_is_missing(monkeypatch) -> None:
+    monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_chart", lambda symbol, interval="1d", range_="2y": _price_frame(107.25))
+
+    def fail_alpha(symbol: str, key: str) -> pd.DataFrame:
+        raise AssertionError("alpha vantage fallback should not run when finance-query history is present")
+
+    monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
+    monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", fail_alpha)
+
+    result = data_fetcher.fetch_ohlcv("NVDA")
+
+    assert not result.value.empty
+    assert float(result.value["close"].iloc[-1]) == 107.25
+
+
+def test_fetch_ohlcv_uses_finance_query_quote_before_alpha_vantage_quote(monkeypatch) -> None:
+    monkeypatch.setattr(data_fetcher, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_chart", lambda symbol, interval="1d", range_="2y": _empty_ohlcv())
+    monkeypatch.setattr(data_fetcher, "_alpha_vantage_key", lambda: "test-key")
+    monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_ohlcv", lambda symbol, key: _empty_ohlcv())
+    monkeypatch.setattr(data_fetcher, "_fetch_yfinance_ohlcv", lambda symbol: _empty_ohlcv())
+    monkeypatch.setattr(data_fetcher, "fetch_finance_query_quote", lambda symbol: {"currentPrice": 144.5})
+
+    def fail_alpha_quote(symbol: str, key: str) -> float | None:
+        raise AssertionError("alpha vantage quote fallback should not run when finance-query quote is present")
+
+    monkeypatch.setattr(data_fetcher, "_fetch_alpha_vantage_quote", fail_alpha_quote)
+
+    result = data_fetcher.fetch_ohlcv("NVDA")
+
+    assert result.freshness == Freshness.ESTIMATED
+    assert not result.value.empty
+    assert float(result.value["close"].iloc[-1]) == 144.5
 
 
 def test_fetch_ohlcv_prefers_stockdata_when_configured(monkeypatch) -> None:
@@ -199,6 +238,9 @@ def test_health_route_reports_feature_level_yahoo_statuses(monkeypatch) -> None:
 
     monkeypatch.setattr(analysis_router, "_check_yfinance_feature_statuses", fake_yfinance_statuses)
     monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_sec_status)
+    monkeypatch.setattr(analysis_router, "_check_finance_query_quote", lambda: asyncio.sleep(0, result="ok"))
+    monkeypatch.setattr(analysis_router, "_check_finance_query_chart", lambda: asyncio.sleep(0, result="ok"))
+    monkeypatch.setattr(analysis_router, "_check_finance_query_search", lambda: asyncio.sleep(0, result="ok"))
     monkeypatch.setattr(analysis_router, "load_service_config", lambda: {})
     monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
     monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
@@ -215,6 +257,7 @@ def test_health_route_reports_feature_level_yahoo_statuses(monkeypatch) -> None:
     assert payload["providers"]["yfinance.download_ohlcv"] == "rate_limited"
     assert payload["providers"]["yfinance.upgrades_downgrades"] == "empty"
     assert payload["providers"]["yahoo.search"] == "ok"
+    assert payload["providers"]["finance_query"] == "ok"
 
 
 def test_search_route_prefers_stockdata_results(monkeypatch) -> None:
@@ -230,6 +273,21 @@ def test_search_route_prefers_stockdata_results(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "IEXG", "type": "EQUITY"}]
+
+
+def test_search_route_falls_back_to_finance_query_results(monkeypatch) -> None:
+    monkeypatch.setattr(analysis_router, "stockdata_api_key", lambda: None)
+    monkeypatch.setattr(
+        analysis_router,
+        "search_finance_query_symbols",
+        lambda query, limit=6: [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}],
+    )
+
+    client = TestClient(app)
+    response = client.get("/search", params={"q": "nvda", "limit": 6})
+
+    assert response.status_code == 200
+    assert response.json() == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}]
 
 
 def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
@@ -255,11 +313,23 @@ def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
     async def fake_stockdata_search() -> str:
         return "ok"
 
+    async def fake_finance_query_quote() -> str:
+        return "ok"
+
+    async def fake_finance_query_chart() -> str:
+        return "ok"
+
+    async def fake_finance_query_search() -> str:
+        return "ok"
+
     monkeypatch.setattr(analysis_router, "_check_yfinance_feature_statuses", fake_yfinance_statuses)
     monkeypatch.setattr(analysis_router, "_check_sec_edgar", fake_sec_status)
     monkeypatch.setattr(analysis_router, "_check_stockdata_quote", fake_stockdata_quote)
     monkeypatch.setattr(analysis_router, "_check_stockdata_eod", fake_stockdata_eod)
     monkeypatch.setattr(analysis_router, "_check_stockdata_search", fake_stockdata_search)
+    monkeypatch.setattr(analysis_router, "_check_finance_query_quote", fake_finance_query_quote)
+    monkeypatch.setattr(analysis_router, "_check_finance_query_chart", fake_finance_query_chart)
+    monkeypatch.setattr(analysis_router, "_check_finance_query_search", fake_finance_query_search)
     monkeypatch.setattr(analysis_router, "load_service_config", lambda: {})
     monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
     monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
@@ -275,3 +345,7 @@ def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
     assert payload["providers"]["stockdata.quote"] == "ok"
     assert payload["providers"]["stockdata.eod"] == "ok"
     assert payload["providers"]["stockdata.search"] == "ok"
+    assert payload["providers"]["finance_query"] == "ok"
+    assert payload["providers"]["finance_query.quote"] == "ok"
+    assert payload["providers"]["finance_query.chart"] == "ok"
+    assert payload["providers"]["finance_query.search"] == "ok"

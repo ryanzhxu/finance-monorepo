@@ -12,6 +12,7 @@ from tests.fixtures.nvda_yfinance import FIXED_NOW, NVDA_INFO, NVDA_PRICE_HISTOR
 def _install_fake_yfinance(monkeypatch, **kwargs) -> None:
     monkeypatch.setitem(sys.modules, "yfinance", build_fake_yfinance_module(**kwargs))
     monkeypatch.setattr(sentiment_module, "_now_utc", lambda: FIXED_NOW)
+    monkeypatch.setattr(sentiment_module, "fetch_finance_query_quote", lambda symbol: {})
 
 
 def _mock_sec_get_factory():
@@ -187,3 +188,21 @@ def test_fetch_sentiment_uses_alpha_vantage_put_call_ratio_when_options_are_unav
     data = sentiment_module.fetch_sentiment("NVDA", price_history=NVDA_PRICE_HISTORY)
 
     assert data.put_call_ratio == 0.54
+
+
+def test_fetch_sentiment_uses_finance_query_short_interest_when_yfinance_metadata_is_missing(monkeypatch) -> None:
+    class BrokenTicker:
+        def __init__(self) -> None:
+            self.info = {}
+            self.options = ()
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=lambda symbol: BrokenTicker()))
+    monkeypatch.setattr(sentiment_module, "fetch_finance_query_quote", lambda symbol: {"shortPercentOfFloat": 0.012200001})
+    monkeypatch.setattr(sentiment_module, "_sec_get", lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")))
+    monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_empty_news)
+    monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
+    monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
+
+    data = sentiment_module.fetch_sentiment("NVDA", price_history=NVDA_PRICE_HISTORY)
+
+    assert data.short_interest_pct == 1.22

@@ -12,6 +12,11 @@ import httpx
 import pandas as pd
 
 from shared.models import Fundamentals as SharedFundamentals
+from analyst_service.core.provider_clients.finance_query import (
+    fetch_finance_query_chart,
+    fetch_finance_query_quote,
+)
+from analyst_service.core.provider_clients.stockdata import fetch_stockdata_eod, stockdata_api_key
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
 ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
@@ -538,6 +543,66 @@ def _fetch_yahoo_search_name(symbol: str) -> str | None:
     return None
 
 
+def _finance_query_earnings_history(quote: dict[str, Any]) -> pd.DataFrame | None:
+    history = quote.get("earningsHistory", {}).get("history")
+    if not isinstance(history, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        quarter = item.get("quarter")
+        try:
+            timestamp = pd.to_datetime(quarter, unit="s", utc=True, errors="coerce")
+        except Exception:
+            timestamp = pd.NaT
+        if pd.isna(timestamp):
+            continue
+        rows.append(
+            {
+                "date": timestamp.tz_convert(None),
+                "epsActual": _coerce_float(item.get("epsActual")),
+                "surprisePercent": _coerce_float(item.get("surprisePercent")),
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).dropna(subset=["date"]).set_index("date").sort_index()
+    return frame if not frame.empty else None
+
+
+def _finance_query_upgrade_history(quote: dict[str, Any]) -> pd.DataFrame | None:
+    history = quote.get("upgradeDowngradeHistory", {}).get("history")
+    if not isinstance(history, list):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        timestamp = pd.to_datetime(item.get("epochGradeDate"), unit="s", utc=True, errors="coerce")
+        if pd.isna(timestamp):
+            continue
+        rows.append(
+            {
+                "date": timestamp,
+                "action": item.get("action"),
+                "toGrade": item.get("toGrade"),
+                "fromGrade": item.get("fromGrade"),
+                "firm": item.get("firm"),
+            }
+        )
+
+    if not rows:
+        return None
+
+    frame = pd.DataFrame(rows).dropna(subset=["date"]).set_index("date").sort_index()
+    return frame if not frame.empty else None
+
+
 def _quarterly_sec_records(companyfacts: dict[str, Any] | None, concepts: tuple[str, ...]) -> list[dict[str, Any]]:
     if not companyfacts:
         return []
@@ -662,6 +727,13 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     av_ev_ebitda = _coerce_float(av_overview.get("EVToEBITDA"))
     av_revenue_growth = _alpha_vantage_revenue_growth(av_overview)
     av_gross_margin = _alpha_vantage_gross_margin(av_overview)
+    try:
+        finance_query_quote = fetch_finance_query_quote(symbol)
+    except Exception as exc:
+        logger.warning("[%s] finance-query quote fetch raised: %s", symbol, exc)
+        finance_query_quote = {}
+    fq_earnings_history = _finance_query_earnings_history(finance_query_quote)
+    fq_upgrades_downgrades = _finance_query_upgrade_history(finance_query_quote)
 
     ticker = None
     try:
@@ -708,10 +780,33 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
         price_history = ticker.history(period="5y", interval="1d", auto_adjust=False) if ticker is not None else None
     except Exception:
         price_history = None
+    stockdata_price_history = None
+    if _safe_frame(price_history) is None or _safe_frame(price_history).empty:
+        if stockdata_api_key():
+            try:
+                stockdata_price_history = fetch_stockdata_eod(symbol, total_days=(365 * 5) + 30)
+            except Exception:
+                stockdata_price_history = None
+    finance_query_price_history = None
+    if (_safe_frame(price_history) is None or _safe_frame(price_history).empty) and (
+        stockdata_price_history is None or stockdata_price_history.empty
+    ):
+        try:
+            finance_query_price_history = fetch_finance_query_chart(symbol, interval="1d", range_="5y")
+        except Exception:
+            finance_query_price_history = None
+
+    effective_price_history = _safe_frame(price_history)
+    if effective_price_history is None or effective_price_history.empty:
+        effective_price_history = _safe_frame(stockdata_price_history)
+    if effective_price_history is None or effective_price_history.empty:
+        effective_price_history = _safe_frame(finance_query_price_history)
 
     yf_eps_surprise_pct, _ = _extract_latest_surprise(earnings_history)
 
     effective_earnings_history = earnings_history
+    if _safe_frame(effective_earnings_history) is None or _safe_frame(effective_earnings_history).empty:
+        effective_earnings_history = fq_earnings_history
     if _safe_frame(effective_earnings_history) is None or _safe_frame(effective_earnings_history).empty:
         effective_earnings_history = av_earnings_history
 
@@ -720,15 +815,26 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     if eps_surprise_pct is None:
         eps_surprise_pct = fallback_eps_surprise_pct
     current_pe = av_current_pe if av_current_pe is not None else _coerce_float(info.get("trailingPE"))
-    pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(info.get("priceToBook"))
-    ps_ratio = _coerce_float(info.get("priceToSalesTrailingTwelveMonths"))
-    ev_ebitda = _coerce_float(info.get("enterpriseToEbitda"))
-    pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, price_history, now)
+    pb_ratio = av_pb_ratio if av_pb_ratio is not None else _coerce_float(
+        finance_query_quote.get("priceToBook") or info.get("priceToBook")
+    )
+    ps_ratio = _coerce_float(
+        finance_query_quote.get("priceToSalesTrailing12Months") or info.get("priceToSalesTrailingTwelveMonths")
+    )
+    ev_ebitda = _coerce_float(finance_query_quote.get("enterpriseToEbitda") or info.get("enterpriseToEbitda"))
+    pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, effective_price_history, now)
+    upgrades_frame = _safe_frame(upgrades_downgrades)
     upgrades, downgrades = _extract_recent_recommendation_counts(upgrades_downgrades, now)
-    revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(info.get("revenueGrowth"))
-    gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(info.get("grossMargins"))
+    if upgrades_frame is None or upgrades_frame.empty:
+        upgrades, downgrades = _extract_recent_recommendation_counts(fq_upgrades_downgrades, now)
+    revenue_growth = av_revenue_growth if av_revenue_growth is not None else _maybe_percent(
+        finance_query_quote.get("revenueGrowth") or info.get("revenueGrowth")
+    )
+    gross_margin = av_gross_margin if av_gross_margin is not None else _maybe_percent(
+        finance_query_quote.get("grossMargins") or info.get("grossMargins")
+    )
     fcf_trend = _extract_fcf_trend(_safe_frame(quarterly_cash_flow))
-    current_price = _extract_current_price(info, _safe_frame(price_history))
+    current_price = _extract_current_price(finance_query_quote or info, effective_price_history)
 
     sec_companyfacts: dict[str, Any] | None = None
     if None in (revenue_growth, gross_margin, fcf_trend, earnings_as_of, current_pe):
@@ -741,7 +847,7 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
 
     if current_pe is None:
         current_pe = _sec_pe_ratio(sec_companyfacts, current_price)
-        pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, price_history, now)
+        pe_percentile = _compute_pe_percentile(current_pe, effective_earnings_history, effective_price_history, now)
     if revenue_growth is None:
         revenue_growth = _sec_revenue_growth(sec_companyfacts)
     if gross_margin is None:
@@ -758,6 +864,12 @@ def fetch_fundamentals(symbol: str) -> FundamentalsData:
     if ev_ebitda is None:
         ev_ebitda = av_ev_ebitda
 
+    if company_name is None:
+        company_name = (
+            finance_query_quote.get("longName")
+            or finance_query_quote.get("shortName")
+            or None
+        )
     if company_name is None:
         company_name = _fetch_yahoo_search_name(symbol)
     if company_name is None and av_overview:

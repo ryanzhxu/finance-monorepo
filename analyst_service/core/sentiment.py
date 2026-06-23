@@ -16,6 +16,7 @@ import pandas as pd
 
 from shared.models import Sentiment as SharedSentiment
 from analyst_service.core.settings import load_service_config
+from analyst_service.core.provider_clients.finance_query import fetch_finance_query_quote
 
 SEC_USER_AGENT = "finance-monorepo/0.1 contact=local"
 MARKETAUX_BASE = "https://api.marketaux.com/v1/news/all"
@@ -448,6 +449,10 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
     put_call_ratio = None
     short_interest_pct = None
     av_key = _alpha_vantage_key()
+    try:
+        finance_query_quote = fetch_finance_query_quote(symbol)
+    except Exception:
+        finance_query_quote = {}
 
     try:
         yf = _load_yfinance()
@@ -460,10 +465,15 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
             put_call_ratio = _compute_put_call_ratio(ticker)
         except Exception:
             put_call_ratio = None
-        short_interest_raw = _coerce_float(info.get("shortPercentOfFloat"))
+        short_interest_raw = _coerce_float(
+            info.get("shortPercentOfFloat")
+            or finance_query_quote.get("shortPercentOfFloat")
+        )
         short_interest_pct = None if short_interest_raw is None else round(short_interest_raw * 100.0, 2)
     except Exception:
         ticker = None
+        short_interest_raw = _coerce_float(finance_query_quote.get("shortPercentOfFloat"))
+        short_interest_pct = None if short_interest_raw is None else round(short_interest_raw * 100.0, 2)
 
     if put_call_ratio is None and av_key:
         try:

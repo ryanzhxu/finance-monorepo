@@ -17,6 +17,13 @@ from tests.fixtures.nvda_yfinance import (
 def _install_fake_yfinance(monkeypatch, **kwargs) -> None:
     monkeypatch.setitem(sys.modules, "yfinance", build_fake_yfinance_module(**kwargs))
     monkeypatch.setattr(fundamentals_module, "_utc_now", lambda: FIXED_NOW)
+    monkeypatch.setattr(fundamentals_module, "fetch_finance_query_quote", lambda symbol: {})
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_chart",
+        lambda symbol, interval="1d", range_="5y": pd.DataFrame(),
+    )
+    monkeypatch.setattr(fundamentals_module, "stockdata_api_key", lambda: None)
 
 
 def _sec_companyfacts_payload() -> dict:
@@ -177,8 +184,8 @@ def test_fetch_fundamentals_returns_none_fields_when_sources_fail(monkeypatch) -
     assert data.revenue_growth_yoy_pct is None
     assert data.fcf_trend is None
     assert data.gross_margin_pct is None
-    assert data.analyst_upgrades_30d == 0
-    assert data.analyst_downgrades_30d == 0
+    assert data.analyst_upgrades_30d is None
+    assert data.analyst_downgrades_30d is None
     assert data.freshness == "missing"
     assert data.as_of is None
 
@@ -369,3 +376,66 @@ def test_fetch_fundamentals_uses_alpha_vantage_latest_quarter_for_as_of(monkeypa
     data = fundamentals_module.fetch_fundamentals("NVDA")
 
     assert data.as_of == "2026-04-30"
+
+
+def test_fetch_fundamentals_uses_finance_query_for_yahoo_shaped_fallbacks(monkeypatch) -> None:
+    _install_fake_yfinance(
+        monkeypatch,
+        info={},
+        earnings_history=pd.DataFrame(),
+        upgrades_downgrades=pd.DataFrame(),
+        quarterly_cash_flow=pd.DataFrame(),
+        price_history=pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_quote",
+        lambda symbol: {
+            "longName": "NVIDIA Corporation",
+            "priceToBook": 26.107807,
+            "priceToSalesTrailing12Months": 20.131376,
+            "enterpriseToEbitda": 30.561,
+            "revenueGrowth": 0.852,
+            "grossMargins": 0.74144995,
+            "upgradeDowngradeHistory": {
+                "history": [
+                    {"epochGradeDate": 1780418448, "action": "up"},
+                    {"epochGradeDate": 1780335598, "action": "down"},
+                ]
+            },
+            "earningsHistory": {
+                "history": [
+                    {"quarter": 1769817600, "epsActual": 1.62, "surprisePercent": 0.0532},
+                    {"quarter": 1777507200, "epsActual": 1.87, "surprisePercent": 0.0554},
+                ]
+            },
+        },
+    )
+    monkeypatch.setattr(
+        fundamentals_module,
+        "fetch_finance_query_chart",
+        lambda symbol, interval="1d", range_="5y": pd.DataFrame(
+            {
+                "open": [180.0, 190.0],
+                "high": [181.0, 191.0],
+                "low": [179.0, 189.0],
+                "close": [180.0, 190.0],
+                "volume": [1_000_000.0, 1_100_000.0],
+            },
+            index=pd.to_datetime(["2026-01-31", "2026-04-30"]),
+        ),
+    )
+    monkeypatch.setattr(fundamentals_module.httpx, "get", lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")))
+
+    data = fundamentals_module.fetch_fundamentals("NVDA")
+
+    assert data.company_name == "NVIDIA Corporation"
+    assert data.eps_surprise_pct == 5.54
+    assert data.pb_ratio == 26.11
+    assert data.ps_ratio == 20.13
+    assert data.ev_ebitda == 30.56
+    assert data.revenue_growth_yoy_pct == 85.2
+    assert data.gross_margin_pct == 74.14
+    assert data.analyst_upgrades_30d == 1
+    assert data.analyst_downgrades_30d == 1
+    assert data.pe_percentile_5y is None
