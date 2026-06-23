@@ -100,7 +100,13 @@ def search_finance_query_symbols(query: str, limit: int = 6) -> list[dict[str, s
         results.append(
             {
                 "symbol": symbol,
-                "name": str(quote.get("longname") or quote.get("shortname") or "").strip(),
+                "name": str(
+                    quote.get("longName")
+                    or quote.get("shortName")
+                    or quote.get("longname")
+                    or quote.get("shortname")
+                    or ""
+                ).strip(),
                 "exchange": str(quote.get("exchange") or "").strip(),
                 "type": "EQUITY",
             }
