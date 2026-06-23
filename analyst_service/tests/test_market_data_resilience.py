@@ -248,6 +248,8 @@ def test_health_route_reports_feature_level_yahoo_statuses(monkeypatch) -> None:
     monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
     monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
     monkeypatch.setattr(analysis_router, "redis_status", lambda: "not_configured")
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE", None)
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE_EXPIRY", 0.0)
     monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
 
     client = TestClient(app)
@@ -379,6 +381,8 @@ def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
     monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
     monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
     monkeypatch.setattr(analysis_router, "redis_status", lambda: "not_configured")
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE", None)
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE_EXPIRY", 0.0)
     monkeypatch.setenv("ALPHA_VANTAGE_KEY", "test-key")
 
     client = TestClient(app)
@@ -394,3 +398,45 @@ def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
     assert payload["providers"]["finance_query.quote"] == "ok"
     assert payload["providers"]["finance_query.chart"] == "ok"
     assert payload["providers"]["finance_query.search"] == "ok"
+
+
+def test_health_route_caches_probe_results_within_ttl(monkeypatch) -> None:
+    call_count = {"count": 0}
+
+    async def fake_collect() -> dict[str, str]:
+        call_count["count"] += 1
+        return {
+            "stockdata.quote": "not_configured",
+            "stockdata.eod": "not_configured",
+            "stockdata.search": "not_configured",
+            "stockdata": "not_configured",
+            "finance_query.quote": "ok",
+            "finance_query.chart": "ok",
+            "finance_query.search": "ok",
+            "finance_query": "ok",
+            "yfinance.download_ohlcv": "rate_limited",
+            "yfinance.info": "unavailable",
+            "yfinance.options_chain": "unavailable",
+            "yfinance.upgrades_downgrades": "empty",
+            "yahoo.search": "ok",
+            "yfinance": "rate_limited",
+            "sec_edgar": "reachable",
+        }
+
+    monkeypatch.setattr(analysis_router, "_collect_health_probe_statuses", fake_collect)
+    monkeypatch.setattr(analysis_router, "_health_probe_cache_ttl_seconds", lambda: 60)
+    monkeypatch.setattr(analysis_router, "load_service_config", lambda: {})
+    monkeypatch.setattr(analysis_router, "llm_available", lambda: False)
+    monkeypatch.setattr(analysis_router, "cache_backend_name", lambda: "file")
+    monkeypatch.setattr(analysis_router, "redis_status", lambda: "not_configured")
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE", None)
+    monkeypatch.setattr(analysis_router, "_HEALTH_PROBE_CACHE_EXPIRY", 0.0)
+
+    client = TestClient(app)
+    first_response = client.get("/health")
+    second_response = client.get("/health")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert call_count["count"] == 1
+    assert second_response.json()["providers"]["yfinance"] == "rate_limited"

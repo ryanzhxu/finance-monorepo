@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 
@@ -50,6 +51,10 @@ from analyst_service.core.signals import generate_signals
 from analyst_service.core.technicals import compute_technicals
 
 router = APIRouter()
+
+_HEALTH_PROBE_CACHE_LOCK = asyncio.Lock()
+_HEALTH_PROBE_CACHE_EXPIRY = 0.0
+_HEALTH_PROBE_CACHE: dict[str, str] | None = None
 
 
 class EntryResponse(EntryBlock):
@@ -147,6 +152,14 @@ async def _check_yfinance_feature_statuses() -> dict[str, str]:
     }
     feature_statuses["yfinance"] = _summarize_provider_status(list(feature_statuses.values()))
     return feature_statuses
+
+
+def _health_probe_cache_ttl_seconds() -> int:
+    raw_value = os.getenv("HEALTH_PROBE_TTL_SECONDS", "300").strip()
+    try:
+        return max(int(raw_value), 0)
+    except ValueError:
+        return 300
 
 
 async def _check_sec_edgar() -> str:
@@ -250,6 +263,69 @@ async def _check_finance_query_search() -> str:
         return "unavailable"
 
 
+async def _collect_health_probe_statuses() -> dict[str, str]:
+    (
+        yahoo_statuses,
+        sec_status,
+        stockdata_quote_status,
+        stockdata_eod_status,
+        stockdata_search_status,
+        finance_query_quote_status,
+        finance_query_chart_status,
+        finance_query_search_status,
+    ) = await asyncio.gather(
+        _check_yfinance_feature_statuses(),
+        _check_sec_edgar(),
+        _check_stockdata_quote(),
+        _check_stockdata_eod(),
+        _check_stockdata_search(),
+        _check_finance_query_quote(),
+        _check_finance_query_chart(),
+        _check_finance_query_search(),
+    )
+    stockdata_statuses = {
+        "stockdata.quote": stockdata_quote_status,
+        "stockdata.eod": stockdata_eod_status,
+        "stockdata.search": stockdata_search_status,
+    }
+    stockdata_statuses["stockdata"] = _summarize_provider_status(list(stockdata_statuses.values()))
+    finance_query_statuses = {
+        "finance_query.quote": finance_query_quote_status,
+        "finance_query.chart": finance_query_chart_status,
+        "finance_query.search": finance_query_search_status,
+    }
+    finance_query_statuses["finance_query"] = _summarize_provider_status(list(finance_query_statuses.values()))
+    return {
+        **stockdata_statuses,
+        **finance_query_statuses,
+        **yahoo_statuses,
+        "sec_edgar": sec_status,
+    }
+
+
+async def _get_health_probe_statuses() -> dict[str, str]:
+    global _HEALTH_PROBE_CACHE, _HEALTH_PROBE_CACHE_EXPIRY
+
+    ttl_seconds = _health_probe_cache_ttl_seconds()
+    now = time.monotonic()
+    if ttl_seconds > 0 and _HEALTH_PROBE_CACHE is not None and now < _HEALTH_PROBE_CACHE_EXPIRY:
+        return dict(_HEALTH_PROBE_CACHE)
+
+    async with _HEALTH_PROBE_CACHE_LOCK:
+        now = time.monotonic()
+        if ttl_seconds > 0 and _HEALTH_PROBE_CACHE is not None and now < _HEALTH_PROBE_CACHE_EXPIRY:
+            return dict(_HEALTH_PROBE_CACHE)
+
+        statuses = await _collect_health_probe_statuses()
+        if ttl_seconds > 0:
+            _HEALTH_PROBE_CACHE = dict(statuses)
+            _HEALTH_PROBE_CACHE_EXPIRY = now + ttl_seconds
+        else:
+            _HEALTH_PROBE_CACHE = None
+            _HEALTH_PROBE_CACHE_EXPIRY = 0.0
+        return dict(statuses)
+
+
 @router.get("/search")
 async def search_symbols(q: str, limit: int = 6) -> list[dict]:
     if not q or len(q.strip()) < 1:
@@ -311,39 +387,15 @@ async def health() -> HealthResponse:
         else "not_configured"
     )
 
-    yahoo_statuses, sec_status, stockdata_quote_status, stockdata_eod_status, stockdata_search_status, finance_query_quote_status, finance_query_chart_status, finance_query_search_status = await asyncio.gather(
-        _check_yfinance_feature_statuses(),
-        _check_sec_edgar(),
-        _check_stockdata_quote(),
-        _check_stockdata_eod(),
-        _check_stockdata_search(),
-        _check_finance_query_quote(),
-        _check_finance_query_chart(),
-        _check_finance_query_search(),
-    )
-    stockdata_statuses = {
-        "stockdata.quote": stockdata_quote_status,
-        "stockdata.eod": stockdata_eod_status,
-        "stockdata.search": stockdata_search_status,
-    }
-    stockdata_statuses["stockdata"] = _summarize_provider_status(list(stockdata_statuses.values()))
-    finance_query_statuses = {
-        "finance_query.quote": finance_query_quote_status,
-        "finance_query.chart": finance_query_chart_status,
-        "finance_query.search": finance_query_search_status,
-    }
-    finance_query_statuses["finance_query"] = _summarize_provider_status(list(finance_query_statuses.values()))
+    probe_statuses = await _get_health_probe_statuses()
 
     providers = {
-        **stockdata_statuses,
-        **finance_query_statuses,
+        **probe_statuses,
         "alpha_vantage": alpha_vantage_status,
-        **yahoo_statuses,
         "marketaux": "configured" if os.getenv("MARKETAUX_API_KEY") else "not_configured",
         "tiingo": "not_configured",
         "reddit": "configured" if os.getenv("REDDIT_CLIENT_ID") else "no_credentials",
         "stocktwits": "configured" if os.getenv("STOCKTWITS_API_KEY") else "no_credentials",
-        "sec_edgar": sec_status,
         "redis": redis_status(),
     }
 
