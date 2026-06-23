@@ -28,7 +28,6 @@ from analyst_service.core.provider_clients.finance_query import (
     fetch_finance_query_chart,
     fetch_finance_query_quote,
 )
-from analyst_service.core.regime import classify_regime
 from analyst_service.core.sentiment import fetch_sentiment as fetch_raw_sentiment
 from analyst_service.core.cache import get as cache_get, set as cache_set
 
@@ -490,12 +489,6 @@ def fetch_macro() -> FreshValue[Macro]:
         treasury_10y=raw.treasury_10y,
         vix=raw.vix,
         freshness=raw.freshness,
-        market_regime=classify_regime(
-            raw.vix,
-            raw.treasury_10y,
-            spy_vs_ma200_pct,
-            raw.days_to_next_fomc,
-        ),
     )
     freshness_map = {
         "live": Freshness.LIVE,
