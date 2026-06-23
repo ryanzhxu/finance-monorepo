@@ -10,6 +10,7 @@ from analyst_service.api.main import app
 from analyst_service.api.routers import analysis as analysis_router
 from analyst_service.core import analysis as analysis_module
 from analyst_service.core import data_fetcher
+from analyst_service.core.provider_clients import finance_query as finance_query_client
 from shared.data_quality import FreshValue
 from shared.enums import Direction, Freshness, MarketRegime
 from shared.models import AnalyzeRequest, Fundamentals, Macro, Recommendation, Sentiment
@@ -288,6 +289,23 @@ def test_search_route_falls_back_to_finance_query_results(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}]
+
+
+def test_search_finance_query_symbols_reads_camel_case_names(monkeypatch) -> None:
+    monkeypatch.setattr(
+        finance_query_client,
+        "_request",
+        lambda path, params, timeout=10.0: {
+            "quotes": [
+                {"symbol": "NVDA", "shortName": "NVIDIA Corporation", "exchange": "NMS", "quoteType": "equity"},
+                {"symbol": "NVDL", "shortName": "GraniteShares 2x Long NVDA Dail", "exchange": "NGM", "quoteType": "etf"},
+            ]
+        },
+    )
+
+    results = finance_query_client.search_finance_query_symbols("nvda", limit=6)
+
+    assert results == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}]
 
 
 def test_health_route_reports_stockdata_feature_statuses(monkeypatch) -> None:
