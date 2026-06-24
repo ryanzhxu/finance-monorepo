@@ -1,0 +1,102 @@
+name: Cache Warmer
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      analyst_base_url:
+        description: Analyst service base URL
+        required: false
+        default: https://finance-analyst-x9kj.onrender.com
+      batch_size:
+        description: Batch size
+        required: false
+        default: "20"
+      verify_sample_size:
+        description: Verification sample size
+        required: false
+        default: "5"
+      symbols_file:
+        description: Optional JSON file of extra symbols
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  warm-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ANALYST_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.analyst_base_url || 'https://finance-analyst-x9kj.onrender.com' }}
+      WARMUP_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.batch_size || '20' }}
+      WARMUP_VERIFY_SAMPLE_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.verify_sample_size || '5' }}
+      WARMUP_SYMBOLS_FILE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.symbols_file || '' }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Warm analyst cache
+        run: |
+          set -euo pipefail
+          uv run python scripts/warm_cache.py | tee warm-cache.jsonl
+
+      - name: Publish summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log_path = Path("warm-cache.jsonl")
+          summary = None
+          md = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          if not log_path.exists():
+              md.write_text("# Cache Warmer Summary\n\n- warm-cache.jsonl missing.\n")
+              raise SystemExit(0)
+
+          for line in reversed(log_path.read_text().splitlines()):
+              if not line.strip():
+                  continue
+              payload = json.loads(line)
+              if payload.get("event") == "warmup_summary":
+                  summary = payload
+                  break
+
+          if summary is None:
+              md.write_text("# Cache Warmer Summary\n\n- Warmup summary missing.\n")
+              raise SystemExit(0)
+          md.write_text(
+              "\n".join(
+                  [
+                      "# Cache Warmer Summary",
+                      "",
+                      f"- Total symbols: {summary['total_symbols']}",
+                      f"- Cached symbols: {summary['cached_symbols']}",
+                      f"- Cache hit rate: {summary['cache_hit_rate']:.2%}",
+                      f"- Failed symbols: {summary['failed_symbols']}",
+                      f"- Avg data quality score: {summary['avg_data_quality_score']}",
+                      f"- Verification sample size: {summary['verify_sample_size']}",
+                      f"- Verification avg data quality score: {summary['verify_avg_data_quality_score']}",
+                      f"- Elapsed seconds: {summary['elapsed_seconds']}",
+                      f"- Cache backend: {summary['health_status'].get('cache_backend') if summary['health_status'] else 'unknown'}",
+                      f"- Redis status: {summary['health_status'].get('providers', {}).get('redis') if summary['health_status'] else 'unknown'}",
+                      "",
+                  ]
+              )
+          )
+          PY

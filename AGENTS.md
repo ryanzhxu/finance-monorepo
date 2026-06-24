@@ -18,7 +18,7 @@ FastAPI analyst and screener services plus a live React/Vite frontend in `web_ui
 
 ## Layout
 
-- `analyst_service/` single-symbol analysis, `/entry`, `/entry/confluence`, `/health`, and `/search`
+- `analyst_service/` single-symbol analysis (`/analyze`, `/batch`, `/entry`, `/entry/confluence`, `GET /entry/confluence/{symbol}`, `/health`, and `/search`)
 - `screener_service/` discovery, ranking, trending, regime, and `/screen/health`
 - `shared/` shared enums, contracts, freshness helpers, and config loading
 - `web_ui/` React 19 + Vite + Tailwind frontend used in production
