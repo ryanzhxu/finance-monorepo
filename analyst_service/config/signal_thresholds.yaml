@@ -21,6 +21,11 @@ signals:
   fomc_force_hold_days: 5
 quality:
   group_penalty: 15
+regime:
+  vix_risk_off: 25.0
+  vix_risk_on: 18.0
+  fomc_risk_window_days: 3
+  spy_below_ma200_is_risk_off: true
 news_sentiment:
   bullish_words:
     - beat

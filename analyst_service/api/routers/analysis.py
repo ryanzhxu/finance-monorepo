@@ -527,6 +527,7 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
         horizon=request_horizon,
         rules=config["entry_rules"],
         risk_flags=provisional.risk_flags,
+        regime=macro.market_regime.value if hasattr(macro.market_regime, "value") else macro.market_regime,
     )
     classical = EntryResponse(
         **entry_block.model_dump(),

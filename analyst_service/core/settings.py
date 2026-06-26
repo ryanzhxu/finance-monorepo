@@ -51,7 +51,7 @@ REQUIRED_ENTRY_RULES = {
 @lru_cache
 def load_service_config() -> dict[str, Any]:
     weights = load_yaml_config(CONFIG_DIR / "signal_weights.yaml", REQUIRED_WEIGHTS)
-    thresholds = load_yaml_config(CONFIG_DIR / "signal_thresholds.yaml", {"vote", "signals", "quality", "news_sentiment"})
+    thresholds = load_yaml_config(CONFIG_DIR / "signal_thresholds.yaml", {"vote", "signals", "quality", "news_sentiment", "regime"})
     require_nested_keys(
         thresholds,
         {
@@ -76,6 +76,12 @@ def load_service_config() -> dict[str, Any]:
                 "fomc_force_hold_days",
             },
             "quality": {"group_penalty"},
+            "regime": {
+                "vix_risk_off",
+                "vix_risk_on",
+                "fomc_risk_window_days",
+                "spy_below_ma200_is_risk_off",
+            },
             "news_sentiment": {
                 "bullish_words",
                 "bearish_words",

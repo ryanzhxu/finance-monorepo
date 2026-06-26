@@ -16,10 +16,63 @@ logger = logging.getLogger(__name__)
 
 
 SCORES = {Direction.BUY: 1.0, Direction.HOLD: 0.0, Direction.SELL: -1.0}
+CATEGORY_PREFIXES = {
+    "technical": ("rsi", "macd", "ma", "bollinger", "volume", "support", "breakout"),
+    "fundamental": ("eps", "pe", "analyst", "fcf", "revenue", "gross", "valuation"),
+    "sentiment": ("put", "iv", "institutional", "short", "news"),
+    "macro": ("macro", "fomc"),
+}
 
 
 def _missing_fresh_value(value: Any) -> FreshValue[Any]:
     return FreshValue(value=value, freshness=Freshness.MISSING, as_of=None)
+
+
+def _empty_weighted_vote() -> dict[Direction, float]:
+    return {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+
+
+def _match_category(dimension: str) -> str | None:
+    normalized = dimension.strip().lower()
+    for category, prefixes in CATEGORY_PREFIXES.items():
+        if any(normalized.startswith(prefix) for prefix in prefixes):
+            return category
+    return None
+
+
+def _weighted_votes_by_category(
+    signals: list[Signal],
+) -> tuple[dict[str, dict[Direction, float]], dict[str, list[Signal]]]:
+    votes = {category: _empty_weighted_vote() for category in CATEGORY_PREFIXES}
+    grouped = {category: [] for category in CATEGORY_PREFIXES}
+    for signal in signals:
+        category = _match_category(signal.dimension)
+        if category is None:
+            continue
+        votes[category][signal.signal] += float(signal.weight)
+        grouped[category].append(signal)
+    for category_votes in votes.values():
+        for direction, value in list(category_votes.items()):
+            category_votes[direction] = round(value, 4)
+    return votes, grouped
+
+
+def _dominant_direction(weighted_vote: dict[Direction, float]) -> Direction:
+    return max((Direction.BUY, Direction.HOLD, Direction.SELL), key=lambda direction: weighted_vote.get(direction, 0.0))
+
+
+def _conflict_summary(
+    technical_signals: list[Signal],
+    fundamental_signals: list[Signal],
+    technical_direction: Direction,
+    fundamental_direction: Direction,
+) -> str:
+    technical_supporters = sum(1 for signal in technical_signals if signal.signal == technical_direction)
+    fundamental_supporters = sum(1 for signal in fundamental_signals if signal.signal == fundamental_direction)
+    return (
+        f"Technicals lean {technical_direction.value} ({technical_supporters}/{len(technical_signals)} signals) "
+        f"but fundamentals lean {fundamental_direction.value} ({fundamental_supporters}/{len(fundamental_signals)} signals)."
+    )
 
 
 def fetch_analysis_context(
@@ -78,6 +131,26 @@ def aggregate_recommendation(
         Direction.HOLD: sum(1 for signal in signals if signal.signal == Direction.HOLD),
         Direction.SELL: sum(1 for signal in signals if signal.signal == Direction.SELL),
     }
+    category_votes, category_signals = _weighted_votes_by_category(signals)
+    technical_direction = _dominant_direction(category_votes["technical"])
+    fundamental_direction = _dominant_direction(category_votes["fundamental"])
+    technical_signal_count = len(category_signals["technical"])
+    fundamental_signal_count = len(category_signals["fundamental"])
+    conflict_detected = (
+        technical_signal_count >= 2
+        and fundamental_signal_count >= 2
+        and technical_direction != fundamental_direction
+    )
+    conflict_summary = (
+        _conflict_summary(
+            category_signals["technical"],
+            category_signals["fundamental"],
+            technical_direction,
+            fundamental_direction,
+        )
+        if conflict_detected
+        else None
+    )
     confidence = round(max(0.0, min(1.0, majority_fraction * (data_quality_score / 100))), 4)
     risk_flags: list[str] = []
     if data_quality_score < 50:
@@ -109,6 +182,12 @@ def aggregate_recommendation(
         direction=direction,
         confidence=confidence,
         signal_vote=vote,
+        technical_vote=category_votes["technical"],
+        fundamental_vote=category_votes["fundamental"],
+        sentiment_vote=category_votes["sentiment"],
+        macro_vote=category_votes["macro"],
+        conflict_detected=conflict_detected,
+        conflict_summary=conflict_summary,
         weighted_score=round(weighted_score, 4),
         technical_target_high=max(entry.resistance_levels) if entry and entry.resistance_levels else None,
         technical_target_low=max(entry.support_levels) if entry and entry.support_levels else None,
