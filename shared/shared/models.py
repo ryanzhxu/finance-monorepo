@@ -532,6 +532,34 @@ class TrendingScreenResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class SharedSpaceLoginRequest(BaseModel):
+    passcode: str
+
+
+class SharedSpaceSessionResponse(BaseModel):
+    authenticated: bool
+    slug: str
+    display_name: str | None = None
+
+
+class SharedWatchlistAddRequest(BaseModel):
+    symbol: str
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        value = value.strip().upper()
+        if not value:
+            raise ValueError("symbol is required")
+        return value
+
+
+class SharedWatchlistResponse(BaseModel):
+    slug: str
+    display_name: str
+    symbols: list[str]
+
+
 class RecommendationLogRecord(BaseModel):
     symbol: str
     timestamp: datetime

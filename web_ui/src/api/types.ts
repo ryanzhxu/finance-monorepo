@@ -253,3 +253,15 @@ export interface TrendingScreenResponse {
   results: TrendingResultItem[]
   notes: string[]
 }
+
+export interface SharedSpaceSessionResponse {
+  authenticated: boolean
+  slug: string
+  display_name: string | null
+}
+
+export interface SharedWatchlistResponse {
+  slug: string
+  display_name: string
+  symbols: string[]
+}
