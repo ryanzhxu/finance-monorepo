@@ -410,6 +410,29 @@ def test_search_finance_query_symbols_reads_camel_case_names(monkeypatch) -> Non
     assert results == [{"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NMS", "type": "EQUITY"}]
 
 
+def test_finance_query_request_normalizes_invalid_crumb_errors(monkeypatch) -> None:
+    request = httpx.Request("GET", "https://finance-query.com/v2/quote/NVDA?logo=true")
+    response = httpx.Response(
+        401,
+        request=request,
+        content=b'{"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}',
+    )
+
+    def fail_get(*args, **kwargs):
+        raise httpx.HTTPStatusError("unauthorized", request=request, response=response)
+
+    monkeypatch.setattr(finance_query_client.httpx, "get", fail_get)
+
+    try:
+        finance_query_client._request("/quote/NVDA", {"logo": "true"})
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected Finance Query request to raise")
+
+    assert message == "Finance Query HTTP 401 for /quote/NVDA: upstream authorization failed"
+
+
 def test_stockdata_request_redacts_api_token_in_errors(monkeypatch) -> None:
     request = httpx.Request(
         "GET",

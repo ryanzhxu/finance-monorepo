@@ -1,0 +1,103 @@
+name: Deployed Smoke
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: Environment label for logs and summaries
+        required: true
+        type: string
+      frontend_url:
+        description: Frontend base URL
+        required: true
+        type: string
+      analyst_url:
+        description: Analyst service base URL
+        required: true
+        type: string
+      screener_url:
+        description: Screener service base URL
+        required: true
+        type: string
+      initial_wait_seconds:
+        description: Seconds to wait before the first smoke attempt
+        required: false
+        default: 0
+        type: number
+      retries:
+        description: Number of full-suite retry attempts
+        required: false
+        default: 1
+        type: number
+      retry_delay_seconds:
+        description: Seconds to wait between full-suite retries
+        required: false
+        default: 30
+        type: number
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: Environment label for logs and summaries
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      frontend_url:
+        description: Frontend base URL
+        required: true
+        type: string
+      analyst_url:
+        description: Analyst service base URL
+        required: true
+        type: string
+      screener_url:
+        description: Screener service base URL
+        required: true
+        type: string
+      initial_wait_seconds:
+        description: Seconds to wait before the first smoke attempt
+        required: false
+        default: "0"
+        type: string
+      retries:
+        description: Number of full-suite retry attempts
+        required: false
+        default: "1"
+        type: string
+      retry_delay_seconds:
+        description: Seconds to wait between full-suite retries
+        required: false
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Run smoke suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Wait for deploy to settle
+        if: ${{ fromJSON(format('{0}', inputs.initial_wait_seconds)) > 0 }}
+        run: sleep "${{ inputs.initial_wait_seconds }}"
+
+      - name: Run deployed smoke checks
+        run: |
+          python scripts/render_smoke.py \
+            --environment "${{ inputs.environment_name }}" \
+            --frontend-url "${{ inputs.frontend_url }}" \
+            --analyst-url "${{ inputs.analyst_url }}" \
+            --screener-url "${{ inputs.screener_url }}" \
+            --retries "${{ inputs.retries }}" \
+            --retry-delay "${{ inputs.retry_delay_seconds }}"

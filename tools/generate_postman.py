@@ -272,12 +272,38 @@ def write_local_environment() -> None:
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def write_dev_environment() -> None:
+    POSTMAN_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "name": "finance-monorepo dev",
+        "values": [
+            {
+                "key": "analyst_base_url",
+                "value": "https://finance-analyst-dev.onrender.com",
+                "type": "default",
+                "enabled": True,
+            },
+            {
+                "key": "screener_base_url",
+                "value": "https://finance-screener-dev.onrender.com",
+                "type": "default",
+                "enabled": True,
+            },
+        ],
+        "_postman_variable_scope": "environment",
+        "_postman_exported_using": "finance-monorepo",
+    }
+    target = POSTMAN_DIR / "dev.postman_environment.json"
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     subprocess.run([sys.executable, "tools/dump_openapi.py"], check=True, cwd=ROOT)
     for service in ("analyst", "screener"):
         run_converter(service)
         normalize_collection(service)
     write_local_environment()
+    write_dev_environment()
 
 
 if __name__ == "__main__":
