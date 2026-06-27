@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from analyst_service.api.main import app
 from analyst_service.api.routers import analysis as analysis_router
+from analyst_service.core.fibonacci import FibonacciResult
 from analyst_service.core import analysis as analysis_module
 from analyst_service.core import data_fetcher
 from analyst_service.core.provider_clients import finance_query as finance_query_client
@@ -186,7 +187,22 @@ def test_entry_confluence_route_returns_degraded_payload_without_market_price(mo
         analysis_router,
         "load_service_config",
         lambda: {
-            "entry_rules": {"support_window": 20},
+            "entry_rules": {
+                "support_window": 20,
+                "ideal_zone_low_atr_multiple": 0.25,
+                "zone_atr_mult": 1.0,
+                "ma20_proximity_atr_tolerance": 1.0,
+                "breakout_buffer": 0.005,
+                "breakout_volume_ratio": 1.5,
+                "extension_threshold_pct": 10.0,
+                "overbought_rsi": 75.0,
+                "mild_strength_ma20_pct": 1.03,
+                "aggressive_max_rsi": 60.0,
+                "conservative_min_rsi": 35.0,
+                "strong_trend_ma200_distance_pct": 5.0,
+                "reasonable_pe_percentile": 65.0,
+                "rr_min": 1.0,
+            },
             "weights": {},
             "thresholds": {
                 "vote": {"buy_above": 0.25, "sell_below": -0.25},
@@ -204,6 +220,7 @@ def test_entry_confluence_route_returns_degraded_payload_without_market_price(mo
         "fetch_ohlcv",
         lambda symbol, current_price: FreshValue(_empty_ohlcv(), Freshness.MISSING, None),
     )
+    monkeypatch.setattr(analysis_router, "_quote_current_price", lambda symbol: None)
     monkeypatch.setattr(
         analysis_router,
         "fetch_analysis_context",
@@ -223,6 +240,87 @@ def test_entry_confluence_route_returns_degraded_payload_without_market_price(mo
     assert payload["classical"] == {}
     assert payload["fibonacci"] is None
     assert payload["confluence"] is None
+
+
+def test_entry_confluence_route_uses_quote_fallback_when_history_is_missing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        analysis_router,
+        "load_service_config",
+        lambda: {
+            "entry_rules": {
+                "support_window": 20,
+                "ideal_zone_low_atr_multiple": 0.25,
+                "zone_atr_mult": 1.0,
+                "ma20_proximity_atr_tolerance": 1.0,
+                "breakout_buffer": 0.005,
+                "breakout_volume_ratio": 1.5,
+                "extension_threshold_pct": 10.0,
+                "overbought_rsi": 75.0,
+                "mild_strength_ma20_pct": 1.03,
+                "aggressive_max_rsi": 60.0,
+                "conservative_min_rsi": 35.0,
+                "strong_trend_ma200_distance_pct": 5.0,
+                "reasonable_pe_percentile": 65.0,
+                "rr_min": 1.0,
+            },
+            "weights": {},
+            "thresholds": {
+                "vote": {"buy_above": 0.25, "sell_below": -0.25},
+                "signals": {"fomc_force_hold_days": 2},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        analysis_router,
+        "load_fibonacci_config",
+        lambda: {"default_lookback_days": 90, "overlap_tolerance_atr": 0.5},
+    )
+
+    def fake_fetch_ohlcv(symbol, current_price):
+        if current_price is None:
+            return FreshValue(_empty_ohlcv(), Freshness.MISSING, None)
+        return FreshValue(_price_frame(current_price), Freshness.ESTIMATED, None)
+
+    monkeypatch.setattr(analysis_router, "fetch_ohlcv", fake_fetch_ohlcv)
+    monkeypatch.setattr(analysis_router, "_quote_current_price", lambda symbol: 101.25)
+    monkeypatch.setattr(
+        analysis_router,
+        "fetch_analysis_context",
+        lambda symbol, price_history: (
+            FreshValue(Fundamentals(), Freshness.MISSING, None),
+            FreshValue(Sentiment(), Freshness.MISSING, None),
+            FreshValue(Macro(), Freshness.MISSING, None),
+        ),
+    )
+    monkeypatch.setattr(
+        analysis_router,
+        "compute_fibonacci_levels",
+        lambda symbol, price_df, lookback_days: FibonacciResult(
+            swing_high=120.0,
+            swing_low=90.0,
+            level_0=120.0,
+            level_236=112.92,
+            level_382=108.54,
+            level_500=105.0,
+            level_618=101.46,
+            level_650=100.5,
+            level_786=96.42,
+            level_1000=90.0,
+            golden_pocket_low=100.5,
+            golden_pocket_high=101.46,
+            as_of="2026-06-18",
+            lookback_days=90,
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post("/entry/confluence", json={"symbol": "NVDA"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["current_price"] == 101.25
+    assert payload["classical"]
+    assert payload["fibonacci"] is not None
 
 
 def test_health_route_reports_feature_level_yahoo_statuses(monkeypatch) -> None:

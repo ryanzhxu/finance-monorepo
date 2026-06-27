@@ -41,9 +41,11 @@ from analyst_service.core.fibonacci import compute_fibonacci_levels, load_fibona
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.provider_clients.finance_query import (
     finance_query_base_url,
+    fetch_finance_query_quote,
     search_finance_query_symbols,
 )
 from analyst_service.core.provider_clients.stockdata import search_stockdata_symbols, stockdata_api_key
+from analyst_service.core.provider_clients.stockdata import fetch_stockdata_quote
 from analyst_service.core.cache import backend_name as cache_backend_name, redis_status
 from analyst_service.core.llm_client import llm_available
 from analyst_service.core.settings import load_service_config
@@ -473,6 +475,31 @@ def _current_price(request_price: float | None, ohlcv: FreshValue[object]) -> fl
     return None
 
 
+def _quote_current_price(symbol: str) -> float | None:
+    if stockdata_api_key():
+        try:
+            quoted = fetch_stockdata_quote(symbol)
+        except Exception:
+            quoted = None
+        if quoted is not None:
+            return float(quoted)
+
+    try:
+        finance_query_quote = fetch_finance_query_quote(symbol)
+    except Exception:
+        finance_query_quote = {}
+
+    for key in ("currentPrice", "regularMarketPrice", "previousClose"):
+        value = finance_query_quote.get(key)
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _entry_confluence_response(symbol: str, lookback_days: int | None = None) -> EntryConfluenceResponse:
     config = load_service_config()
     fib_config = load_fibonacci_config()
@@ -496,6 +523,12 @@ def _entry_confluence_response(symbol: str, lookback_days: int | None = None) ->
     }
     data_quality_score = float(compute_analysis_data_quality(technicals, fundamentals, sentiment, macro))
     current_price = _current_price(None, ohlcv)
+    if current_price is None:
+        current_price = _quote_current_price(symbol)
+        if current_price is not None:
+            ohlcv = fetch_ohlcv(symbol, current_price)
+            current_price = _current_price(current_price, ohlcv)
+
     if current_price is None:
         return EntryConfluenceResponse(
             symbol=symbol,
