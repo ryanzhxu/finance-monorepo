@@ -36,11 +36,29 @@ type AnalyzeSelection = {
   } | null
 }
 
+const PRIVATE_SPACE_TITLE = 'Private watchlist'
+const PRIVATE_SPACE_LABEL = 'Private watchlist'
+const PRIVATE_SPACE_LOADING = 'Loading private watchlist...'
+const PRIVATE_SPACE_LOGIN_HELP = 'Enter the shared passcode to access your private stock pool.'
+const PRIVATE_SPACE_LOGIN_CTA = 'Unlock private watchlist'
+const PRIVATE_SPACE_LOAD_ERROR = 'Unable to load private watchlist'
+const RETRY_DELAY_MS = 150
+
 function withFreshness(entry: WatchlistEntry): WatchlistEntry {
   return {
     ...entry,
     freshness: entry.lastAnalyzedAt ? (isStale(entry) ? 'stale' : 'live') : 'never',
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+function isAuthRaceError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Authentication required')
 }
 
 function SharedSpace({ slug }: SharedSpaceProps) {
@@ -93,16 +111,23 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     [storageKey],
   )
 
-  const loadRemoteWatchlist = useCallback(async () => {
-    const response = await fetchSharedWatchlist(slug)
-    applySharedSymbols(response.symbols)
-    setSessionError(null)
-    setSession((current) => ({
-      ...(current ?? { slug }),
-      authenticated: true,
-      slug,
-      display_name: response.display_name,
-    }))
+  const refreshRemoteWatchlist = useCallback(async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetchSharedWatchlist(slug)
+        applySharedSymbols(response.symbols)
+        setSessionError(null)
+        return response
+      } catch (error) {
+        if (attempt === 0 && isAuthRaceError(error)) {
+          await delay(RETRY_DELAY_MS)
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw new Error(PRIVATE_SPACE_LOAD_ERROR)
   }, [applySharedSymbols, slug])
 
   const processRefreshQueue = useCallback(async () => {
@@ -193,20 +218,29 @@ function SharedSpace({ slug }: SharedSpaceProps) {
         }
         setSession(nextSession)
         if (nextSession.authenticated) {
-          await loadRemoteWatchlist()
+          try {
+            await refreshRemoteWatchlist()
+          } catch (error) {
+            if (cancelled) {
+              return
+            }
+            setSessionError(error instanceof Error ? error.message : PRIVATE_SPACE_LOAD_ERROR)
+          }
+        } else {
+          setSessionError(null)
         }
       } catch (error) {
         if (cancelled) {
           return
         }
-        setSession({ authenticated: false, slug, display_name: slug })
-        setSessionError(error instanceof Error ? error.message : 'Unable to load private space')
+        setSession({ authenticated: false, slug, display_name: PRIVATE_SPACE_TITLE })
+        setSessionError(error instanceof Error ? error.message : PRIVATE_SPACE_LOAD_ERROR)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [loadRemoteWatchlist, slug])
+  }, [refreshRemoteWatchlist, slug])
 
   useEffect(() => {
     if (!session?.authenticated) {
@@ -228,7 +262,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       const nextSession = await loginToSharedSpace(slug, passcode)
       setSession(nextSession)
       setPasscode('')
-      await loadRemoteWatchlist()
+      await refreshRemoteWatchlist()
     } catch (error) {
       setSessionError(error instanceof Error ? error.message : 'Unable to authenticate')
     } finally {
@@ -293,7 +327,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#090c12] sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-4xl items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#0d0f14]">
-          <p className="text-sm text-slate-600 dark:text-slate-400">Loading private space...</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{PRIVATE_SPACE_LOADING}</p>
         </div>
       </div>
     )
@@ -306,13 +340,13 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           <div className="w-full max-w-md space-y-6">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                Private Space
+                {PRIVATE_SPACE_LABEL}
               </p>
               <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
-                /{slug}
+                {PRIVATE_SPACE_TITLE}
               </h1>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Enter the shared passcode to access your private stock pool.
+                {PRIVATE_SPACE_LOGIN_HELP}
               </p>
             </div>
             <form onSubmit={handleLogin} className="space-y-3">
@@ -328,7 +362,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
                 disabled={authSubmitting}
                 className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
               >
-                {authSubmitting ? 'Checking passcode...' : 'Enter /drama'}
+                {authSubmitting ? 'Checking passcode...' : PRIVATE_SPACE_LOGIN_CTA}
               </button>
             </form>
             {sessionError ? (
@@ -349,11 +383,11 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                shared watchlist
+                {PRIVATE_SPACE_LABEL}
               </p>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl">
-                  {session.display_name ?? slug}
+                  {PRIVATE_SPACE_TITLE}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
                   Shared symbol pool for private collaboration. Membership is shared, analysis stays fast per device.
