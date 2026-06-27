@@ -42,7 +42,7 @@ const PRIVATE_SPACE_LOADING = 'Loading private watchlist...'
 const PRIVATE_SPACE_LOGIN_HELP = 'Enter the shared passcode to access your private stock pool.'
 const PRIVATE_SPACE_LOGIN_CTA = 'Unlock private watchlist'
 const PRIVATE_SPACE_LOAD_ERROR = 'Unable to load private watchlist'
-const RETRY_DELAY_MS = 150
+const RETRY_DELAY_MS = [150, 500, 1000] as const
 
 function withFreshness(entry: WatchlistEntry): WatchlistEntry {
   return {
@@ -112,15 +112,15 @@ function SharedSpace({ slug }: SharedSpaceProps) {
   )
 
   const refreshRemoteWatchlist = useCallback(async () => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < RETRY_DELAY_MS.length + 1; attempt += 1) {
       try {
         const response = await fetchSharedWatchlist(slug)
         applySharedSymbols(response.symbols)
         setSessionError(null)
         return response
       } catch (error) {
-        if (attempt === 0 && isAuthRaceError(error)) {
-          await delay(RETRY_DELAY_MS)
+        if (attempt < RETRY_DELAY_MS.length && isAuthRaceError(error)) {
+          await delay(RETRY_DELAY_MS[attempt])
           continue
         }
         throw error
