@@ -46,6 +46,23 @@ def test_shared_space_session_and_login_flow(monkeypatch, tmp_path) -> None:
         assert authenticated_session.json()["authenticated"] is True
 
 
+def test_shared_space_login_sets_secure_cookie_when_proxied_https(monkeypatch, tmp_path) -> None:
+    _configure_shared_space(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/shared-spaces/drama/login",
+            json={"passcode": "swordfish"},
+            headers={"x-forwarded-proto": "https"},
+        )
+
+        assert response.status_code == 200
+        set_cookie = response.headers["set-cookie"].lower()
+        assert "samesite=none" in set_cookie
+        assert "secure" in set_cookie
+        assert "httponly" in set_cookie
+
+
 def test_shared_watchlist_adds_dedupes_and_removes_symbols(monkeypatch, tmp_path) -> None:
     _configure_shared_space(monkeypatch, tmp_path)
 

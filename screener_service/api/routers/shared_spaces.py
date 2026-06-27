@@ -42,8 +42,15 @@ def _load_space(store: SharedSpaceStore, slug: str) -> SharedSpace:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
+def _is_secure_request(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", maxsplit=1)[0].strip().lower()
+    if forwarded_proto:
+        return forwarded_proto == "https"
+    return request.url.scheme == "https"
+
+
 def _cookie_options(request: Request, slug: str, max_age: int) -> dict[str, object]:
-    secure = request.url.scheme == "https"
+    secure = _is_secure_request(request)
     return {
         "httponly": True,
         "max_age": max_age,
