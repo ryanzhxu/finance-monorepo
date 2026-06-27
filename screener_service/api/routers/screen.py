@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from shared.enums import ScreenType, Universe
 from shared.models import RegimeResponse, ScreenRequest, ScreenResponse, TrendingScreenRequest, TrendingScreenResponse
 
+from screener_service.core.demand_shock import run_demand_shock_screen
 from screener_service.core.regime import current_regime
 from screener_service.core.screening import run_screen, run_trending_screen
 from screener_service.core.settings import load_screener_config
@@ -36,6 +37,11 @@ async def regime() -> RegimeResponse:
 @router.post("/undervalued", response_model=ScreenResponse)
 async def undervalued(request: ScreenRequest) -> ScreenResponse:
     return await run_screen(request, ScreenType.UNDERVALUED)
+
+
+@router.post("/demand-shock", response_model=ScreenResponse)
+async def demand_shock(request: ScreenRequest) -> ScreenResponse:
+    return await run_demand_shock_screen(request)
 
 
 @router.post("/opportunities", response_model=ScreenResponse)

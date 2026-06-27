@@ -251,6 +251,7 @@
           "include_analysis": false,
           "include_narrative": false,
           "limit": 10,
+          "lookback_days": 30,
           "universe": "SP500"
         },
         "properties": {
@@ -287,6 +288,13 @@
             "title": "Limit",
             "type": "integer"
           },
+          "lookback_days": {
+            "default": 30,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Lookback Days",
+            "type": "integer"
+          },
           "tickers": {
             "anyOf": [
               {
@@ -320,6 +328,14 @@
               "JPM"
             ],
             "universe": "CUSTOM"
+          },
+          "demand_shock": {
+            "horizon": "2-4W",
+            "include_analysis": true,
+            "include_narrative": false,
+            "limit": 25,
+            "lookback_days": 30,
+            "universe": "SP500"
           },
           "opportunities": {
             "horizon": "2-4W",
@@ -427,6 +443,22 @@
             "title": "Analyst Revision Score",
             "type": "number"
           },
+          "analyst_upgrades_30d": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Upgrades 30D"
+          },
+          "components": {
+            "additionalProperties": true,
+            "title": "Components",
+            "type": "object"
+          },
           "confidence": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -502,6 +534,17 @@
             "title": "Institutional Accumulation Score",
             "type": "number"
           },
+          "margin_expansion_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Expansion Bps"
+          },
           "momentum_score": {
             "maximum": 100.0,
             "minimum": 0.0,
@@ -541,6 +584,17 @@
           "recommended_action": {
             "title": "Recommended Action",
             "type": "string"
+          },
+          "revenue_accel_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Accel Pct"
           },
           "risk_flags": {
             "items": {
@@ -612,6 +666,7 @@
         "enum": [
           "undervalued",
           "trending",
+          "demand_shock",
           "opportunities",
           "watchlist",
           "custom"
@@ -1091,6 +1146,44 @@
           }
         },
         "summary": "Custom"
+      }
+    },
+    "/screen/demand-shock": {
+      "post": {
+        "operationId": "demand_shock_screen_demand_shock_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Demand Shock"
       }
     },
     "/screen/health": {

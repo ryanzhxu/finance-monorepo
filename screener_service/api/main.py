@@ -4,13 +4,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from screener_service.api.routers.screen import router
 from screener_service.core.settings import load_screener_config
 
-app = FastAPI(title="Screener Service", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    load_screener_config()
+    yield
+
+
+app = FastAPI(title="Screener Service", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
 
 app.add_middleware(
@@ -24,8 +32,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def validate_config() -> None:
-    load_screener_config()

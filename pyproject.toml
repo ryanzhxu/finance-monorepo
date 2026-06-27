@@ -44,3 +44,6 @@ testpaths = [
 pythonpath = [
     ".",
 ]
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette\\.testclient` is deprecated; install `httpx2` instead\\.:starlette.exceptions.StarletteDeprecationWarning",
+]

@@ -39,6 +39,7 @@ class Freshness(str, Enum):
 class ScreenType(str, Enum):
     UNDERVALUED = "undervalued"
     TRENDING = "trending"
+    DEMAND_SHOCK = "demand_shock"
     OPPORTUNITIES = "opportunities"
     WATCHLIST = "watchlist"
     CUSTOM = "custom"

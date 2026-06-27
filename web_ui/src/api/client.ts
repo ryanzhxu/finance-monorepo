@@ -126,6 +126,21 @@ export async function fetchTrendingScreen(): Promise<TrendingScreenResponse> {
   }
 }
 
+export async function fetchDemandShockScreen(): Promise<ScreenResponse> {
+  try {
+    const response = await screenerClient.post<ScreenResponse>('/screen/demand-shock', {
+      universe: 'SP500',
+      limit: 25,
+      include_analysis: true,
+      include_narrative: false,
+      lookback_days: 30,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
 export async function fetchAnalystHealth(): Promise<AnalystHealthResponse> {
   try {
     const response = await analystClient.get<AnalystHealthResponse>('/health')
