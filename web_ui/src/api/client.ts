@@ -10,8 +10,9 @@ import type {
   TrendingScreenResponse,
 } from './types'
 
-const analystBaseUrl = import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
-const screenerBaseUrl = import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null
+const analystBaseUrl = apiBaseUrl ?? import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
+const screenerBaseUrl = apiBaseUrl ?? import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
 
 const analystClient = axios.create({
   baseURL: analystBaseUrl,

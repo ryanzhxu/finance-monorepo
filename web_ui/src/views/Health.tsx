@@ -202,14 +202,14 @@ function Health() {
       <div className="grid gap-6 xl:grid-cols-2">
         <ServiceCard
           title="Analyst"
-          portLabel="Analyst service · :8001"
+          portLabel="Edge API · analyst"
           data={analystQuery.data}
           error={analystQuery.error ?? null}
           loading={analystQuery.isLoading}
         />
         <ServiceCard
           title="Screener"
-          portLabel="Screener service · :8002"
+          portLabel="Edge API · screener"
           data={screenerQuery.data}
           error={screenerQuery.error ?? null}
           loading={screenerQuery.isLoading}
