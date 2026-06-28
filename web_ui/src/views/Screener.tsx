@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchTrendingScreen, fetchUndervaluedScreen } from '../api/client'
+import { fetchDemandShockScreen, fetchTrendingScreen, fetchUndervaluedScreen } from '../api/client'
 import type { ScreenResultItem, TrendingResultItem } from '../api/types'
 
 type ScreenerProps = {
   onAnalyzeSymbol: (symbol: string) => void
 }
 
-type TabKey = 'undervalued' | 'trending'
+type TabKey = 'undervalued' | 'demand_shock' | 'trending'
 
 type ScreenerRow = {
   symbol: string
@@ -20,6 +20,7 @@ type ScreenerRow = {
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'undervalued', label: 'Undervalued' },
+  { key: 'demand_shock', label: 'Demand Shock' },
   { key: 'trending', label: 'Trending' },
 ]
 
@@ -65,16 +66,29 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
     enabled: activeTab === 'undervalued',
   })
 
+  const demandShockQuery = useQuery({
+    queryKey: ['screen', 'demand-shock'],
+    queryFn: fetchDemandShockScreen,
+    enabled: activeTab === 'demand_shock',
+  })
+
   const trendingQuery = useQuery({
     queryKey: ['screen', 'trending'],
     queryFn: fetchTrendingScreen,
     enabled: activeTab === 'trending',
   })
 
-  const activeQuery = activeTab === 'undervalued' ? undervaluedQuery : trendingQuery
+  const activeQuery =
+    activeTab === 'undervalued'
+      ? undervaluedQuery
+      : activeTab === 'demand_shock'
+        ? demandShockQuery
+        : trendingQuery
   const rows =
     activeTab === 'undervalued'
       ? undervaluedQuery.data?.results.map(mapUndervaluedRow) ?? []
+      : activeTab === 'demand_shock'
+        ? demandShockQuery.data?.results.map(mapUndervaluedRow) ?? []
       : trendingQuery.data?.results.map(mapTrendingRow) ?? []
 
   return (

@@ -136,7 +136,11 @@ def test_fetch_sentiment_handles_missing_reddit_credentials(monkeypatch) -> None
 def test_fetch_sentiment_does_not_raise_when_one_source_fails(monkeypatch) -> None:
     class BrokenTicker:
         def __init__(self) -> None:
-            self.info = dict(NVDA_INFO)
+            self.info = {
+                **dict(NVDA_INFO),
+                "sharesOutstanding": 1_000_000_000,
+                "heldPercentInstitutions": 0.85,
+            }
             self.options = ("2026-06-21",)
 
         def option_chain(self, expiry: str):
@@ -145,6 +149,8 @@ def test_fetch_sentiment_does_not_raise_when_one_source_fails(monkeypatch) -> No
     monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=lambda symbol: BrokenTicker()))
     monkeypatch.setattr(sentiment_module, "_sec_get", lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")))
     monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_empty_news)
+    monkeypatch.delenv("ALPHA_VANTAGE_KEY", raising=False)
+    monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
 
@@ -153,7 +159,9 @@ def test_fetch_sentiment_does_not_raise_when_one_source_fails(monkeypatch) -> No
     assert data.put_call_ratio is None
     assert data.iv_rank_approx is not None
     assert data.short_interest_pct == 1.3
-    assert data.institutional_net_shares_last_13f is None
+    assert data.institutional_net_shares_last_13f is not None
+    assert data.institutional_net_shares_last_13f > 0
+    assert data.institutional_13f_freshness == "estimated"
     assert data.news_sentiment_score is None
     assert data.news_headline_count is None
     assert data.news_sentiment_source is None

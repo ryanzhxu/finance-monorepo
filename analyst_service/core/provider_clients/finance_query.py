@@ -14,13 +14,32 @@ def finance_query_base_url() -> str:
     return (os.getenv("FINANCE_QUERY_BASE_URL") or FINANCE_QUERY_BASE_URL).rstrip("/")
 
 
+def _normalize_http_error(path: str, exc: httpx.HTTPStatusError) -> RuntimeError:
+    status_code = exc.response.status_code if exc.response is not None else "unknown"
+    body = ""
+    if exc.response is not None:
+        try:
+            body = exc.response.text
+        except Exception:
+            body = ""
+    if status_code == 401 and "Invalid Crumb" in body:
+        return RuntimeError(f"Finance Query HTTP {status_code} for {path}: upstream authorization failed")
+    reason = exc.response.reason_phrase if exc.response is not None else "request failed"
+    return RuntimeError(f"Finance Query HTTP {status_code} for {path}: {reason}")
+
+
 def _request(path: str, params: dict[str, Any] | None = None, timeout: float = _DEFAULT_TIMEOUT) -> dict[str, Any]:
-    response = httpx.get(
-        f"{finance_query_base_url()}{path}",
-        params=params or {},
-        timeout=timeout,
-    )
-    response.raise_for_status()
+    try:
+        response = httpx.get(
+            f"{finance_query_base_url()}{path}",
+            params=params or {},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise _normalize_http_error(path, exc) from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(f"Finance Query request failed for {path}: {type(exc).__name__}") from exc
     payload = response.json()
     return payload if isinstance(payload, dict) else {}
 

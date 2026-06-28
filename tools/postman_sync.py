@@ -143,6 +143,7 @@ def main() -> int:
         upsert_collection(client, workspace_id, POSTMAN_DIR / "analyst.postman_collection.json")
         upsert_collection(client, workspace_id, POSTMAN_DIR / "screener.postman_collection.json")
         upsert_environment(client, workspace_id, POSTMAN_DIR / "local.postman_environment.json")
+        upsert_environment(client, workspace_id, POSTMAN_DIR / "dev.postman_environment.json")
     finally:
         client.close()
     return 0

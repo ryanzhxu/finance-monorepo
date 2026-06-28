@@ -4,12 +4,15 @@ import type {
   AnalystHealthResponse,
   EntryConfluenceResponse,
   ScreenResponse,
+  SharedSpaceSessionResponse,
+  SharedWatchlistResponse,
   ScreenerHealthResponse,
   TrendingScreenResponse,
 } from './types'
 
-const analystBaseUrl = import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
-const screenerBaseUrl = import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null
+const analystBaseUrl = apiBaseUrl ?? import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
+const screenerBaseUrl = apiBaseUrl ?? import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
 
 const analystClient = axios.create({
   baseURL: analystBaseUrl,
@@ -126,6 +129,21 @@ export async function fetchTrendingScreen(): Promise<TrendingScreenResponse> {
   }
 }
 
+export async function fetchDemandShockScreen(): Promise<ScreenResponse> {
+  try {
+    const response = await screenerClient.post<ScreenResponse>('/screen/demand-shock', {
+      universe: 'SP500',
+      limit: 25,
+      include_analysis: true,
+      include_narrative: false,
+      lookback_days: 30,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
 export async function fetchAnalystHealth(): Promise<AnalystHealthResponse> {
   try {
     const response = await analystClient.get<AnalystHealthResponse>('/health')
@@ -152,6 +170,79 @@ export async function fetchSymbolSearch(
 export async function fetchScreenerHealth(): Promise<ScreenerHealthResponse> {
   try {
     const response = await screenerClient.get<ScreenerHealthResponse>('/screen/health')
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchSharedSpaceSession(slug: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.get<SharedSpaceSessionResponse>(`/shared-spaces/${slug}/session`, {
+      withCredentials: true,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function loginToSharedSpace(slug: string, passcode: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.post<SharedSpaceSessionResponse>(
+      `/shared-spaces/${slug}/login`,
+      { passcode },
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function logoutFromSharedSpace(slug: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.post<SharedSpaceSessionResponse>(
+      `/shared-spaces/${slug}/logout`,
+      {},
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchSharedWatchlist(slug: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.get<SharedWatchlistResponse>(`/shared-spaces/${slug}/watchlist`, {
+      withCredentials: true,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function addSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.post<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist`,
+      { symbol },
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function removeSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.delete<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist/${encodeURIComponent(symbol)}`,
+      { withCredentials: true },
+    )
     return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })

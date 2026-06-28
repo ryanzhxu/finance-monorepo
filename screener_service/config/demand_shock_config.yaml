@@ -1,0 +1,10 @@
+weights:
+  revenue: 0.4
+  analyst: 0.4
+  margin: 0.2
+
+thresholds:
+  minimum_revenue_growth_pct: 15
+  minimum_analyst_score: 50
+  minimum_margin_score: 50
+  minimum_score: 70

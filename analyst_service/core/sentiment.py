@@ -314,6 +314,30 @@ def _fetch_institutional_13f_total(symbol: str, info: dict[str, Any]) -> tuple[i
     return total, filing_date
 
 
+def _estimate_institutional_13f_total(info: dict[str, Any], finance_query_quote: dict[str, Any]) -> int | None:
+    shares_outstanding = _coerce_float(
+        info.get("sharesOutstanding")
+        or finance_query_quote.get("sharesOutstanding")
+        or finance_query_quote.get("shares_outstanding")
+    )
+    if shares_outstanding is None or shares_outstanding <= 0:
+        return None
+
+    held_percent = _coerce_float(
+        info.get("heldPercentInstitutions")
+        or finance_query_quote.get("heldPercentInstitutions")
+        or finance_query_quote.get("held_percent_institutions")
+    )
+    if held_percent is None or held_percent <= 0:
+        return None
+
+    if held_percent > 1:
+        held_percent /= 100.0
+
+    estimated_total = int(round(shares_outstanding * held_percent))
+    return estimated_total if estimated_total > 0 else None
+
+
 def _reddit_sentiment_score(text: str) -> float:
     bullish_terms = ("buy", "bull", "bullish", "long", "beat", "upgrade", "strong")
     bearish_terms = ("sell", "bear", "bearish", "short", "miss", "downgrade", "weak")
@@ -487,6 +511,11 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
         institutional_total, filing_date = _fetch_institutional_13f_total(symbol, info)
     except Exception:
         institutional_total, filing_date = None, None
+    institutional_13f_freshness = "delayed_45d"
+    if institutional_total is None:
+        institutional_total = _estimate_institutional_13f_total(info, finance_query_quote)
+        if institutional_total is not None:
+            institutional_13f_freshness = "estimated"
 
     try:
         reddit_mention_spike_24h_pct, reddit_positive_pct = _fetch_reddit_sentiment(symbol)
@@ -523,7 +552,7 @@ def fetch_sentiment(symbol: str, price_history: pd.DataFrame | None = None) -> S
         short_interest_pct=short_interest_pct,
         institutional_net_shares_last_13f=institutional_total,
         institutional_13f_as_of=filing_date,
-        institutional_13f_freshness="delayed_45d",
+        institutional_13f_freshness=institutional_13f_freshness,
         news_sentiment_score=news_sentiment_score,
         news_headline_count=news_headline_count,
         news_sentiment_source=news_source,

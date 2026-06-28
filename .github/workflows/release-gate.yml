@@ -1,0 +1,29 @@
+name: Release Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-dev-smoke:
+    name: Verify dev smoke before prod release
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'dev' }}
+    uses: ./.github/workflows/deployed-smoke.yml
+    with:
+      environment_name: dev
+      frontend_url: https://finance-web-ui-dev.onrender.com
+      analyst_url: https://finance-analyst-dev.onrender.com
+      screener_url: https://finance-screener-dev.onrender.com
+      initial_wait_seconds: 0
+      retries: 2
+      retry_delay_seconds: 15

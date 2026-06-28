@@ -317,6 +317,7 @@ class ScreenRequest(BaseModel):
                 "horizon": "2-4W",
                 "include_analysis": False,
                 "include_narrative": False,
+                "lookback_days": 30,
             },
             "x-postman-examples": {
                 "undervalued": {
@@ -349,6 +350,14 @@ class ScreenRequest(BaseModel):
                     "include_narrative": False,
                     "tickers": ["KO", "NVDA", "JPM"],
                 },
+                "demand_shock": {
+                    "universe": "SP500",
+                    "limit": 25,
+                    "horizon": "2-4W",
+                    "include_analysis": True,
+                    "include_narrative": False,
+                    "lookback_days": 30,
+                },
             },
         }
     )
@@ -358,6 +367,7 @@ class ScreenRequest(BaseModel):
     horizon: Horizon = Horizon.TWO_TO_FOUR_WEEKS
     include_analysis: bool = True
     include_narrative: bool = False
+    lookback_days: int = Field(default=30, ge=1, le=365)
     tickers: list[str] | None = None
     filters_override: dict[str, Any] | None = None
 
@@ -430,6 +440,10 @@ class ScreenResultItem(BaseModel):
     entry_assessment: EntryAssessment | None = None
     ideal_buy_zone: tuple[float, float] | None = None
     summary: str | None = None
+    revenue_accel_pct: float | None = None
+    analyst_upgrades_30d: int | None = None
+    margin_expansion_bps: float | None = None
+    components: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScreenResponse(BaseModel):
@@ -516,6 +530,34 @@ class TrendingScreenResponse(BaseModel):
     data_freshness: FreshnessMap
     results: list[TrendingResultItem]
     notes: list[str] = Field(default_factory=list)
+
+
+class SharedSpaceLoginRequest(BaseModel):
+    passcode: str
+
+
+class SharedSpaceSessionResponse(BaseModel):
+    authenticated: bool
+    slug: str
+    display_name: str | None = None
+
+
+class SharedWatchlistAddRequest(BaseModel):
+    symbol: str
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        value = value.strip().upper()
+        if not value:
+            raise ValueError("symbol is required")
+        return value
+
+
+class SharedWatchlistResponse(BaseModel):
+    slug: str
+    display_name: str
+    symbols: list[str]
 
 
 class RecommendationLogRecord(BaseModel):

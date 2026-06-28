@@ -20,9 +20,27 @@ export type WatchlistEntry = {
 const KEY = 'watchlist_v1'
 const STALE_MS = 60 * 60 * 1000
 
-export function loadWatchlist(): WatchlistEntry[] {
+function emptyEntry(symbol: string): WatchlistEntry {
+  return {
+    symbol,
+    direction: null,
+    confidence: null,
+    dataQualityScore: null,
+    currentPrice: null,
+    entryAssessment: null,
+    lastAnalyzedAt: null,
+    freshness: 'never',
+    cachedBundle: null,
+  }
+}
+
+export function storageKeyForSharedSpace(slug: string): string {
+  return `watchlist_shared_${slug}_v1`
+}
+
+export function loadWatchlist(storageKey: string = KEY): WatchlistEntry[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(KEY) ?? '[]')
+    const parsed = JSON.parse(localStorage.getItem(storageKey) ?? '[]')
     if (!Array.isArray(parsed)) {
       return []
     }
@@ -35,8 +53,8 @@ export function loadWatchlist(): WatchlistEntry[] {
   }
 }
 
-export function saveWatchlist(entries: WatchlistEntry[]): void {
-  localStorage.setItem(KEY, JSON.stringify(entries))
+export function saveWatchlist(entries: WatchlistEntry[], storageKey: string = KEY): void {
+  localStorage.setItem(storageKey, JSON.stringify(entries))
 }
 
 export function addSymbol(entries: WatchlistEntry[], symbol: string): WatchlistEntry[] {
@@ -44,24 +62,20 @@ export function addSymbol(entries: WatchlistEntry[], symbol: string): WatchlistE
   if (!upper || entries.some((entry) => entry.symbol === upper)) {
     return entries
   }
-  return [
-    ...entries,
-    {
-      symbol: upper,
-      direction: null,
-      confidence: null,
-      dataQualityScore: null,
-      currentPrice: null,
-      entryAssessment: null,
-      lastAnalyzedAt: null,
-      freshness: 'never',
-      cachedBundle: null,
-    },
-  ]
+  return [...entries, emptyEntry(upper)]
 }
 
 export function removeSymbol(entries: WatchlistEntry[], symbol: string): WatchlistEntry[] {
   return entries.filter((entry) => entry.symbol !== symbol)
+}
+
+export function syncSymbols(entries: WatchlistEntry[], symbols: string[]): WatchlistEntry[] {
+  const existing = new Map(entries.map((entry) => [entry.symbol, entry]))
+  return symbols
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter(Boolean)
+    .filter((symbol, index, all) => all.indexOf(symbol) === index)
+    .map((symbol) => existing.get(symbol) ?? emptyEntry(symbol))
 }
 
 export function isStale(entry: WatchlistEntry): boolean {

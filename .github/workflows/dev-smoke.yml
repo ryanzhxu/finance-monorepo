@@ -1,0 +1,23 @@
+name: Dev Smoke
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-dev:
+    name: Verify deployed dev smoke
+    uses: ./.github/workflows/deployed-smoke.yml
+    with:
+      environment_name: dev
+      frontend_url: https://finance-web-ui-dev.onrender.com
+      analyst_url: https://finance-analyst-dev.onrender.com
+      screener_url: https://finance-screener-dev.onrender.com
+      initial_wait_seconds: 180
+      retries: 6
+      retry_delay_seconds: 30
