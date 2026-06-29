@@ -31,6 +31,10 @@ class SharedSpaceNotFoundError(RuntimeError):
     pass
 
 
+class SharedWatchlistSymbolNotFoundError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class SharedSpaceSettings:
     slug: str
@@ -64,6 +68,17 @@ class SharedSpace:
     slug: str
     display_name: str
     passcode_hash: str
+
+
+@dataclass(frozen=True)
+class SharedWatchlistEntry:
+    symbol: str
+    direction: str | None = None
+    confidence: float | None = None
+    data_quality_score: int | None = None
+    current_price: float | None = None
+    entry_assessment: str | None = None
+    last_analyzed_at: datetime | None = None
 
 
 def _b64encode(value: bytes) -> str:
@@ -199,35 +214,49 @@ class SharedSpaceStore:
                     raise SharedSpaceNotFoundError(normalized_slug)
                 return SharedSpace(id=int(row[0]), slug=row[1], display_name=row[2], passcode_hash=row[3])
 
-    def list_symbols(self, slug: str) -> list[str]:
+    def list_entries(self, slug: str) -> list[SharedWatchlistEntry]:
         space = self.get_space(slug)
         if self._dialect == "sqlite":
             with self._sqlite_connection() as connection:
                 rows = connection.execute(
                     """
-                    SELECT symbol
+                    SELECT symbol, direction, confidence, data_quality_score, current_price, entry_assessment, last_analyzed_at
                     FROM shared_watchlist_symbols
                     WHERE space_id = ?
                     ORDER BY symbol ASC
                     """,
                     (space.id,),
                 ).fetchall()
-                return [row["symbol"] for row in rows]
+                return [self._sqlite_entry_from_row(row) for row in rows]
 
         with self._postgres_connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT symbol
+                    SELECT symbol, direction, confidence, data_quality_score, current_price, entry_assessment, last_analyzed_at
                     FROM shared_watchlist_symbols
                     WHERE space_id = %s
                     ORDER BY symbol ASC
                     """,
                     (space.id,),
                 )
-                return [row[0] for row in cursor.fetchall()]
+                return [self._postgres_entry_from_row(row) for row in cursor.fetchall()]
 
-    def add_symbol(self, slug: str, symbol: str) -> list[str]:
+    def list_symbols(self, slug: str) -> list[str]:
+        return [entry.symbol for entry in self.list_entries(slug)]
+
+    def add_symbol(
+        self,
+        slug: str,
+        symbol: str,
+        *,
+        direction: str | None = None,
+        confidence: float | None = None,
+        data_quality_score: int | None = None,
+        current_price: float | None = None,
+        entry_assessment: str | None = None,
+        last_analyzed_at: datetime | None = None,
+    ) -> list[SharedWatchlistEntry]:
         space = self.get_space(slug)
         normalized_symbol = symbol.strip().upper()
         if self._dialect == "sqlite":
@@ -240,7 +269,29 @@ class SharedSpaceStore:
                     """,
                     (space.id, normalized_symbol),
                 )
-            return self.list_symbols(slug)
+                if any(
+                    value is not None
+                    for value in (
+                        direction,
+                        confidence,
+                        data_quality_score,
+                        current_price,
+                        entry_assessment,
+                        last_analyzed_at,
+                    )
+                ):
+                    self._sqlite_update_summary(
+                        connection,
+                        space.id,
+                        normalized_symbol,
+                        direction=direction,
+                        confidence=confidence,
+                        data_quality_score=data_quality_score,
+                        current_price=current_price,
+                        entry_assessment=entry_assessment,
+                        last_analyzed_at=last_analyzed_at,
+                    )
+            return self.list_entries(slug)
 
         with self._postgres_connection() as connection:
             with connection.cursor() as cursor:
@@ -252,10 +303,81 @@ class SharedSpaceStore:
                     """,
                     (space.id, normalized_symbol),
                 )
+                if any(
+                    value is not None
+                    for value in (
+                        direction,
+                        confidence,
+                        data_quality_score,
+                        current_price,
+                        entry_assessment,
+                        last_analyzed_at,
+                    )
+                ):
+                    self._postgres_update_summary(
+                        cursor,
+                        space.id,
+                        normalized_symbol,
+                        direction=direction,
+                        confidence=confidence,
+                        data_quality_score=data_quality_score,
+                        current_price=current_price,
+                        entry_assessment=entry_assessment,
+                        last_analyzed_at=last_analyzed_at,
+                    )
                 connection.commit()
-        return self.list_symbols(slug)
+        return self.list_entries(slug)
 
-    def remove_symbol(self, slug: str, symbol: str) -> list[str]:
+    def update_summary(
+        self,
+        slug: str,
+        symbol: str,
+        *,
+        direction: str | None = None,
+        confidence: float | None = None,
+        data_quality_score: int | None = None,
+        current_price: float | None = None,
+        entry_assessment: str | None = None,
+        last_analyzed_at: datetime | None = None,
+    ) -> list[SharedWatchlistEntry]:
+        space = self.get_space(slug)
+        normalized_symbol = symbol.strip().upper()
+        if self._dialect == "sqlite":
+            with self._sqlite_connection() as connection:
+                updated = self._sqlite_update_summary(
+                    connection,
+                    space.id,
+                    normalized_symbol,
+                    direction=direction,
+                    confidence=confidence,
+                    data_quality_score=data_quality_score,
+                    current_price=current_price,
+                    entry_assessment=entry_assessment,
+                    last_analyzed_at=last_analyzed_at,
+                )
+                if updated == 0:
+                    raise SharedWatchlistSymbolNotFoundError(normalized_symbol)
+            return self.list_entries(slug)
+
+        with self._postgres_connection() as connection:
+            with connection.cursor() as cursor:
+                updated = self._postgres_update_summary(
+                    cursor,
+                    space.id,
+                    normalized_symbol,
+                    direction=direction,
+                    confidence=confidence,
+                    data_quality_score=data_quality_score,
+                    current_price=current_price,
+                    entry_assessment=entry_assessment,
+                    last_analyzed_at=last_analyzed_at,
+                )
+                if updated == 0:
+                    raise SharedWatchlistSymbolNotFoundError(normalized_symbol)
+                connection.commit()
+        return self.list_entries(slug)
+
+    def remove_symbol(self, slug: str, symbol: str) -> list[SharedWatchlistEntry]:
         space = self.get_space(slug)
         normalized_symbol = symbol.strip().upper()
         if self._dialect == "sqlite":
@@ -264,7 +386,7 @@ class SharedSpaceStore:
                     "DELETE FROM shared_watchlist_symbols WHERE space_id = ? AND symbol = ?",
                     (space.id, normalized_symbol),
                 )
-            return self.list_symbols(slug)
+            return self.list_entries(slug)
 
         with self._postgres_connection() as connection:
             with connection.cursor() as cursor:
@@ -273,7 +395,7 @@ class SharedSpaceStore:
                     (space.id, normalized_symbol),
                 )
                 connection.commit()
-        return self.list_symbols(slug)
+        return self.list_entries(slug)
 
     def _create_tables(self) -> None:
         if self._dialect == "sqlite":
@@ -297,6 +419,7 @@ class SharedSpaceStore:
                     );
                     """
                 )
+                self._ensure_sqlite_summary_columns(connection)
             return
 
         with self._postgres_connection() as connection:
@@ -322,7 +445,125 @@ class SharedSpaceStore:
                     )
                     """
                 )
+                self._ensure_postgres_summary_columns(cursor)
                 connection.commit()
+
+    def _ensure_sqlite_summary_columns(self, connection: sqlite3.Connection) -> None:
+        existing = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(shared_watchlist_symbols)").fetchall()
+        }
+        additions = {
+            "direction": "TEXT",
+            "confidence": "REAL",
+            "data_quality_score": "INTEGER",
+            "current_price": "REAL",
+            "entry_assessment": "TEXT",
+            "last_analyzed_at": "TEXT",
+        }
+        for column, definition in additions.items():
+            if column in existing:
+                continue
+            connection.execute(f"ALTER TABLE shared_watchlist_symbols ADD COLUMN {column} {definition}")
+
+    def _ensure_postgres_summary_columns(self, cursor: object) -> None:
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS direction TEXT")
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION")
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS data_quality_score INTEGER")
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS current_price DOUBLE PRECISION")
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS entry_assessment TEXT")
+        cursor.execute("ALTER TABLE shared_watchlist_symbols ADD COLUMN IF NOT EXISTS last_analyzed_at TIMESTAMPTZ")
+
+    def _sqlite_update_summary(
+        self,
+        connection: sqlite3.Connection,
+        space_id: int,
+        symbol: str,
+        *,
+        direction: str | None,
+        confidence: float | None,
+        data_quality_score: int | None,
+        current_price: float | None,
+        entry_assessment: str | None,
+        last_analyzed_at: datetime | None,
+    ) -> int:
+        cursor = connection.execute(
+            """
+            UPDATE shared_watchlist_symbols
+            SET direction = ?, confidence = ?, data_quality_score = ?, current_price = ?, entry_assessment = ?, last_analyzed_at = ?
+            WHERE space_id = ? AND symbol = ?
+            """,
+            (
+                direction,
+                confidence,
+                data_quality_score,
+                current_price,
+                entry_assessment,
+                last_analyzed_at.isoformat() if last_analyzed_at else None,
+                space_id,
+                symbol,
+            ),
+        )
+        return int(cursor.rowcount or 0)
+
+    def _postgres_update_summary(
+        self,
+        cursor: object,
+        space_id: int,
+        symbol: str,
+        *,
+        direction: str | None,
+        confidence: float | None,
+        data_quality_score: int | None,
+        current_price: float | None,
+        entry_assessment: str | None,
+        last_analyzed_at: datetime | None,
+    ) -> int:
+        cursor.execute(
+            """
+            UPDATE shared_watchlist_symbols
+            SET direction = %s, confidence = %s, data_quality_score = %s, current_price = %s, entry_assessment = %s, last_analyzed_at = %s
+            WHERE space_id = %s AND symbol = %s
+            """,
+            (
+                direction,
+                confidence,
+                data_quality_score,
+                current_price,
+                entry_assessment,
+                last_analyzed_at,
+                space_id,
+                symbol,
+            ),
+        )
+        return int(cursor.rowcount or 0)
+
+    def _sqlite_entry_from_row(self, row: sqlite3.Row) -> SharedWatchlistEntry:
+        last_analyzed_at_raw = row["last_analyzed_at"]
+        return SharedWatchlistEntry(
+            symbol=row["symbol"],
+            direction=row["direction"],
+            confidence=row["confidence"],
+            data_quality_score=row["data_quality_score"],
+            current_price=row["current_price"],
+            entry_assessment=row["entry_assessment"],
+            last_analyzed_at=(
+                datetime.fromisoformat(last_analyzed_at_raw)
+                if isinstance(last_analyzed_at_raw, str) and last_analyzed_at_raw
+                else None
+            ),
+        )
+
+    def _postgres_entry_from_row(self, row: tuple[object, ...]) -> SharedWatchlistEntry:
+        return SharedWatchlistEntry(
+            symbol=str(row[0]),
+            direction=str(row[1]) if row[1] is not None else None,
+            confidence=float(row[2]) if row[2] is not None else None,
+            data_quality_score=int(row[3]) if row[3] is not None else None,
+            current_price=float(row[4]) if row[4] is not None else None,
+            entry_assessment=str(row[5]) if row[5] is not None else None,
+            last_analyzed_at=row[6] if isinstance(row[6], datetime) else None,
+        )
 
     @contextmanager
     def _sqlite_connection(self) -> Iterator[sqlite3.Connection]:

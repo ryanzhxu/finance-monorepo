@@ -1738,10 +1738,12 @@ async function sharedSpaceSessionResponse(config, authenticated, sessionToken = 
 }
 
 async function sharedSpaceWatchlistResponse(config, state) {
+  const entries = await readSharedWatchlistEntries(state)
   return json({
     slug: config.slug,
     display_name: config.displayName,
-    symbols: normalizeSharedSpaceSymbols(await readSharedSpaceSymbols(state)),
+    symbols: entries.map((entry) => entry.symbol),
+    entries,
   })
 }
 
@@ -1782,6 +1784,70 @@ function clearSharedSpaceCookie(response, name, path) {
 async function readSharedSpaceSymbols(state) {
   const symbols = await state.storage.get('symbols')
   return Array.isArray(symbols) ? symbols : []
+}
+
+function normalizeSharedWatchlistSummary(summary) {
+  const normalizedConfidence = summary?.confidence == null ? null : Number(summary.confidence)
+  const normalizedDataQualityScore = summary?.data_quality_score == null ? null : Number(summary.data_quality_score)
+  const normalizedCurrentPrice = summary?.current_price == null ? null : Number(summary.current_price)
+  const rawLastAnalyzedAt = typeof summary?.last_analyzed_at === 'string' ? summary.last_analyzed_at.trim() : ''
+  const parsedLastAnalyzedAt = rawLastAnalyzedAt ? new Date(rawLastAnalyzedAt) : null
+  return {
+    direction: ['BUY', 'HOLD', 'SELL'].includes(summary?.direction) ? summary.direction : null,
+    confidence:
+      normalizedConfidence != null && Number.isFinite(normalizedConfidence) && normalizedConfidence >= 0 && normalizedConfidence <= 1
+        ? normalizedConfidence
+        : null,
+    data_quality_score:
+      normalizedDataQualityScore != null &&
+      Number.isInteger(normalizedDataQualityScore) &&
+      normalizedDataQualityScore >= 0 &&
+      normalizedDataQualityScore <= 100
+        ? normalizedDataQualityScore
+        : null,
+    current_price: normalizedCurrentPrice != null && Number.isFinite(normalizedCurrentPrice) ? normalizedCurrentPrice : null,
+    entry_assessment: typeof summary?.entry_assessment === 'string' && summary.entry_assessment.trim() ? summary.entry_assessment.trim() : null,
+    last_analyzed_at:
+      parsedLastAnalyzedAt && !Number.isNaN(parsedLastAnalyzedAt.getTime()) ? parsedLastAnalyzedAt.toISOString() : null,
+  }
+}
+
+function hasSharedWatchlistSummary(summary) {
+  return Object.values(summary).some((value) => value != null)
+}
+
+function normalizeSharedWatchlistSummaries(summaries) {
+  if (!summaries || typeof summaries !== 'object') {
+    return {}
+  }
+  const next = {}
+  for (const [symbol, summary] of Object.entries(summaries)) {
+    const normalizedSymbol = normalizeSymbol(symbol)
+    if (!normalizedSymbol) {
+      continue
+    }
+    next[normalizedSymbol] = normalizeSharedWatchlistSummary(summary)
+  }
+  return next
+}
+
+async function readSharedWatchlistSummaries(state) {
+  return normalizeSharedWatchlistSummaries(await state.storage.get('summaries'))
+}
+
+async function readSharedWatchlistEntries(state) {
+  const symbols = normalizeSharedSpaceSymbols(await readSharedSpaceSymbols(state))
+  const summaries = await readSharedWatchlistSummaries(state)
+  return symbols.map((symbol) => ({
+    symbol,
+    ...normalizeSharedWatchlistSummary(summaries[symbol]),
+  }))
+}
+
+async function writeSharedWatchlistSummary(state, symbol, summary) {
+  const summaries = await readSharedWatchlistSummaries(state)
+  summaries[symbol] = normalizeSharedWatchlistSummary(summary)
+  await state.storage.put('summaries', summaries)
 }
 
 function normalizeSharedSpaceSymbols(symbols) {
@@ -1939,6 +2005,24 @@ export class SharedWatchlistSpace {
       }
       const next = normalizeSharedSpaceSymbols([...await readSharedSpaceSymbols(this.state), symbol])
       await this.state.storage.put('symbols', next)
+      const summary = normalizeSharedWatchlistSummary(body)
+      if (hasSharedWatchlistSummary(summary)) {
+        await writeSharedWatchlistSummary(this.state, symbol, summary)
+      }
+      return sharedSpaceWatchlistResponse(config, this.state)
+    }
+
+    if (pathname.startsWith('/watchlist/') && pathname.endsWith('/summary') && request.method === 'PUT') {
+      const symbol = normalizeSymbol(pathname.split('/').at(-2))
+      if (!symbol) {
+        return json({ detail: 'symbol is required' }, 400)
+      }
+      const existingSymbols = normalizeSharedSpaceSymbols(await readSharedSpaceSymbols(this.state))
+      if (!existingSymbols.includes(symbol)) {
+        return json({ detail: 'Shared watchlist symbol not found' }, 404)
+      }
+      const body = await readJson(request)
+      await writeSharedWatchlistSummary(this.state, symbol, body)
       return sharedSpaceWatchlistResponse(config, this.state)
     }
 
@@ -1949,6 +2033,11 @@ export class SharedWatchlistSpace {
       }
       const next = normalizeSharedSpaceSymbols((await readSharedSpaceSymbols(this.state)).filter((value) => value !== symbol))
       await this.state.storage.put('symbols', next)
+      const summaries = await readSharedWatchlistSummaries(this.state)
+      if (Object.prototype.hasOwnProperty.call(summaries, symbol)) {
+        delete summaries[symbol]
+        await this.state.storage.put('summaries', summaries)
+      }
       return sharedSpaceWatchlistResponse(config, this.state)
     }
 
