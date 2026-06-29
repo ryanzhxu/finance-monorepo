@@ -70,6 +70,21 @@ function normalizedTimestamp(value: string | null | undefined): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
 }
 
+function responseEntries(response: SharedWatchlistResponse) {
+  if (Array.isArray(response.entries)) {
+    return response.entries
+  }
+  return response.symbols.map((symbol) => ({
+    symbol,
+    direction: null,
+    confidence: null,
+    data_quality_score: null,
+    current_price: null,
+    entry_assessment: null,
+    last_analyzed_at: null,
+  }))
+}
+
 function SharedSpace({ slug }: SharedSpaceProps) {
   const sessionTokenStorageKey = storageKeyForSharedSpaceSession(slug)
   const [session, setSession] = useState<SharedSpaceSessionResponse | null>(null)
@@ -105,7 +120,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     (response: SharedWatchlistResponse) => {
       setWatchlistEntries((current) => {
         const currentBySymbol = new Map(current.map((entry) => [entry.symbol, entry]))
-        const next = response.entries.map((entry) => {
+        const next = responseEntries(response).map((entry) => {
           const existingEntry = currentBySymbol.get(entry.symbol)
           const cachedBundle =
             existingEntry?.cachedBundle &&
