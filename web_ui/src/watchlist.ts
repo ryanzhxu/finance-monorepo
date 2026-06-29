@@ -38,6 +38,27 @@ export function storageKeyForSharedSpace(slug: string): string {
   return `watchlist_shared_${slug}_v1`
 }
 
+export function storageKeyForSharedSpaceSession(slug: string): string {
+  return `watchlist_shared_${slug}_session_v1`
+}
+
+export function loadSharedSpaceSessionToken(storageKey: string): string | null {
+  try {
+    const value = localStorage.getItem(storageKey)?.trim()
+    return value ? value : null
+  } catch {
+    return null
+  }
+}
+
+export function saveSharedSpaceSessionToken(token: string | null, storageKey: string): void {
+  if (token) {
+    localStorage.setItem(storageKey, token)
+    return
+  }
+  localStorage.removeItem(storageKey)
+}
+
 export function loadWatchlist(storageKey: string = KEY): WatchlistEntry[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey) ?? '[]')

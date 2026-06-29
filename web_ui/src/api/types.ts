@@ -183,6 +183,10 @@ export interface ScreenResultItem {
   entry_assessment?: string | null
   ideal_buy_zone?: [number, number] | null
   summary?: string | null
+  revenue_accel_pct?: number | null
+  analyst_upgrades_30d?: number | null
+  margin_expansion_bps?: number | null
+  components?: Record<string, unknown>
 }
 
 export interface ScreenResponse {
@@ -254,6 +258,7 @@ export interface SharedSpaceSessionResponse {
   authenticated: boolean
   slug: string
   display_name: string | null
+  session_token?: string | null
 }
 
 export interface SharedWatchlistResponse {

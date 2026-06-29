@@ -1,0 +1,16 @@
+name = "finance-api"
+main = "src/index.js"
+compatibility_date = "2026-06-27"
+workers_dev = true
+
+[durable_objects]
+bindings = [
+  { name = "SHARED_WATCHLIST_SPACE", class_name = "SharedWatchlistSpace" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SharedWatchlistSpace"]
+
+[env.dev]
+name = "finance-api-dev"
