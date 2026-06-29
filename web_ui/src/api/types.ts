@@ -284,5 +284,5 @@ export interface SharedWatchlistResponse {
   slug: string
   display_name: string
   symbols: string[]
-  entries?: SharedWatchlistEntryResponse[]
+  entries: SharedWatchlistEntryResponse[]
 }
