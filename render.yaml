@@ -59,6 +59,16 @@ services:
         sync: false
       - key: STOCKTWITS_API_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SHARED_WATCHLIST_SLUG
+        sync: false
+      - key: SHARED_WATCHLIST_DISPLAY_NAME
+        sync: false
+      - key: SHARED_WATCHLIST_PASSCODE
+        sync: false
+      - key: SHARED_WATCHLIST_SESSION_SECRET
+        sync: false
       - key: CACHE_TTL_SECONDS
         value: "3600"
       - key: FUNDAMENTAL_CACHE_TTL

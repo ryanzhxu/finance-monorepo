@@ -4,6 +4,8 @@ import type {
   AnalystHealthResponse,
   EntryConfluenceResponse,
   ScreenResponse,
+  SharedSpaceSessionResponse,
+  SharedWatchlistResponse,
   ScreenerHealthResponse,
   TrendingScreenResponse,
 } from './types'
@@ -153,6 +155,79 @@ export async function fetchSymbolSearch(
 export async function fetchScreenerHealth(): Promise<ScreenerHealthResponse> {
   try {
     const response = await screenerClient.get<ScreenerHealthResponse>('/screen/health')
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchSharedSpaceSession(slug: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.get<SharedSpaceSessionResponse>(`/shared-spaces/${slug}/session`, {
+      withCredentials: true,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function loginToSharedSpace(slug: string, passcode: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.post<SharedSpaceSessionResponse>(
+      `/shared-spaces/${slug}/login`,
+      { passcode },
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function logoutFromSharedSpace(slug: string): Promise<SharedSpaceSessionResponse> {
+  try {
+    const response = await screenerClient.post<SharedSpaceSessionResponse>(
+      `/shared-spaces/${slug}/logout`,
+      {},
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchSharedWatchlist(slug: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.get<SharedWatchlistResponse>(`/shared-spaces/${slug}/watchlist`, {
+      withCredentials: true,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function addSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.post<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist`,
+      { symbol },
+      { withCredentials: true },
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function removeSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.delete<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist/${encodeURIComponent(symbol)}`,
+      { withCredentials: true },
+    )
     return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })

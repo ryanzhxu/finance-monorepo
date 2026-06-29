@@ -5,6 +5,7 @@ import type { AnalysisResponse, EntryConfluenceResponse } from './api/types'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
 import Screener from './views/Screener'
+import SharedSpace from './views/SharedSpace'
 import { applyTheme, getStoredTheme, storeTheme, type Theme } from './theme'
 import {
   addSymbol,
@@ -79,7 +80,7 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (theme: Them
   )
 }
 
-function App() {
+function PublicApp() {
   const [activeView, setActiveView] = useState<ViewKey>('analyze')
   const [requestedSymbol, setRequestedSymbol] = useState<AnalyzeSelection | null>(null)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
@@ -349,6 +350,14 @@ function App() {
       </div>
     </div>
   )
+}
+
+function App() {
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
+  if (pathname === '/drama') {
+    return <SharedSpace slug="drama" />
+  }
+  return <PublicApp />
 }
 
 export default App
