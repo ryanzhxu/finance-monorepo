@@ -1,0 +1,93 @@
+export const UNIVERSES = {
+  SP500: [
+    'AAPL',
+    'MSFT',
+    'NVDA',
+    'AMZN',
+    'GOOGL',
+    'META',
+    'BRK-B',
+    'LLY',
+    'AVGO',
+    'JPM',
+    'V',
+    'XOM',
+    'UNH',
+    'MA',
+    'COST',
+    'HD',
+    'PG',
+    'KO',
+    'PEP',
+    'MRK',
+  ],
+  NASDAQ100: ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'AVGO', 'COST', 'TSLA', 'NFLX'],
+  DOW: ['AAPL', 'AMGN', 'AXP', 'BA', 'CAT', 'CRM', 'CSCO', 'CVX', 'DIS', 'GS'],
+  RUSSELL1000: ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'JPM', 'XOM', 'UNH', 'KO', 'PEP'],
+  RUSSELL2000: ['SMCI', 'ELF', 'CELH', 'CROX', 'MSTR', 'LTH', 'FIX', 'UFPI', 'FN', 'ATI'],
+  WATCHLIST: [],
+  CUSTOM: [],
+}
+
+export const SCREENER_THRESHOLDS = {
+  buyScore: 70,
+  sellScore: 40,
+  analyzeDeeperScore: 70,
+  watchScore: 55,
+}
+
+export const ENTRY_RULES = {
+  supportWindow: 20,
+  clusterAtrMultiple: 1.0,
+  idealZoneLowAtrMultiple: 0.25,
+  zoneAtrMult: 1.0,
+  ma20ProximityAtrTolerance: 1.0,
+  breakoutBuffer: 0.005,
+  breakoutVolumeRatio: 1.5,
+  extensionThresholdPct: 10.0,
+  overboughtRsi: 75.0,
+  mildStrengthMa20Pct: 1.03,
+  aggressiveMaxRsi: 60.0,
+  oversoldReclaimRsi: 30.0,
+  conservativeMinRsi: 35.0,
+  strongTrendMa200DistancePct: 5.0,
+  reasonablePePercentile: 65.0,
+  rrMin: 1.0,
+}
+
+export const SIGNAL_WEIGHTS = {
+  RSI_14: 1.0,
+  MACD: 1.0,
+  Bollinger_Bands: 0.8,
+  Volume: 1.0,
+  MA_50_200: 1.5,
+  RSI_Weekly: 1.5,
+  Support_Resistance: 0.8,
+  EPS_Surprise: 2.0,
+  Analyst_Ratings: 1.5,
+  PE_Percentile: 1.0,
+  Institutional_13F: 1.5,
+  Put_Call_Ratio: 1.0,
+  IV_Rank: 0.5,
+  Short_Interest: 0.8,
+  FOMC_Proximity: 1.0,
+  Reddit_Sentiment: 0.3,
+  News_Sentiment: 0.5,
+}
+
+export const SCORING_WEIGHTS = {
+  opportunity: {
+    valuation: 0.22,
+    growth: 0.16,
+    quality: 0.16,
+    momentum: 0.12,
+    analystRevision: 0.1,
+    institutionalAccumulation: 0.1,
+    insiderActivity: 0.04,
+    risk: 0.1,
+  },
+  regimeAdjustments: {
+    risk_off: { momentum: -0.04, quality: 0.04, risk: 0.04 },
+    risk_on: { momentum: 0.04, growth: 0.02 },
+  },
+}

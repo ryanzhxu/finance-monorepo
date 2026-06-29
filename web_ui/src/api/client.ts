@@ -5,13 +5,15 @@ import type {
   EntryConfluenceResponse,
   ScreenResponse,
   SharedSpaceSessionResponse,
+  SharedWatchlistSummaryUpdateRequest,
   SharedWatchlistResponse,
   ScreenerHealthResponse,
   TrendingScreenResponse,
 } from './types'
 
-const analystBaseUrl = import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
-const screenerBaseUrl = import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null
+const analystBaseUrl = apiBaseUrl ?? import.meta.env.VITE_ANALYST_URL ?? 'http://localhost:8001'
+const screenerBaseUrl = apiBaseUrl ?? import.meta.env.VITE_SCREENER_URL ?? 'http://localhost:8002'
 
 const analystClient = axios.create({
   baseURL: analystBaseUrl,
@@ -26,6 +28,19 @@ const screenerClient = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+function sharedSpaceRequestConfig(sessionToken?: string) {
+  return {
+    withCredentials: true,
+    ...(sessionToken
+      ? {
+          headers: {
+            Authorization: `Bearer ${sessionToken}`,
+          },
+        }
+      : {}),
+  }
+}
 
 function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -175,11 +190,12 @@ export async function fetchScreenerHealth(): Promise<ScreenerHealthResponse> {
   }
 }
 
-export async function fetchSharedSpaceSession(slug: string): Promise<SharedSpaceSessionResponse> {
+export async function fetchSharedSpaceSession(slug: string, sessionToken?: string): Promise<SharedSpaceSessionResponse> {
   try {
-    const response = await screenerClient.get<SharedSpaceSessionResponse>(`/shared-spaces/${slug}/session`, {
-      withCredentials: true,
-    })
+    const response = await screenerClient.get<SharedSpaceSessionResponse>(
+      `/shared-spaces/${slug}/session`,
+      sharedSpaceRequestConfig(sessionToken),
+    )
     return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })
@@ -199,12 +215,12 @@ export async function loginToSharedSpace(slug: string, passcode: string): Promis
   }
 }
 
-export async function logoutFromSharedSpace(slug: string): Promise<SharedSpaceSessionResponse> {
+export async function logoutFromSharedSpace(slug: string, sessionToken?: string): Promise<SharedSpaceSessionResponse> {
   try {
     const response = await screenerClient.post<SharedSpaceSessionResponse>(
       `/shared-spaces/${slug}/logout`,
       {},
-      { withCredentials: true },
+      sharedSpaceRequestConfig(sessionToken),
     )
     return response.data
   } catch (error) {
@@ -212,23 +228,29 @@ export async function logoutFromSharedSpace(slug: string): Promise<SharedSpaceSe
   }
 }
 
-export async function fetchSharedWatchlist(slug: string): Promise<SharedWatchlistResponse> {
+export async function fetchSharedWatchlist(slug: string, sessionToken?: string): Promise<SharedWatchlistResponse> {
   try {
-    const response = await screenerClient.get<SharedWatchlistResponse>(`/shared-spaces/${slug}/watchlist`, {
-      withCredentials: true,
-    })
+    const response = await screenerClient.get<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist`,
+      sharedSpaceRequestConfig(sessionToken),
+    )
     return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })
   }
 }
 
-export async function addSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+export async function addSharedWatchlistSymbol(
+  slug: string,
+  symbol: string,
+  sessionToken?: string,
+  summary?: SharedWatchlistSummaryUpdateRequest,
+): Promise<SharedWatchlistResponse> {
   try {
     const response = await screenerClient.post<SharedWatchlistResponse>(
       `/shared-spaces/${slug}/watchlist`,
-      { symbol },
-      { withCredentials: true },
+      { symbol, ...summary },
+      sharedSpaceRequestConfig(sessionToken),
     )
     return response.data
   } catch (error) {
@@ -236,11 +258,33 @@ export async function addSharedWatchlistSymbol(slug: string, symbol: string): Pr
   }
 }
 
-export async function removeSharedWatchlistSymbol(slug: string, symbol: string): Promise<SharedWatchlistResponse> {
+export async function updateSharedWatchlistSummary(
+  slug: string,
+  symbol: string,
+  summary: SharedWatchlistSummaryUpdateRequest,
+  sessionToken?: string,
+): Promise<SharedWatchlistResponse> {
+  try {
+    const response = await screenerClient.put<SharedWatchlistResponse>(
+      `/shared-spaces/${slug}/watchlist/${symbol}/summary`,
+      summary,
+      sharedSpaceRequestConfig(sessionToken),
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function removeSharedWatchlistSymbol(
+  slug: string,
+  symbol: string,
+  sessionToken?: string,
+): Promise<SharedWatchlistResponse> {
   try {
     const response = await screenerClient.delete<SharedWatchlistResponse>(
       `/shared-spaces/${slug}/watchlist/${encodeURIComponent(symbol)}`,
-      { withCredentials: true },
+      sharedSpaceRequestConfig(sessionToken),
     )
     return response.data
   } catch (error) {

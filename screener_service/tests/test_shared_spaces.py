@@ -73,6 +73,17 @@ def test_shared_watchlist_adds_dedupes_and_removes_symbols(monkeypatch, tmp_path
         first_add = client.post("/shared-spaces/drama/watchlist", json={"symbol": "nvda"})
         assert first_add.status_code == 200
         assert first_add.json()["symbols"] == ["NVDA"]
+        assert first_add.json()["entries"] == [
+            {
+                "symbol": "NVDA",
+                "direction": None,
+                "confidence": None,
+                "data_quality_score": None,
+                "current_price": None,
+                "entry_assessment": None,
+                "last_analyzed_at": None,
+            }
+        ]
 
         duplicate_add = client.post("/shared-spaces/drama/watchlist", json={"symbol": "NVDA"})
         assert duplicate_add.status_code == 200
@@ -82,9 +93,80 @@ def test_shared_watchlist_adds_dedupes_and_removes_symbols(monkeypatch, tmp_path
         assert second_add.status_code == 200
         assert second_add.json()["symbols"] == ["AAPL", "NVDA"]
 
+        update = client.put(
+            "/shared-spaces/drama/watchlist/nvda/summary",
+            json={
+                "direction": "BUY",
+                "confidence": 0.87,
+                "data_quality_score": 91,
+                "current_price": 152.34,
+                "entry_assessment": "Constructive setup",
+                "last_analyzed_at": "2026-06-29T09:30:00Z",
+            },
+        )
+        assert update.status_code == 200
+        updated_entry = next(entry for entry in update.json()["entries"] if entry["symbol"] == "NVDA")
+        assert updated_entry == {
+            "symbol": "NVDA",
+            "direction": "BUY",
+            "confidence": 0.87,
+            "data_quality_score": 91,
+            "current_price": 152.34,
+            "entry_assessment": "Constructive setup",
+            "last_analyzed_at": "2026-06-29T09:30:00Z",
+        }
+
         removed = client.delete("/shared-spaces/drama/watchlist/nvda")
         assert removed.status_code == 200
         assert removed.json()["symbols"] == ["AAPL"]
+
+
+def test_shared_watchlist_add_can_seed_summary(monkeypatch, tmp_path) -> None:
+    _configure_shared_space(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        assert client.post("/shared-spaces/drama/login", json={"passcode": "swordfish"}).status_code == 200
+
+        response = client.post(
+            "/shared-spaces/drama/watchlist",
+            json={
+                "symbol": "nvda",
+                "direction": "BUY",
+                "confidence": 0.91,
+                "data_quality_score": 95,
+                "current_price": 201.25,
+                "entry_assessment": "Initial seed",
+                "last_analyzed_at": "2026-06-29T10:15:00Z",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["entries"] == [
+            {
+                "symbol": "NVDA",
+                "direction": "BUY",
+                "confidence": 0.91,
+                "data_quality_score": 95,
+                "current_price": 201.25,
+                "entry_assessment": "Initial seed",
+                "last_analyzed_at": "2026-06-29T10:15:00Z",
+            }
+        ]
+
+
+def test_shared_watchlist_summary_update_requires_existing_symbol(monkeypatch, tmp_path) -> None:
+    _configure_shared_space(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        assert client.post("/shared-spaces/drama/login", json={"passcode": "swordfish"}).status_code == 200
+
+        response = client.put(
+            "/shared-spaces/drama/watchlist/nvda/summary",
+            json={"direction": "BUY"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Shared watchlist symbol not found"
 
 
 def test_shared_space_returns_404_for_unknown_slug(monkeypatch, tmp_path) -> None:
