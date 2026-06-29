@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "finance-api",
+  "compatibility_date": "2026-06-29",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "web_ui"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
