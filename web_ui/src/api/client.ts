@@ -5,7 +5,6 @@ import type {
   EntryConfluenceResponse,
   ScreenResponse,
   SharedSpaceSessionResponse,
-  SharedWatchlistSummaryUpdateRequest,
   SharedWatchlistResponse,
   ScreenerHealthResponse,
   TrendingScreenResponse,
@@ -244,30 +243,11 @@ export async function addSharedWatchlistSymbol(
   slug: string,
   symbol: string,
   sessionToken?: string,
-  summary?: SharedWatchlistSummaryUpdateRequest,
 ): Promise<SharedWatchlistResponse> {
   try {
     const response = await screenerClient.post<SharedWatchlistResponse>(
       `/shared-spaces/${slug}/watchlist`,
-      { symbol, ...summary },
-      sharedSpaceRequestConfig(sessionToken),
-    )
-    return response.data
-  } catch (error) {
-    throw new Error(toErrorMessage(error), { cause: error })
-  }
-}
-
-export async function updateSharedWatchlistSummary(
-  slug: string,
-  symbol: string,
-  summary: SharedWatchlistSummaryUpdateRequest,
-  sessionToken?: string,
-): Promise<SharedWatchlistResponse> {
-  try {
-    const response = await screenerClient.put<SharedWatchlistResponse>(
-      `/shared-spaces/${slug}/watchlist/${symbol}/summary`,
-      summary,
+      { symbol },
       sharedSpaceRequestConfig(sessionToken),
     )
     return response.data

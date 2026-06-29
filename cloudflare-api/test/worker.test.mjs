@@ -299,51 +299,7 @@ test('shared watchlist routes support session, login, add, and remove', async ()
     env,
   )
   assert.equal(addResponse.status, 200)
-  const addedPayload = await addResponse.json()
-  assert.deepEqual(addedPayload.symbols, ['NVDA'])
-  assert.deepEqual(addedPayload.entries, [
-    {
-      symbol: 'NVDA',
-      direction: null,
-      confidence: null,
-      data_quality_score: null,
-      current_price: null,
-      entry_assessment: null,
-      last_analyzed_at: null,
-    },
-  ])
-
-  const updateResponse = await worker.fetch(
-    new Request('https://example.com/shared-spaces/drama/watchlist/nvda/summary', {
-      method: 'PUT',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${sessionToken}`,
-      },
-      body: JSON.stringify({
-        direction: 'BUY',
-        confidence: 0.87,
-        data_quality_score: 91,
-        current_price: 152.34,
-        entry_assessment: 'Constructive setup',
-        last_analyzed_at: '2026-06-29T09:30:00Z',
-      }),
-    }),
-    env,
-  )
-  assert.equal(updateResponse.status, 200)
-  const updatedPayload = await updateResponse.json()
-  assert.deepEqual(updatedPayload.entries, [
-    {
-      symbol: 'NVDA',
-      direction: 'BUY',
-      confidence: 0.87,
-      data_quality_score: 91,
-      current_price: 152.34,
-      entry_assessment: 'Constructive setup',
-      last_analyzed_at: '2026-06-29T09:30:00.000Z',
-    },
-  ])
+  assert.deepEqual((await addResponse.json()).symbols, ['NVDA'])
 
   const browserWatchlist = await worker.fetch(
     new Request('https://example.com/shared-spaces/drama/watchlist', {
@@ -352,9 +308,7 @@ test('shared watchlist routes support session, login, add, and remove', async ()
     env,
   )
   assert.equal(browserWatchlist.status, 200)
-  const browserWatchlistPayload = await browserWatchlist.json()
-  assert.deepEqual(browserWatchlistPayload.symbols, ['NVDA'])
-  assert.equal(browserWatchlistPayload.entries[0].direction, 'BUY')
+  assert.deepEqual((await browserWatchlist.json()).symbols, ['NVDA'])
 
   const removeResponse = await worker.fetch(
     new Request('https://example.com/shared-spaces/drama/watchlist/nvda', {
@@ -378,33 +332,4 @@ test('shared watchlist routes support session, login, add, and remove', async ()
   )
   assert.equal(cookieSession.status, 200)
   assert.equal((await cookieSession.json()).authenticated, true)
-})
-
-test('shared watchlist summary update requires an existing symbol', async () => {
-  const env = createSharedWatchlistEnv()
-
-  const loginResponse = await worker.fetch(
-    new Request('https://example.com/shared-spaces/drama/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ passcode: 'swordfish' }),
-    }),
-    env,
-  )
-  const { session_token: sessionToken } = await loginResponse.json()
-
-  const response = await worker.fetch(
-    new Request('https://example.com/shared-spaces/drama/watchlist/nvda/summary', {
-      method: 'PUT',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${sessionToken}`,
-      },
-      body: JSON.stringify({ direction: 'BUY' }),
-    }),
-    env,
-  )
-
-  assert.equal(response.status, 404)
-  assert.deepEqual(await response.json(), { detail: 'Shared watchlist symbol not found' })
 })

@@ -8,24 +8,19 @@ import {
   loginToSharedSpace,
   logoutFromSharedSpace,
   removeSharedWatchlistSymbol,
-  updateSharedWatchlistSummary,
 } from '../api/client'
-import type {
-  AnalysisResponse,
-  EntryConfluenceResponse,
-  SharedSpaceSessionResponse,
-  SharedWatchlistResponse,
-} from '../api/types'
+import type { AnalysisResponse, EntryConfluenceResponse, SharedSpaceSessionResponse } from '../api/types'
 import Watchlist from '../components/Watchlist'
 import {
-  analyzedEntryPatch,
+  isStale,
   loadSharedSpaceSessionToken,
-  refreshableSymbols,
-  saveSharedSpaceSessionToken,
+  loadWatchlist,
+  saveWatchlist,
+  storageKeyForSharedSpace,
   storageKeyForSharedSpaceSession,
-  sharedWatchlistSummaryFromAnalyzeBundle,
+  saveSharedSpaceSessionToken,
+  syncSymbols,
   updateEntry,
-  watchlistEntryFromSharedEntry,
   type CachedAnalyzeBundle,
   type WatchlistEntry,
 } from '../watchlist'
@@ -52,6 +47,13 @@ const PRIVATE_SPACE_LOGIN_CTA = 'Unlock private watchlist'
 const PRIVATE_SPACE_LOAD_ERROR = 'Unable to load private watchlist'
 const RETRY_DELAY_MS = [150, 500, 1000] as const
 
+function withFreshness(entry: WatchlistEntry): WatchlistEntry {
+  return {
+    ...entry,
+    freshness: entry.lastAnalyzedAt ? (isStale(entry) ? 'stale' : 'live') : 'never',
+  }
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms)
@@ -62,15 +64,8 @@ function isAuthRaceError(error: unknown): boolean {
   return error instanceof Error && error.message.includes('Authentication required')
 }
 
-function normalizedTimestamp(value: string | null | undefined): string | null {
-  if (!value) {
-    return null
-  }
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
-}
-
 function SharedSpace({ slug }: SharedSpaceProps) {
+  const storageKey = storageKeyForSharedSpace(slug)
   const sessionTokenStorageKey = storageKeyForSharedSpaceSession(slug)
   const [session, setSession] = useState<SharedSpaceSessionResponse | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(() => loadSharedSpaceSessionToken(sessionTokenStorageKey))
@@ -78,7 +73,9 @@ function SharedSpace({ slug }: SharedSpaceProps) {
   const [passcode, setPasscode] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [requestedSymbol, setRequestedSymbol] = useState<AnalyzeSelection | null>(null)
-  const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>([])
+  const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>(() =>
+    loadWatchlist(storageKey).map(withFreshness),
+  )
   const [refreshingSymbol, setRefreshingSymbol] = useState<string | null>(null)
   const watchlistRef = useRef(watchlistEntries)
   const requestedSymbolRef = useRef(requestedSymbol)
@@ -101,24 +98,30 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     [sessionTokenStorageKey],
   )
 
-  const applySharedWatchlist = useCallback(
-    (response: SharedWatchlistResponse) => {
+  const applySharedSymbols = useCallback(
+    (symbols: string[], patchSymbol?: string, cachedBundle?: CachedAnalyzeBundle | null) => {
       setWatchlistEntries((current) => {
-        const currentBySymbol = new Map(current.map((entry) => [entry.symbol, entry]))
-        const next = response.entries.map((entry) => {
-          const existingEntry = currentBySymbol.get(entry.symbol)
-          const cachedBundle =
-            existingEntry?.cachedBundle &&
-            normalizedTimestamp(existingEntry.lastAnalyzedAt) === normalizedTimestamp(entry.last_analyzed_at)
-              ? existingEntry.cachedBundle
-              : null
-          return watchlistEntryFromSharedEntry(entry, cachedBundle)
-        })
+        let next = syncSymbols(current, symbols).map(withFreshness)
+        if (patchSymbol && cachedBundle) {
+          const classicalEntry = cachedBundle.confluence.classical
+          const fallbackEntry = cachedBundle.analysis.entry
+          next = updateEntry(next, patchSymbol, {
+            direction: cachedBundle.analysis.recommendation.direction,
+            confidence: cachedBundle.analysis.confidence,
+            dataQualityScore: cachedBundle.analysis.data_quality_score,
+            currentPrice: classicalEntry.current_price ?? fallbackEntry?.current_price ?? null,
+            entryAssessment: classicalEntry.entry_assessment ?? fallbackEntry?.entry_assessment ?? null,
+            lastAnalyzedAt: new Date().toISOString(),
+            freshness: 'live',
+            cachedBundle,
+          })
+        }
         watchlistRef.current = next
+        saveWatchlist(next, storageKey)
         return next
       })
     },
-    [],
+    [storageKey],
   )
 
   const refreshRemoteWatchlist = useCallback(async (overrideSessionToken?: string | null) => {
@@ -126,7 +129,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     for (let attempt = 0; attempt < RETRY_DELAY_MS.length + 1; attempt += 1) {
       try {
         const response = await fetchSharedWatchlist(slug, activeSessionToken ?? undefined)
-        applySharedWatchlist(response)
+        applySharedSymbols(response.symbols)
         setSessionError(null)
         return response
       } catch (error) {
@@ -139,7 +142,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     }
 
     throw new Error(PRIVATE_SPACE_LOAD_ERROR)
-  }, [applySharedWatchlist, sessionToken, slug])
+  }, [applySharedSymbols, sessionToken, slug])
 
   const processRefreshQueue = useCallback(async () => {
     if (refreshInFlightRef.current || !session?.authenticated) {
@@ -167,29 +170,29 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       try {
         const bundle = await fetchAnalyzeBundle(symbol)
         const currentTimestamp = new Date().toISOString()
+        const classicalEntry = bundle.confluence.classical
+        const fallbackEntry = bundle.analysis.entry
 
         setWatchlistEntries((current) => {
-          const next = updateEntry(current, symbol, analyzedEntryPatch(bundle, currentTimestamp))
+          const next = updateEntry(current, symbol, {
+            direction: bundle.analysis.recommendation.direction,
+            confidence: bundle.analysis.confidence,
+            dataQualityScore: bundle.analysis.data_quality_score,
+            currentPrice: classicalEntry.current_price ?? fallbackEntry?.current_price ?? null,
+            entryAssessment: classicalEntry.entry_assessment ?? fallbackEntry?.entry_assessment ?? null,
+            lastAnalyzedAt: currentTimestamp,
+            freshness: 'live',
+            cachedBundle: bundle,
+          })
           watchlistRef.current = next
+          saveWatchlist(next, storageKey)
           return next
         })
-        void (async () => {
-          try {
-            const response = await updateSharedWatchlistSummary(
-              slug,
-              symbol,
-              sharedWatchlistSummaryFromAnalyzeBundle(bundle, currentTimestamp),
-              sessionToken ?? undefined,
-            )
-            applySharedWatchlist(response)
-          } catch (error) {
-            setSessionError(error instanceof Error ? error.message : 'Unable to update shared watchlist')
-          }
-        })()
       } catch {
         setWatchlistEntries((current) => {
           const next = updateEntry(current, symbol, { freshness: 'stale' })
           watchlistRef.current = next
+          saveWatchlist(next, storageKey)
           return next
         })
       }
@@ -200,7 +203,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
 
     refreshInFlightRef.current = false
     setRefreshingSymbol(null)
-  }, [applySharedWatchlist, session?.authenticated, sessionToken, slug])
+  }, [session?.authenticated, storageKey])
 
   const enqueueSymbols = useCallback(
     (symbols: string[]) => {
@@ -241,7 +244,6 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           }
         } else {
           setSessionError(null)
-          setWatchlistEntries([])
         }
       } catch (error) {
         if (cancelled) {
@@ -249,7 +251,6 @@ function SharedSpace({ slug }: SharedSpaceProps) {
         }
         updateStoredSessionToken(null)
         setSession({ authenticated: false, slug, display_name: PRIVATE_SPACE_TITLE })
-        setWatchlistEntries([])
         setSessionError(error instanceof Error ? error.message : PRIVATE_SPACE_LOAD_ERROR)
       }
     })()
@@ -262,23 +263,13 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     if (!session?.authenticated) {
       return
     }
-    const staleSymbols = refreshableSymbols(watchlistRef.current)
+    const staleSymbols = watchlistRef.current
+      .filter((entry) => entry.freshness === 'never' || isStale(entry))
+      .map((entry) => entry.symbol)
     if (staleSymbols.length > 0) {
       enqueueSymbols(staleSymbols)
     }
   }, [enqueueSymbols, session?.authenticated])
-
-  useEffect(() => {
-    if (!session?.authenticated) {
-      return
-    }
-    const neverRunSymbols = watchlistEntries
-      .filter((entry) => entry.freshness === 'never')
-      .map((entry) => entry.symbol)
-    if (neverRunSymbols.length > 0) {
-      enqueueSymbols(neverRunSymbols)
-    }
-  }, [enqueueSymbols, session?.authenticated, watchlistEntries])
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -303,7 +294,6 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       const nextSession = await logoutFromSharedSpace(slug, sessionToken ?? undefined)
       setSession(nextSession)
       updateStoredSessionToken(null)
-      setWatchlistEntries([])
       setSessionError(null)
       setRequestedSymbol(null)
     } catch (error) {
@@ -318,14 +308,8 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     }
     void (async () => {
       try {
-        const analyzedAt = cachedBundle ? new Date().toISOString() : null
-        const response = await addSharedWatchlistSymbol(
-          slug,
-          normalized,
-          sessionToken ?? undefined,
-          cachedBundle && analyzedAt ? sharedWatchlistSummaryFromAnalyzeBundle(cachedBundle, analyzedAt) : undefined,
-        )
-        applySharedWatchlist(response)
+        const response = await addSharedWatchlistSymbol(slug, normalized, sessionToken ?? undefined)
+        applySharedSymbols(response.symbols, normalized, cachedBundle)
         if (!cachedBundle) {
           enqueueSymbols([normalized])
         }
@@ -339,7 +323,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     void (async () => {
       try {
         const response = await removeSharedWatchlistSymbol(slug, symbol, sessionToken ?? undefined)
-        applySharedWatchlist(response)
+        applySharedSymbols(response.symbols)
         refreshQueueRef.current = refreshQueueRef.current.filter((queuedSymbol) => queuedSymbol !== symbol)
         if (refreshingSymbol === symbol) {
           setRefreshingSymbol(null)
@@ -358,35 +342,6 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       cachedBundle: entry?.freshness === 'live' ? entry.cachedBundle : null,
     })
   }
-
-  const handleAnalyzeResult = useCallback(
-    (symbol: string, cachedBundle: CachedAnalyzeBundle) => {
-      const analyzedAt = new Date().toISOString()
-      setWatchlistEntries((current) => {
-        const existingEntry = current.find((entry) => entry.symbol === symbol)
-        if (!existingEntry) {
-          return current
-        }
-        const next = updateEntry(current, symbol, analyzedEntryPatch(cachedBundle, analyzedAt))
-        watchlistRef.current = next
-        return next
-      })
-      void (async () => {
-        try {
-          const response = await updateSharedWatchlistSummary(
-            slug,
-            symbol,
-            sharedWatchlistSummaryFromAnalyzeBundle(cachedBundle, analyzedAt),
-            sessionToken ?? undefined,
-          )
-          applySharedWatchlist(response)
-        } catch (error) {
-          setSessionError(error instanceof Error ? error.message : 'Unable to update shared watchlist')
-        }
-      })()
-    },
-    [applySharedWatchlist, sessionToken, slug],
-  )
 
   if (session == null) {
     return (
@@ -455,7 +410,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
                   {PRIVATE_SPACE_TITLE}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-                  Shared symbol pool for private collaboration. Membership and latest analysis snapshots stay in sync across browsers.
+                  Shared symbol pool for private collaboration. Membership is shared, analysis stays fast per device.
                 </p>
               </div>
             </div>
@@ -488,7 +443,6 @@ function SharedSpace({ slug }: SharedSpaceProps) {
             <Analyze
               key={requestedSymbol?.nonce ?? 'shared-analyze-default'}
               requestedSymbol={requestedSymbol}
-              onAnalyzeResult={handleAnalyzeResult}
               onAddToWatchlist={handleAddToWatchlist}
               watchlistSymbols={watchlistEntries.map((entry) => entry.symbol)}
             />

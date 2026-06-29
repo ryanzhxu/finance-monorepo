@@ -261,28 +261,8 @@ export interface SharedSpaceSessionResponse {
   session_token?: string | null
 }
 
-export interface SharedWatchlistEntryResponse {
-  symbol: string
-  direction: Direction | null
-  confidence: number | null
-  data_quality_score: number | null
-  current_price: number | null
-  entry_assessment: string | null
-  last_analyzed_at: string | null
-}
-
-export interface SharedWatchlistSummaryUpdateRequest {
-  direction?: Direction | null
-  confidence?: number | null
-  data_quality_score?: number | null
-  current_price?: number | null
-  entry_assessment?: string | null
-  last_analyzed_at?: string | null
-}
-
 export interface SharedWatchlistResponse {
   slug: string
   display_name: string
   symbols: string[]
-  entries: SharedWatchlistEntryResponse[]
 }

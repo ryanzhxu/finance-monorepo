@@ -530,12 +530,6 @@ class SharedSpaceSessionResponse(BaseModel):
 
 class SharedWatchlistAddRequest(BaseModel):
     symbol: str
-    direction: Direction | None = None
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
-    data_quality_score: int | None = Field(default=None, ge=0, le=100)
-    current_price: float | None = None
-    entry_assessment: str | None = None
-    last_analyzed_at: datetime | None = None
 
     @field_validator("symbol")
     @classmethod
@@ -546,24 +540,10 @@ class SharedWatchlistAddRequest(BaseModel):
         return value
 
 
-class SharedWatchlistSummaryUpdateRequest(BaseModel):
-    direction: Direction | None = None
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
-    data_quality_score: int | None = Field(default=None, ge=0, le=100)
-    current_price: float | None = None
-    entry_assessment: str | None = None
-    last_analyzed_at: datetime | None = None
-
-
-class SharedWatchlistEntryResponse(SharedWatchlistSummaryUpdateRequest):
-    symbol: str
-
-
 class SharedWatchlistResponse(BaseModel):
     slug: str
     display_name: str
     symbols: list[str]
-    entries: list[SharedWatchlistEntryResponse] = Field(default_factory=list)
 
 
 class RecommendationLogRecord(BaseModel):

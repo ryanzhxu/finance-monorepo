@@ -17,9 +17,8 @@ type AnalyzeProps = {
     cachedBundle?: {
       analysis: AnalysisResponse
       confluence: EntryConfluenceResponse
-    } | null
+      } | null
   } | null
-  onAnalyzeResult?: (symbol: string, cachedBundle: AnalyzeBundle) => void
   onAddToWatchlist: (
     symbol: string,
     cachedBundle?: {
@@ -679,7 +678,7 @@ function normalizeSymbol(value: string): string {
   return value.trim().toUpperCase()
 }
 
-function Analyze({ requestedSymbol, onAnalyzeResult, onAddToWatchlist, watchlistSymbols }: AnalyzeProps) {
+function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: AnalyzeProps) {
   const initialSymbol = normalizeSymbol(requestedSymbol?.value ?? '') || 'NVDA'
   const [symbolInput, setSymbolInput] = useState(initialSymbol)
   const [signalsOpen, setSignalsOpen] = useState(false)
@@ -797,7 +796,6 @@ function Analyze({ requestedSymbol, onAnalyzeResult, onAddToWatchlist, watchlist
         error: null,
         activeSymbol: normalized,
       })
-      onAnalyzeResult?.(normalized, bundle)
     } catch (error) {
       if (abortedRef.current || fetchIdRef.current !== fetchId) {
         return
@@ -822,7 +820,7 @@ function Analyze({ requestedSymbol, onAnalyzeResult, onAddToWatchlist, watchlist
         controllerRef.current = null
       }
     }
-  }, [onAnalyzeResult, rememberSuggestionNames])
+  }, [rememberSuggestionNames])
 
   useEffect(() => {
     return () => {

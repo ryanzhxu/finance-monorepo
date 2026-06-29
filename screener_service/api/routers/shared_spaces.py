@@ -4,18 +4,14 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from shared.models import (
     SharedSpaceLoginRequest,
-    SharedWatchlistEntryResponse,
     SharedSpaceSessionResponse,
     SharedWatchlistAddRequest,
     SharedWatchlistResponse,
-    SharedWatchlistSummaryUpdateRequest,
 )
 
 from screener_service.core.shared_spaces import (
     COOKIE_NAME,
     SharedSpace,
-    SharedWatchlistEntry,
-    SharedWatchlistSymbolNotFoundError,
     SharedSpaceNotFoundError,
     SharedSpaceStore,
     SharedSpaceUnavailableError,
@@ -67,26 +63,6 @@ def _authenticated_space(request: Request, slug: str) -> SharedSpace:
     return space
 
 
-def _watchlist_response(space: SharedSpace, entries: list[SharedWatchlistEntry]) -> SharedWatchlistResponse:
-    return SharedWatchlistResponse(
-        slug=space.slug,
-        display_name=space.display_name,
-        symbols=[entry.symbol for entry in entries],
-        entries=[
-            SharedWatchlistEntryResponse(
-                symbol=entry.symbol,
-                direction=entry.direction,
-                confidence=entry.confidence,
-                data_quality_score=entry.data_quality_score,
-                current_price=entry.current_price,
-                entry_assessment=entry.entry_assessment,
-                last_analyzed_at=entry.last_analyzed_at,
-            )
-            for entry in entries
-        ],
-    )
-
-
 @router.get("/{slug}/session", response_model=SharedSpaceSessionResponse)
 async def shared_space_session(slug: str, request: Request) -> SharedSpaceSessionResponse:
     store = _shared_space_store(request)
@@ -133,7 +109,8 @@ async def shared_space_logout(slug: str, request: Request, response: Response) -
 async def get_shared_watchlist(slug: str, request: Request) -> SharedWatchlistResponse:
     space = _authenticated_space(request, slug)
     store = _shared_space_store(request)
-    return _watchlist_response(space, store.list_entries(space.slug))
+    symbols = store.list_symbols(space.slug)
+    return SharedWatchlistResponse(slug=space.slug, display_name=space.display_name, symbols=symbols)
 
 
 @router.post("/{slug}/watchlist", response_model=SharedWatchlistResponse)
@@ -144,46 +121,13 @@ async def add_shared_watchlist_symbol(
 ) -> SharedWatchlistResponse:
     space = _authenticated_space(request, slug)
     store = _shared_space_store(request)
-    entries = store.add_symbol(
-        space.slug,
-        payload.symbol,
-        direction=payload.direction.value if payload.direction is not None else None,
-        confidence=payload.confidence,
-        data_quality_score=payload.data_quality_score,
-        current_price=payload.current_price,
-        entry_assessment=payload.entry_assessment,
-        last_analyzed_at=payload.last_analyzed_at,
-    )
-    return _watchlist_response(space, entries)
-
-
-@router.put("/{slug}/watchlist/{symbol}/summary", response_model=SharedWatchlistResponse)
-async def update_shared_watchlist_summary(
-    slug: str,
-    symbol: str,
-    payload: SharedWatchlistSummaryUpdateRequest,
-    request: Request,
-) -> SharedWatchlistResponse:
-    space = _authenticated_space(request, slug)
-    store = _shared_space_store(request)
-    try:
-        entries = store.update_summary(
-            space.slug,
-            symbol,
-            direction=payload.direction.value if payload.direction is not None else None,
-            confidence=payload.confidence,
-            data_quality_score=payload.data_quality_score,
-            current_price=payload.current_price,
-            entry_assessment=payload.entry_assessment,
-            last_analyzed_at=payload.last_analyzed_at,
-        )
-    except SharedWatchlistSymbolNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared watchlist symbol not found") from exc
-    return _watchlist_response(space, entries)
+    symbols = store.add_symbol(space.slug, payload.symbol)
+    return SharedWatchlistResponse(slug=space.slug, display_name=space.display_name, symbols=symbols)
 
 
 @router.delete("/{slug}/watchlist/{symbol}", response_model=SharedWatchlistResponse)
 async def remove_shared_watchlist_symbol(slug: str, symbol: str, request: Request) -> SharedWatchlistResponse:
     space = _authenticated_space(request, slug)
     store = _shared_space_store(request)
-    return _watchlist_response(space, store.remove_symbol(space.slug, symbol))
+    symbols = store.remove_symbol(space.slug, symbol)
+    return SharedWatchlistResponse(slug=space.slug, display_name=space.display_name, symbols=symbols)
