@@ -275,17 +275,17 @@ def write_local_environment() -> None:
 def write_dev_environment() -> None:
     POSTMAN_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        "name": "finance-monorepo dev",
+        "name": "finance-monorepo edge",
         "values": [
             {
                 "key": "analyst_base_url",
-                "value": "https://finance-analyst-dev.onrender.com",
+                "value": "https://finance-api-dev.rxlab.workers.dev",
                 "type": "default",
                 "enabled": True,
             },
             {
                 "key": "screener_base_url",
-                "value": "https://finance-screener-dev.onrender.com",
+                "value": "https://finance-api-dev.rxlab.workers.dev",
                 "type": "default",
                 "enabled": True,
             },

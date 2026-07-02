@@ -22,8 +22,8 @@ jobs:
     with:
       environment_name: dev
       frontend_url: https://finance-web-ui-dev.onrender.com
-      analyst_url: https://finance-analyst-dev.onrender.com
-      screener_url: https://finance-screener-dev.onrender.com
+      analyst_url: https://finance-api-dev.rxlab.workers.dev
+      screener_url: https://finance-api-dev.rxlab.workers.dev
       initial_wait_seconds: 0
       retries: 2
       retry_delay_seconds: 15
