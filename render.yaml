@@ -7,104 +7,16 @@ services:
     ipAllowList: []
 
   - type: web
-    name: finance-analyst
-    runtime: python
-    plan: free
-    region: oregon
-    autoDeployTrigger: commit
-    buildCommand: pip install uv && uv sync --frozen
-    startCommand: uv run uvicorn analyst_service.api.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
-    envVars:
-      - key: AI_PROVIDER
-        sync: false
-      - key: AI_API_KEY
-        sync: false
-      - key: AI_MODEL
-        sync: false
-      - key: AI_BASE_URL
-        sync: false
-      - key: ALPHA_VANTAGE_KEY
-        sync: false
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: finance-cache
-          property: connectionString
-      - key: CACHE_TTL_SECONDS
-        value: "3600"
-      - key: FUNDAMENTAL_CACHE_TTL
-        value: "86400"
-      - key: SENTIMENT_CACHE_TTL
-        value: "900"
-
-  - type: web
-    name: finance-screener
-    runtime: python
-    plan: free
-    region: oregon
-    autoDeployTrigger: commit
-    buildCommand: pip install uv && uv sync --frozen
-    startCommand: uv run uvicorn screener_service.api.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /screen/health
-    envVars:
-      - key: ANALYST_BASE_URL
-        fromService:
-          type: web
-          name: finance-analyst
-          property: host
-      - key: REDDIT_CLIENT_ID
-        sync: false
-      - key: REDDIT_CLIENT_SECRET
-        sync: false
-      - key: STOCKTWITS_API_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: SHARED_WATCHLIST_SLUG
-        sync: false
-      - key: SHARED_WATCHLIST_DISPLAY_NAME
-        sync: false
-      - key: SHARED_WATCHLIST_PASSCODE
-        sync: false
-      - key: SHARED_WATCHLIST_SESSION_SECRET
-        sync: false
-      - key: CACHE_TTL_SECONDS
-        value: "3600"
-      - key: FUNDAMENTAL_CACHE_TTL
-        value: "86400"
-      - key: SENTIMENT_CACHE_TTL
-        value: "900"
-
-  - type: web
     name: finance-web-ui
     runtime: static
     autoDeployTrigger: commit
-    buildCommand: cd web_ui && npm install && npm run build
-    staticPublishPath: web_ui/dist
-    pullRequestPreviewsEnabled: false
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  - type: web
-    name: finance-web-ui-dev
-    runtime: static
-    autoDeployTrigger: commit
-    branch: dev
+    branch: main
     buildCommand: cd web_ui && npm install && npm run build
     staticPublishPath: web_ui/dist
     pullRequestPreviewsEnabled: false
     envVars:
-      - key: VITE_ANALYST_URL
-        value: https://finance-analyst-dev.onrender.com
-      - key: VITE_SCREENER_URL
-        value: https://finance-screener-dev.onrender.com
+      - key: VITE_API_BASE_URL
+        value: https://finance-api.rxlab.workers.dev
     headers:
       - path: /*
         name: Cache-Control

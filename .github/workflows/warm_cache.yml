@@ -17,6 +17,7 @@ jobs:
       SYMBOLS: ${{ secrets.SYMBOLS }}
       AI_PROVIDER: google
       AI_MODEL: gemini-2.0-flash
+      ANALYST_BASE_URL: https://finance-api.rxlab.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4

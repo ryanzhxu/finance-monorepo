@@ -41,7 +41,6 @@ const ALLOWED_CORS_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://finance-web-ui.onrender.com',
-  'https://finance-web-ui-dev.onrender.com',
 ])
 
 function corsHeaders(request = null) {
@@ -1256,7 +1255,7 @@ async function buildScreenResponse(screenType, requestBody) {
     notes: [
       universeName === 'CUSTOM' && !requestBody?.tickers?.length
         ? 'No custom tickers supplied, so this screen is empty.'
-        : 'Edge screen uses finance-query price data and heuristic scoring because the Render runtime is suspended.',
+        : 'Edge screen uses finance-query price data and heuristic scoring because the legacy backend runtime is retired.',
     ],
   }
 }

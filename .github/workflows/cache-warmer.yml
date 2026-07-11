@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       analyst_base_url:
-        description: Analyst service base URL
+        description: API base URL
         required: false
-        default: https://finance-analyst-x9kj.onrender.com
+        default: https://finance-api.rxlab.workers.dev
       batch_size:
         description: Batch size
         required: false
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      ANALYST_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.analyst_base_url || 'https://finance-analyst-x9kj.onrender.com' }}
+      ANALYST_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.analyst_base_url || 'https://finance-api.rxlab.workers.dev' }}
       WARMUP_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.batch_size || '20' }}
       WARMUP_VERIFY_SAMPLE_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.verify_sample_size || '5' }}
       WARMUP_SYMBOLS_FILE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.symbols_file || '' }}

@@ -11,6 +11,3 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SharedWatchlistSpace"]
-
-[env.dev]
-name = "finance-api-dev"

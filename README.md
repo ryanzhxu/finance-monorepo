@@ -1,11 +1,12 @@
 # finance-monorepo
 
-Market opportunity monorepo with two live FastAPI services, shared contracts/utilities, and a deployed React/Vite frontend in `web_ui/`.
+Market opportunity monorepo with FastAPI analyst/screener service code, a Cloudflare Worker API, shared contracts/utilities, and a deployed React/Vite frontend in `web_ui/`.
 
 ## Services
 
 - `analyst_service/` single-symbol analysis, entry/confluence, provider health, and ticker search
 - `screener_service/` undervalued/opportunity/trending screens, watchlist/custom screens, regime, and screener health
+- `cloudflare-api/` production Worker API and shared-watchlist endpoints
 - `shared/` cross-service models, enums, freshness/config helpers
 - `web_ui/` production frontend for Analyze, Screener, Health, and Watchlist views
 - `backtesting/store.py` append-only logging helpers
@@ -91,7 +92,7 @@ Set `POSTMAN_WORKSPACE_ID` as well if you want a workspace other than `My Worksp
 
 `render.yaml` is the deploy source of truth for:
 
-- `finance-analyst`
-- `finance-screener`
 - `finance-cache`
 - `finance-web-ui`
+
+`cloudflare-api/wrangler.toml` is the deploy source of truth for `finance-api`.

@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 from shared.models import AnalyzeResponse
 
-DEFAULT_ANALYST_BASE_URL = "https://finance-analyst-x9kj.onrender.com"
+DEFAULT_ANALYST_BASE_URL = "https://finance-api.rxlab.workers.dev"
 DEFAULT_BATCH_SIZE = 20
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_VERIFY_SAMPLE_SIZE = 5
