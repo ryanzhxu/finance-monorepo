@@ -62,6 +62,29 @@ def append_screen_results(response: ScreenResponse, path: Path | None = None) ->
             handle.write(json.dumps(record.model_dump(mode="json"), sort_keys=True) + "\n")
 
 
+def append_demand_shock_results(response: ScreenResponse, path: Path | None = None) -> None:
+    destination = path or (Path(__file__).resolve().parent / "demand_shock_log.jsonl")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("a", encoding="utf-8") as handle:
+        for item in response.results:
+            record = ScreenLogRecord(
+                screen_type=response.screen_type,
+                timestamp=response.generated_at,
+                symbol=item.symbol,
+                rank=item.rank,
+                opportunity_score=item.opportunity_score,
+                recommendation=item.recommendation,
+                confidence=item.confidence,
+                entry_assessment=item.entry_assessment,
+                ideal_buy_zone=item.ideal_buy_zone,
+                scores=item.score_breakdown,
+                risk_flags=item.risk_flags,
+                regime=response.market_regime,
+                data_quality_score=item.data_quality_score,
+            )
+            handle.write(json.dumps(record.model_dump(mode="json"), sort_keys=True) + "\n")
+
+
 def append_trending_results(response: TrendingScreenResponse, path: Path | None = None) -> None:
     destination = path or default_store_path()
     destination.parent.mkdir(parents=True, exist_ok=True)

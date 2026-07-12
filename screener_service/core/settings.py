@@ -58,4 +58,24 @@ def load_screener_config() -> dict[str, Any]:
         },
         "trend_rules.yaml",
     )
-    return {"scoring": scoring, "filters": filters, "universes": universes, "trend_rules": trend_rules}
+    demand_shock = load_yaml_config(CONFIG_DIR / "demand_shock_config.yaml", {"weights", "thresholds"})
+    require_nested_keys(
+        demand_shock,
+        {
+            "weights": {"revenue", "analyst", "margin"},
+            "thresholds": {
+                "minimum_revenue_growth_pct",
+                "minimum_analyst_score",
+                "minimum_margin_score",
+                "minimum_score",
+            },
+        },
+        "demand_shock_config.yaml",
+    )
+    return {
+        "scoring": scoring,
+        "filters": filters,
+        "universes": universes,
+        "trend_rules": trend_rules,
+        "demand_shock": demand_shock,
+    }
