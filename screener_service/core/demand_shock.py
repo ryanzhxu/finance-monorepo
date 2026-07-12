@@ -34,7 +34,7 @@ async def run_demand_shock_screen(request: ScreenRequest) -> ScreenResponse:
         notes.append(f"Filtered {len(rejected)} symbols before demand-shock scoring.")
 
     regime = current_regime()
-    results = _score_demand_shock(filtered, config["demand_shock"], request.lookback_days, notes)
+    results = score_demand_shock_metrics(filtered, config["demand_shock"], request.lookback_days, notes)
     results = results[: request.limit]
 
     if request.include_analysis:
@@ -56,7 +56,7 @@ async def run_demand_shock_screen(request: ScreenRequest) -> ScreenResponse:
     return response
 
 
-def _score_demand_shock(
+def score_demand_shock_metrics(
     metrics: list[ScreenerMetrics],
     config: dict[str, Any],
     lookback_days: int,
