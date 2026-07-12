@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from shared.data_quality import FreshValue, compute_analysis_data_quality, freshness_label
@@ -19,11 +20,15 @@ from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.narrator import synthesize_narrative
+from analyst_service.core.persistence import persist_analysis
 from analyst_service.core.sentiment import normalize_sentiment
 from analyst_service.core.settings import load_service_config
 from analyst_service.core.signals import generate_signals
 from analyst_service.core.technicals import compute_technicals
 from backtesting.store import append_recommendation
+
+
+logger = logging.getLogger(__name__)
 
 
 def _freshness_value(item: FreshValue[object]) -> Freshness | str:
@@ -113,8 +118,17 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     )
     if request.include_narrative:
         response.narrative = await synthesize_narrative(response)
-    append_recommendation(response)
+    _persist_analysis(response)
     return response
+
+
+def _persist_analysis(response: AnalyzeResponse) -> None:
+    try:
+        append_recommendation(response)
+    except (OSError, TypeError, ValueError) as exc:
+        # Recommendation logging must not turn a completed analysis into an API failure.
+        logger.warning("Could not append recommendation for %s: %s", response.symbol, exc)
+    persist_analysis(response)
 
 
 async def entry_for_symbol(request: EntryRequest) -> EntryBlock:
