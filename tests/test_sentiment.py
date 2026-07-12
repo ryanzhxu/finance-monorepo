@@ -145,6 +145,8 @@ def test_fetch_sentiment_does_not_raise_when_one_source_fails(monkeypatch) -> No
     monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=lambda symbol: BrokenTicker()))
     monkeypatch.setattr(sentiment_module, "_sec_get", lambda *args, **kwargs: (_ for _ in ()).throw(httpx.HTTPError("boom")))
     monkeypatch.setattr(sentiment_module, "fetch_marketaux_headlines", _mock_empty_news)
+    monkeypatch.delenv("ALPHA_VANTAGE_KEY", raising=False)
+    monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
 
