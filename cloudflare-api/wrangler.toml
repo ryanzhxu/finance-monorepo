@@ -3,6 +3,10 @@ main = "src/index.js"
 compatibility_date = "2026-06-27"
 workers_dev = true
 
+[vars]
+SHARED_WATCHLIST_SLUG = "drama"
+SHARED_WATCHLIST_DISPLAY_NAME = "Drama"
+
 [durable_objects]
 bindings = [
   { name = "SHARED_WATCHLIST_SPACE", class_name = "SharedWatchlistSpace" },
