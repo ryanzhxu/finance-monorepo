@@ -266,3 +266,83 @@ export interface SharedWatchlistResponse {
   display_name: string
   symbols: string[]
 }
+
+export interface ResearchPoint {
+  statement: string
+  evidence_ids: string[]
+}
+
+export interface ResearchEvidence {
+  id: string
+  title?: string
+  url: string
+  evidence_type?: string
+  excerpt?: string
+}
+
+export interface ResearchDecisionSupport {
+  contract_version: string
+  candidate_rank: number
+  symbol: string
+  analogy_comparison: ResearchPoint | null
+  thesis: string
+  catalysts: ResearchPoint[]
+  risks: ResearchPoint[]
+  entry_conditions: ResearchPoint[]
+  reasons_to_avoid: ResearchPoint[]
+  evidence: ResearchEvidence[]
+  unknowns: string[]
+  review_verdict: string
+  review_risk_summary: string
+  entry_assessment: string
+}
+
+export interface ResearchCandidate {
+  rank: number
+  symbol: string
+  company_name: string
+  thesis: string
+  demand_driver: string
+  evidence_ids: string[]
+  disqualifiers: string[]
+  decision_support: ResearchDecisionSupport
+  forecast: number | null
+  forecast_status: string
+}
+
+export interface ResearchJobResult {
+  model_status: string
+  model_version: string | null
+  results: ResearchCandidate[]
+}
+
+export type ResearchJobStatus = 'queued' | 'discovering' | 'verifying' | 'reviewing' | 'calculating' | 'completed' | 'failed' | 'cancelled'
+
+export interface ResearchJobState {
+  id: string
+  status: ResearchJobStatus
+  progress: number
+  current_stage: string
+  candidate_progress: { completed: number; total: number }
+  elapsed_seconds: number
+  estimated_usage_usd: number
+  input: {
+    question: string
+    mode: 'upside_discovery' | 'downside_risk_scan'
+    universe: string
+    analogy: string | null
+    max_candidates: number
+    risk_profile: string | null
+  }
+  result: ResearchJobResult | null
+  error: string | null
+}
+
+export interface ResearchJobRequest {
+  question: string
+  mode: 'upside_discovery' | 'downside_risk_scan'
+  universe: string
+  analogy?: string
+  max_candidates: number
+  risk_profile?: string
+}

@@ -8,6 +8,8 @@ import type {
   SharedWatchlistResponse,
   ScreenerHealthResponse,
   TrendingScreenResponse,
+  ResearchJobRequest,
+  ResearchJobState,
 } from './types'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null
@@ -23,6 +25,13 @@ const analystClient = axios.create({
 
 const screenerClient = axios.create({
   baseURL: screenerBaseUrl,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+const researchClient = axios.create({
+  baseURL: apiBaseUrl ?? import.meta.env.VITE_RESEARCH_URL ?? screenerBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -232,6 +241,35 @@ export async function fetchSharedWatchlist(slug: string, sessionToken?: string):
     const response = await screenerClient.get<SharedWatchlistResponse>(
       `/shared-spaces/${slug}/watchlist`,
       sharedSpaceRequestConfig(sessionToken),
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function startResearchJob(input: ResearchJobRequest): Promise<ResearchJobState> {
+  try {
+    const response = await researchClient.post<ResearchJobState>('/research/jobs', input)
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchResearchJob(jobId: string): Promise<ResearchJobState> {
+  try {
+    const response = await researchClient.get<ResearchJobState>(`/research/jobs/${encodeURIComponent(jobId)}`)
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function cancelResearchJob(jobId: string): Promise<ResearchJobState> {
+  try {
+    const response = await researchClient.post<ResearchJobState>(
+      `/research/jobs/${encodeURIComponent(jobId)}/cancel`,
     )
     return response.data
   } catch (error) {

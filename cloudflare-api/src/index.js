@@ -14,6 +14,7 @@ import {
   highest,
   lowest,
 } from './indicators.js'
+import { handleResearchRoute, ResearchJob, ResearchRateLimiter } from './research.js'
 
 const FINANCE_QUERY_BASE = 'https://finance-query.com/v2'
 const DEFAULT_HEADERS = {
@@ -1979,6 +1980,8 @@ export default {
         )
       } else if (pathname === '/screen/health' || pathname.startsWith('/screen/')) {
         response = await handleScreenRoute(pathname, request, env)
+      } else if (pathname === '/research/jobs' || pathname.startsWith('/research/jobs/')) {
+        response = await handleResearchRoute(pathname, request, env)
       } else if (
         pathname === '/search' ||
         pathname === '/analyze' ||
@@ -2007,3 +2010,5 @@ export default {
     }
   },
 }
+
+export { ResearchJob, ResearchRateLimiter }

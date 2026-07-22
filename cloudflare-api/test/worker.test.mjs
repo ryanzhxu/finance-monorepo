@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import worker, { __testOnly, SharedWatchlistSpace } from '../src/index.js'
+import worker, { __testOnly, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
+import { __researchTestOnly } from '../src/research.js'
 
 test.beforeEach(() => {
   __testOnly.clearCaches()
@@ -169,6 +170,129 @@ test('health endpoint returns worker status', async () => {
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+test('research jobs fail closed while decision support is disabled and do not call Cursor', async () => {
+  const originalFetch = globalThis.fetch
+  let cursorCalled = false
+  globalThis.fetch = async () => {
+    cursorCalled = true
+    throw new Error('Cursor must not be called')
+  }
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/research/jobs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          question: 'Find AI infrastructure beneficiaries',
+          mode: 'upside_discovery',
+          universe: 'SP500',
+          max_candidates: 5,
+        }),
+      }),
+      { RESEARCH_ENABLED: 'false', CURSOR_API_KEY: 'should-not-be-used' },
+    )
+    assert.equal(response.status, 503)
+    const payload = await response.json()
+    assert.equal(payload.model_status, 'unavailable')
+    assert.equal(cursorCalled, false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('research decision support uses separate fail-closed gate and accepts analogy input', () => {
+  assert.deepEqual(
+    __researchTestOnly.researchGate({ RESEARCH_DECISION_SUPPORT_ENABLED: 'false', RESEARCH_MODEL_STATUS: 'validated' }),
+    { ok: false, status: 503, detail: 'Research decision support is disabled' },
+  )
+
+  const parsed = __researchTestOnly.validateJobInput({
+    question: 'Find durable demand growth.',
+    mode: 'upside_discovery',
+    universe: 'US-listed common stocks',
+    analogy: 'Sandisk',
+    max_candidates: 3,
+  })
+  assert.equal(parsed.value?.analogy, 'Sandisk')
+  assert.equal(__researchTestOnly.validateJobInput({
+    question: 'Find durable demand growth.',
+    mode: 'upside_discovery',
+    universe: 'US-listed common stocks',
+    analogy: 'x'.repeat(241),
+    max_candidates: 3,
+  }).error, 'analogy must be at most 240 characters')
+})
+
+test('research result normalization emits evidence-backed decision support fields', () => {
+  const discovery = __researchTestOnly.normalizeDiscovery({
+    evidence: [{ id: 'filing-q1', title: 'Quarterly report', url: 'https://sec.gov/example' }],
+    candidates: [{ symbol: 'mu', thesis: 'Memory demand could accelerate.', demand_driver: 'AI infrastructure demand.', evidence_ids: ['filing-q1'], disqualifiers: ['Supply risk.'] }],
+  })
+  const support = __researchTestOnly.buildDecisionSupport(
+    discovery.candidates[0],
+    discovery,
+    {
+      candidate_reviews: [{
+        symbol: 'MU',
+        analogy_comparison: { statement: 'Similar demand pattern, outcome unproven.', evidence_ids: ['filing-q1'] },
+        thesis: 'Demand inflection remains plausible.',
+        catalysts: [{ statement: 'AI buildout supports demand.', evidence_ids: ['filing-q1'] }],
+        entry_conditions: [{ statement: 'Fresh filings must confirm demand.', evidence_ids: ['filing-q1'] }],
+        reasons_to_avoid: [{ statement: 'Avoid if pricing weakens.', evidence_ids: ['filing-q1'] }],
+        risks: [{ statement: 'Supply can outpace demand.', evidence_ids: ['filing-q1'] }],
+        unknowns: ['Long-term margin durability.'],
+        verdict: 'needs_more_evidence',
+        risk_summary: 'Evidence remains narrow.',
+      }],
+    },
+    { verdict: 'needs_more_evidence' },
+  )
+
+  assert.equal(support.candidate_rank, 1)
+  assert.equal(support.symbol, 'MU')
+  assert.equal(support.analogy_comparison.statement, 'Similar demand pattern, outcome unproven.')
+  assert.equal(support.entry_conditions[0].evidence_ids[0], 'filing-q1')
+  assert.equal(support.evidence[0].url, 'https://sec.gov/example')
+})
+
+test('research rate limiter permits three sequential runs but only one active run', async () => {
+  const storage = new Map()
+  const limiter = new ResearchRateLimiter({
+    storage: {
+      async get(key) {
+        return storage.get(key) ?? null
+      },
+      async put(key, value) {
+        storage.set(key, value)
+      },
+    },
+  })
+  const acquire = (jobId) =>
+    limiter.fetch(
+      new Request('https://quota.local', {
+        method: 'POST',
+        body: JSON.stringify({ operation: 'acquire', job_id: jobId }),
+      }),
+    )
+  const release = (jobId) =>
+    limiter.fetch(
+      new Request('https://quota.local', {
+        method: 'POST',
+        body: JSON.stringify({ operation: 'release', job_id: jobId }),
+      }),
+    )
+
+  assert.equal((await (await acquire('one')).json()).ok, true)
+  assert.equal((await (await acquire('two')).json()).ok, false)
+  await release('one')
+  assert.equal((await (await acquire('two')).json()).ok, true)
+  await release('two')
+  await acquire('three')
+  await release('three')
+  assert.equal((await (await acquire('four')).json()).ok, false)
+  assert.equal((await (await acquire('five')).json()).ok, false)
 })
 
 test('analyze endpoint falls back to cboe put/call ratio when alpha vantage is rate limited', async () => {

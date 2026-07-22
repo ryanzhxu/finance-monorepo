@@ -5,6 +5,7 @@ import type { AnalysisResponse, EntryConfluenceResponse } from './api/types'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
 import Screener from './views/Screener'
+import Research from './views/Research'
 import SharedSpace from './views/SharedSpace'
 import { applyTheme, getStoredTheme, storeTheme, type Theme } from './theme'
 import {
@@ -18,7 +19,7 @@ import {
   type WatchlistEntry,
 } from './watchlist'
 
-type ViewKey = 'analyze' | 'screener' | 'health'
+type ViewKey = 'analyze' | 'screener' | 'research' | 'health'
 
 type AnalyzeSelection = {
   value: string
@@ -32,6 +33,7 @@ type AnalyzeSelection = {
 const tabs: Array<{ key: ViewKey; label: string }> = [
   { key: 'analyze', label: 'Analyze' },
   { key: 'screener', label: 'Screener' },
+  { key: 'research', label: 'Research' },
   { key: 'health', label: 'Health' },
 ]
 
@@ -287,7 +289,7 @@ function PublicApp() {
                   Market Analysis Console
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-                  A focused console for single-symbol analysis, screening, and service health checks.
+                  A focused console for market analysis, grounded research, screening, and service health checks.
                 </p>
               </div>
             </div>
@@ -344,6 +346,7 @@ function PublicApp() {
                 }}
               />
             ) : null}
+            {activeView === 'research' ? <Research /> : null}
             {activeView === 'health' ? <Health /> : null}
           </main>
         </div>
