@@ -225,6 +225,12 @@ function researchPoints(value, fallbacks, fallbackEvidenceIds) {
   return fallbacks.map((item) => researchPoint(item, item, fallbackEvidenceIds)).filter(Boolean)
 }
 
+function statementValue(value, fallback) {
+  return typeof value === 'object' && value !== null
+    ? textValue(value.statement, fallback)
+    : textValue(value, fallback)
+}
+
 function normalizeDiscovery(discovery) {
   const evidence = Array.isArray(discovery?.evidence) ? discovery.evidence : []
   const candidates = Array.isArray(discovery?.candidates)
@@ -247,21 +253,33 @@ function normalizeDiscovery(discovery) {
   return { ...(discovery && typeof discovery === 'object' ? discovery : {}), candidates, evidence }
 }
 
-function buildDecisionSupport(candidate, discovery, verification, review) {
-  const candidateReview = Array.isArray(verification?.candidate_reviews)
-    ? verification.candidate_reviews.find((item) => String(item?.symbol ?? '').toUpperCase() === candidate.symbol)
+function candidateReviewFor(candidate, verification, review) {
+  const matchesCandidate = (item) => String(item?.symbol ?? '').toUpperCase() === candidate.symbol
+  const verificationReviews = Array.isArray(verification?.candidate_reviews) ? verification.candidate_reviews : []
+  const reviewReviews = Array.isArray(review?.candidate_reviews) ? review.candidate_reviews : []
+  const verificationReview = verificationReviews.find(matchesCandidate)
+    ?? (verification?.candidate_review && matchesCandidate(verification.candidate_review) ? verification.candidate_review : null)
+  const reviewReview = reviewReviews.find(matchesCandidate)
+  const analysisVerdict = review?.analysis_verdict
+    && String(review.analysis_verdict?.candidate?.symbol ?? '').toUpperCase() === candidate.symbol
+    ? review.analysis_verdict
     : null
+  return { ...(verificationReview ?? {}), ...(reviewReview ?? {}), ...(analysisVerdict ?? {}) }
+}
+
+function buildDecisionSupport(candidate, discovery, verification, review) {
+  const candidateReview = candidateReviewFor(candidate, verification, review)
   const candidateEvidence = Array.isArray(discovery.evidence)
     ? discovery.evidence.filter((item) => candidate.evidence_ids.includes(item?.id))
     : []
   const knownEvidenceIds = candidate.evidence_ids
-  const reviewData = candidateReview ?? {}
+  const reviewData = candidateReview
   return {
     contract_version: 'stock_research_v1',
     candidate_rank: candidate.rank,
     symbol: candidate.symbol,
     analogy_comparison: researchPoint(reviewData.analogy_comparison, '', knownEvidenceIds),
-    thesis: textValue(reviewData.thesis, candidate.thesis),
+    thesis: statementValue(reviewData.thesis, candidate.thesis),
     catalysts: researchPoints(reviewData.catalysts, [candidate.demand_driver], knownEvidenceIds),
     risks: researchPoints(reviewData.risks, candidate.disqualifiers, knownEvidenceIds),
     entry_conditions: researchPoints(reviewData.entry_conditions, [], knownEvidenceIds),

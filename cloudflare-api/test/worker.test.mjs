@@ -257,6 +257,38 @@ test('research result normalization emits evidence-backed decision support field
   assert.equal(support.evidence[0].url, 'https://sec.gov/example')
 })
 
+test('research result normalization accepts Cursor single-candidate review shape', () => {
+  const discovery = __researchTestOnly.normalizeDiscovery({
+    evidence: [{ id: 'filing-q1', title: 'Quarterly report', url: 'https://sec.gov/example' }],
+    candidates: [{ symbol: 'vrt', thesis: 'AI infrastructure demand may persist.', demand_driver: 'Data-center buildout.', evidence_ids: ['filing-q1'] }],
+  })
+  const support = __researchTestOnly.buildDecisionSupport(
+    discovery.candidates[0],
+    discovery,
+    {
+      candidate_review: {
+        symbol: 'VRT',
+        thesis: { statement: 'Near-term demand is supported.', evidence_ids: ['filing-q1'] },
+        entry_conditions: [{ statement: 'Backlog execution must remain strong.', evidence_ids: ['filing-q1'] }],
+        unknowns: ['Long-term demand duration.'],
+      },
+    },
+    {
+      analysis_verdict: {
+        candidate: { symbol: 'VRT' },
+        verdict: 'needs_more_evidence',
+        risk_summary: 'Durability beyond backlog remains uncertain.',
+      },
+    },
+  )
+
+  assert.equal(support.thesis, 'Near-term demand is supported.')
+  assert.equal(support.entry_conditions[0].statement, 'Backlog execution must remain strong.')
+  assert.equal(support.review_verdict, 'needs_more_evidence')
+  assert.equal(support.review_risk_summary, 'Durability beyond backlog remains uncertain.')
+  assert.deepEqual(support.unknowns, ['Long-term demand duration.'])
+})
+
 test('research rate limiter permits three sequential runs but only one active run', async () => {
   const storage = new Map()
   const limiter = new ResearchRateLimiter({
