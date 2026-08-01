@@ -202,6 +202,77 @@ test('research jobs fail closed while decision support is disabled and do not ca
   }
 })
 
+test('portfolio research requires its own service token and never calls Cursor', async () => {
+  const originalFetch = globalThis.fetch
+  let cursorCalled = false
+  globalThis.fetch = (input) => {
+    const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url ?? input?.href ?? String(input)
+    const url = new URL(rawUrl)
+    if (url.hostname.includes('cursor')) {
+      cursorCalled = true
+      throw new Error('Cursor must not be called')
+    }
+    return mockFinanceQueryFetch(input)
+  }
+  try {
+    const request = new Request('https://example.com/api/portfolio-research', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer position-lens-token' },
+      body: JSON.stringify({
+        symbols: ['NVDA'],
+        requestedAt: '2026-07-31T22:00:00.000Z',
+        reasons: [{ symbol: 'NVDA', actionItemIds: ['concentration'] }],
+      }),
+    })
+    const response = await worker.fetch(request, {
+      POSITION_LENS_RESEARCH_API_TOKEN: 'position-lens-token',
+      RESEARCH_DECISION_SUPPORT_ENABLED: 'false',
+      CURSOR_API_KEY: 'must-not-be-used',
+    })
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    assert.equal(payload.research[0].symbol, 'NVDA')
+    assert.match(payload.research[0].summary, /Deterministic signal/)
+    assert.equal(payload.research[0].sources[0], 'https://finance-query.com/v2/quote/NVDA')
+    assert.equal(cursorCalled, false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('portfolio research rejects missing authorization and portfolio fields', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.com/api/portfolio-research', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        symbols: ['NVDA'],
+        requestedAt: '2026-07-31T22:00:00.000Z',
+        reasons: [{ symbol: 'NVDA', actionItemIds: ['concentration'] }],
+        accountValue: 100000,
+      }),
+    }),
+    { POSITION_LENS_RESEARCH_API_TOKEN: 'position-lens-token' },
+  )
+  assert.equal(response.status, 401)
+
+  const authenticatedResponse = await worker.fetch(
+    new Request('https://example.com/api/portfolio-research', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer position-lens-token' },
+      body: JSON.stringify({
+        symbols: ['NVDA'],
+        requestedAt: '2026-07-31T22:00:00.000Z',
+        reasons: [{ symbol: 'NVDA', actionItemIds: ['concentration'] }],
+        accountValue: 100000,
+      }),
+    }),
+    { POSITION_LENS_RESEARCH_API_TOKEN: 'position-lens-token' },
+  )
+  assert.equal(authenticatedResponse.status, 400)
+  assert.equal((await authenticatedResponse.json()).detail, 'request contains unsupported fields')
+})
+
 test('research decision support uses separate fail-closed gate and accepts analogy input', () => {
   assert.deepEqual(
     __researchTestOnly.researchGate({ RESEARCH_DECISION_SUPPORT_ENABLED: 'false', RESEARCH_MODEL_STATUS: 'validated' }),

@@ -1067,6 +1067,94 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   })
 }
 
+function readBearerToken(value) {
+  const match = String(value ?? '').match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || null
+}
+
+function validPortfolioResearchSymbol(value) {
+  return /^[A-Z0-9.-]{1,15}$/.test(value)
+}
+
+function parsePortfolioResearchRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { error: 'request body must be an object' }
+  }
+  const allowedFields = new Set(['symbols', 'requestedAt', 'reasons'])
+  if (Object.keys(body).some((key) => !allowedFields.has(key))) {
+    return { error: 'request contains unsupported fields' }
+  }
+
+  const symbols = Array.isArray(body.symbols) ? body.symbols.map((symbol) => String(symbol).trim().toUpperCase()) : []
+  if (symbols.length < 1 || symbols.length > 3 || symbols.some((symbol) => !validPortfolioResearchSymbol(symbol))) {
+    return { error: 'symbols must contain one to three valid symbols' }
+  }
+  if (new Set(symbols).size !== symbols.length) {
+    return { error: 'symbols must be unique' }
+  }
+  if (typeof body.requestedAt !== 'string' || Number.isNaN(Date.parse(body.requestedAt))) {
+    return { error: 'requestedAt must be an ISO timestamp' }
+  }
+  if (!Array.isArray(body.reasons) || body.reasons.length !== symbols.length) {
+    return { error: 'reasons must include one entry for each symbol' }
+  }
+
+  const reasonSymbols = new Set()
+  for (const reason of body.reasons) {
+    if (!reason || typeof reason !== 'object' || Array.isArray(reason) || Object.keys(reason).some((key) => key !== 'symbol' && key !== 'actionItemIds')) {
+      return { error: 'reasons must contain only symbol and actionItemIds' }
+    }
+    const symbol = String(reason.symbol ?? '').trim().toUpperCase()
+    if (!symbols.includes(symbol) || reasonSymbols.has(symbol)) {
+      return { error: 'reasons must map uniquely to symbols' }
+    }
+    const actionItemIds = Array.isArray(reason.actionItemIds) ? reason.actionItemIds : []
+    if (actionItemIds.length < 1 || actionItemIds.some((id) => !['concentration', 'cash-reserve', 'drawdown'].includes(id))) {
+      return { error: 'reasons contain an unsupported action item' }
+    }
+    reasonSymbols.add(symbol)
+  }
+
+  return { value: { symbols } }
+}
+
+async function handlePortfolioResearchRoute(request, env = {}) {
+  if (request.method !== 'POST') {
+    return jsonCors({ detail: 'Method not allowed' }, 405, { allow: 'POST' })
+  }
+  const configuredToken = String(env.POSITION_LENS_RESEARCH_API_TOKEN ?? '').trim()
+  if (!configuredToken || readBearerToken(request.headers.get('authorization')) !== configuredToken) {
+    return jsonCors({ detail: 'Unauthorized' }, 401)
+  }
+
+  const parsed = parsePortfolioResearchRequest(await readJson(request))
+  if (parsed.error) {
+    return badRequest(parsed.error)
+  }
+
+  const research = await Promise.all(
+    parsed.value.symbols.map(async (symbol) => {
+      try {
+        const analysis = await buildAnalyze(symbol, { includeNarrative: true, includeEntry: false, env })
+        const riskFlags = analysis.recommendation.risk_flags.length ? ` Risk flags: ${analysis.recommendation.risk_flags.join(', ')}.` : ''
+        return {
+          symbol,
+          summary: `${analysis.narrative} Deterministic signal: ${analysis.recommendation.direction} (${Math.round(analysis.recommendation.confidence * 100)}% confidence).${riskFlags}`,
+          sources: [`${FINANCE_QUERY_BASE}/quote/${encodeURIComponent(symbol)}`],
+        }
+      } catch {
+        return {
+          symbol,
+          summary: 'Deterministic market research is currently unavailable for this symbol.',
+          sources: [],
+        }
+      }
+    }),
+  )
+
+  return jsonCors({ generatedAt: new Date().toISOString(), research })
+}
+
 function scoreForScreen(snapshot, regime) {
   const valuationScore = clamp(
     100 - (estimatePePercentile(snapshot.quote?.trailingPE ?? snapshot.quote?.forwardPE) ?? 55),
@@ -1982,6 +2070,8 @@ export default {
         response = await handleScreenRoute(pathname, request, env)
       } else if (pathname === '/research/jobs' || pathname.startsWith('/research/jobs/')) {
         response = await handleResearchRoute(pathname, request, env)
+      } else if (pathname === '/api/portfolio-research') {
+        response = await handlePortfolioResearchRoute(request, env)
       } else if (
         pathname === '/search' ||
         pathname === '/analyze' ||
