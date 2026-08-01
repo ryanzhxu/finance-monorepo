@@ -6,7 +6,7 @@ FastAPI analyst and screener services plus a live React/Vite frontend in `web_ui
 
 - `README.md`
 - `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`
-- `render.yaml`
+- `cloudflare-api/wrangler.toml`
 - `pyproject.toml`
 - `analyst_service/api/routers/analysis.py`
 - `screener_service/api/routers/screen.py`
@@ -65,7 +65,7 @@ Current caveats:
 - Keep deterministic math, scoring, and price levels in Python `core/` modules. LLM use stays narration-only.
 - Keep weights, thresholds, and rules in YAML under each service `config/`.
 - API/UI boundary lives in `web_ui/src/api/client.ts` and `web_ui/src/api/types.ts`; contract changes must be reflected there.
-- `render.yaml` is deploy truth for `finance-analyst`, `finance-screener`, `finance-cache`, and the static `finance-web-ui` site.
+- `cloudflare-api/wrangler.toml` is deploy truth for the production `finance-api` Worker; the `web_ui/` build deploys to the `finance-web-ui` Cloudflare Pages project.
 - Load `.env` before config reads in both FastAPI entrypoints.
 
 ## Generated And Sensitive Files

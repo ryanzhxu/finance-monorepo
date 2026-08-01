@@ -1,7 +1,0 @@
-services:
-  - type: keyvalue
-    name: finance-cache
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []

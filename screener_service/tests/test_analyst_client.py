@@ -9,10 +9,10 @@ from shared.enums import Horizon
 from screener_service.core import analyst_client
 
 
-def test_analyst_base_url_adds_https_for_render_host(monkeypatch) -> None:
-    monkeypatch.setenv("ANALYST_BASE_URL", "finance-analyst.onrender.com")
+def test_analyst_base_url_adds_https_for_host(monkeypatch) -> None:
+    monkeypatch.setenv("ANALYST_BASE_URL", "analyst.example.com")
 
-    assert analyst_client.analyst_base_url() == "https://finance-analyst.onrender.com"
+    assert analyst_client.analyst_base_url() == "https://analyst.example.com"
 
 
 def test_analyst_base_url_keeps_existing_scheme(monkeypatch) -> None:

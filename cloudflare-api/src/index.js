@@ -41,7 +41,6 @@ function json(data, status = 200, extraHeaders = {}) {
 const ALLOWED_CORS_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://finance-web-ui.onrender.com',
   'https://finance-web-ui.pages.dev',
 ])
 

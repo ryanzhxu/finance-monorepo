@@ -1,6 +1,6 @@
 ---
 name: finance-api-contract-sync
-description: Use when changing FastAPI routers, shared request/response models, health payloads, frontend API types, OpenAPI output, Postman collections, or Render-facing API contracts in finance-monorepo.
+description: Use when changing FastAPI routers, shared request/response models, health payloads, frontend API types, OpenAPI output, Postman collections, or deployment-facing API contracts in finance-monorepo.
 ---
 
 # Finance API Contract Sync
@@ -15,7 +15,7 @@ Use this skill when a change affects request/response schemas, router paths, hea
 4. Run `make postman` when npm/network access is available. It shells out to `npx -y openapi-to-postmanv2`.
 5. If you intend to sync a Postman workspace and `POSTMAN_API_KEY` is set, run `make postman-push`.
 6. Review the generated diff carefully. Do not hand-edit `openapi/` or `postman/` files.
-7. If the change affects deployment wiring or env vars, update `render.yaml` and the repo guidance that references it.
+7. If the change affects deployment wiring or env vars, update `cloudflare-api/wrangler.toml` and the repo guidance that references it.
 
 ## What To Check
 
@@ -27,7 +27,6 @@ Use this skill when a change affects request/response schemas, router paths, hea
 - `postman/analyst.postman_collection.json`
 - `postman/screener.postman_collection.json`
 - `postman/local.postman_environment.json`
-- `postman/render.postman_environment.json`
 
 ## When To Use
 

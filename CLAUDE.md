@@ -2,18 +2,18 @@
 
 ## Repo
 /Users/ryan.xu/Developer/finance-monorepo
-GitHub → Render auto-deploy on push to main
+GitHub → Cloudflare Worker and Pages deployments
 
 ## Stack
 - Backend: FastAPI, Python 3.12, uv workspace (analyst_service, screener_service, shared)
 - Frontend: React/TypeScript, Vite, Tailwind CSS (web_ui/)
 - Data: yfinance, SEC EDGAR, Alpha Vantage, Marketaux, Gemini (narrative only)
-- Infra: Render free tier, Redis cache (finance-cache), file cache fallback
+- Infra: Cloudflare Worker API + Pages frontend, file cache fallback for local FastAPI services
 
 ## Services
-- analyst_service  → localhost:8001 (prod: https://finance-analyst-x9kj.onrender.com)
-- screener_service → localhost:8002 (prod: https://finance-screener.onrender.com)
-- web_ui           → localhost:5173 (prod: https://finance-web-ui.onrender.com)
+- analyst_service  → localhost:8001 (local service)
+- screener_service → localhost:8002 (local service)
+- web_ui           → localhost:5173 (prod: Cloudflare Pages `finance-web-ui`)
 
 ## Local dev
 ```bash
@@ -61,9 +61,9 @@ Completed:
 - Cache: Redis-first with file fallback (REDIS_URL → Redis, absent → file)
 
 Known gaps (do not fix unless tasked):
-- yfinance rate-limited on Render datacenter IPs — Redis cache mitigates this
+- yfinance and market-data providers may rate-limit requests — file caching mitigates local repeat calls
 - Alpha Vantage free tier: 25 req/day — cache seeds on first successful request
-- put/call ratio, short interest: yfinance options rate-limited on Render
+- put/call ratio, short interest: yfinance options may be rate-limited
 - institutional_net_shares_last_13f: EDGAR parsing fragile
 - iv_rank_approx: HV-based approximation only
 - rate_cut_probability_pct: ZQ futures derived, not official CME
