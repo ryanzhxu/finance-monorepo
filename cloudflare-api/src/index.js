@@ -1118,6 +1118,79 @@ function parsePortfolioResearchRequest(body) {
   return { value: { symbols } }
 }
 
+function portfolioResearchOutlook(direction) {
+  if (direction === 'BUY') return 'constructive'
+  if (direction === 'SELL') return 'fragile'
+  return 'mixed'
+}
+
+function portfolioResearchTrend(technicals) {
+  const distances = [
+    ['20D', technicals.dist_from_ma20_pct],
+    ['50D', technicals.dist_from_ma50_pct],
+    ['200D', technicals.dist_from_ma200_pct],
+  ].filter(([, value]) => Number.isFinite(value))
+  const movingAverageText = distances.length
+    ? distances.map(([label, value]) => `${value >= 0 ? '+' : ''}${round(value, 1)}% vs ${label}`).join(', ')
+    : 'moving-average context unavailable'
+  const rsiText = Number.isFinite(technicals.rsi_14) ? `RSI ${Math.round(technicals.rsi_14)}` : 'RSI unavailable'
+  return `${movingAverageText}; ${rsiText}.`
+}
+
+function portfolioResearchThesisCheck(fundamentals) {
+  const checks = []
+  if (Number.isFinite(fundamentals.revenue_growth_yoy_pct)) {
+    checks.push(`revenue growth ${round(fundamentals.revenue_growth_yoy_pct, 1)}%`)
+  }
+  if (Number.isFinite(fundamentals.gross_margin_pct)) {
+    checks.push(`gross margin ${round(fundamentals.gross_margin_pct, 1)}%`)
+  }
+  if (Number.isFinite(fundamentals.pe_percentile_5y)) {
+    checks.push(`PE percentile ${Math.round(fundamentals.pe_percentile_5y)}`)
+  }
+  if (fundamentals.fcf_trend) {
+    checks.push(`FCF trend ${fundamentals.fcf_trend}`)
+  }
+  return checks.length ? `Check ${checks.join(', ')}.` : 'Fundamental inputs are currently unavailable.'
+}
+
+function unavailablePortfolioResearch(symbol) {
+  return {
+    symbol,
+    summary: 'Deterministic market research is currently unavailable for this symbol.',
+    sources: [],
+    analysis: {
+      outlook: 'mixed',
+      signal: 'HOLD',
+      confidence: 0,
+      trend: 'Market data unavailable.',
+      riskFlags: ['data_unavailable'],
+      thesisCheck: 'Fundamental inputs are currently unavailable.',
+    },
+  }
+}
+
+function buildPortfolioResearchResult(symbol, analysis) {
+  const signal = analysis.recommendation.direction
+  const confidence = analysis.recommendation.confidence
+  const riskFlags = analysis.recommendation.risk_flags
+  return {
+    symbol,
+    summary: `${analysis.narrative} Deterministic signal: ${signal} (${Math.round(confidence * 100)}% confidence).${
+      riskFlags.length ? ` Risk flags: ${riskFlags.join(', ')}.` : ''
+    }`,
+    sources: [`${FINANCE_QUERY_BASE}/quote/${encodeURIComponent(symbol)}`],
+    analysis: {
+      outlook: portfolioResearchOutlook(signal),
+      signal,
+      confidence,
+      trend: portfolioResearchTrend(analysis.technicals),
+      riskFlags,
+      thesisCheck: portfolioResearchThesisCheck(analysis.fundamentals),
+    },
+  }
+}
+
 async function handlePortfolioResearchRoute(request, env = {}) {
   if (request.method !== 'POST') {
     return jsonCors({ detail: 'Method not allowed' }, 405, { allow: 'POST' })
@@ -1136,18 +1209,9 @@ async function handlePortfolioResearchRoute(request, env = {}) {
     parsed.value.symbols.map(async (symbol) => {
       try {
         const analysis = await buildAnalyze(symbol, { includeNarrative: true, includeEntry: false, env })
-        const riskFlags = analysis.recommendation.risk_flags.length ? ` Risk flags: ${analysis.recommendation.risk_flags.join(', ')}.` : ''
-        return {
-          symbol,
-          summary: `${analysis.narrative} Deterministic signal: ${analysis.recommendation.direction} (${Math.round(analysis.recommendation.confidence * 100)}% confidence).${riskFlags}`,
-          sources: [`${FINANCE_QUERY_BASE}/quote/${encodeURIComponent(symbol)}`],
-        }
+        return buildPortfolioResearchResult(symbol, analysis)
       } catch {
-        return {
-          symbol,
-          summary: 'Deterministic market research is currently unavailable for this symbol.',
-          sources: [],
-        }
+        return unavailablePortfolioResearch(symbol)
       }
     }),
   )

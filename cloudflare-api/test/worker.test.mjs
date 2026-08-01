@@ -231,9 +231,18 @@ test('portfolio research requires its own service token and never calls Cursor',
     })
     assert.equal(response.status, 200)
     const payload = await response.json()
-    assert.equal(payload.research[0].symbol, 'NVDA')
-    assert.match(payload.research[0].summary, /Deterministic signal/)
-    assert.equal(payload.research[0].sources[0], 'https://finance-query.com/v2/quote/NVDA')
+    const item = payload.research[0]
+    assert.deepEqual(Object.keys(item).sort(), ['analysis', 'sources', 'summary', 'symbol'])
+    assert.equal(item.symbol, 'NVDA')
+    assert.match(item.summary, /Deterministic signal/)
+    assert.deepEqual(item.sources, ['https://finance-query.com/v2/quote/NVDA'])
+    assert.deepEqual(Object.keys(item.analysis).sort(), ['confidence', 'outlook', 'riskFlags', 'signal', 'thesisCheck', 'trend'])
+    assert.ok(['constructive', 'mixed', 'fragile'].includes(item.analysis.outlook))
+    assert.ok(['BUY', 'HOLD', 'SELL'].includes(item.analysis.signal))
+    assert.equal(typeof item.analysis.confidence, 'number')
+    assert.equal(typeof item.analysis.trend, 'string')
+    assert.ok(Array.isArray(item.analysis.riskFlags))
+    assert.equal(typeof item.analysis.thesisCheck, 'string')
     assert.equal(cursorCalled, false)
   } finally {
     globalThis.fetch = originalFetch
