@@ -193,6 +193,22 @@ function initialJobState(input) {
   }
 }
 
+function normalizeStoredJob(job) {
+  if (!job || typeof job !== 'object') return job
+  const input = job.input && typeof job.input === 'object' ? job.input : {}
+  return {
+    ...job,
+    estimated_usage_usd: typeof job.estimated_usage_usd === 'number' ? job.estimated_usage_usd : null,
+    input: {
+      ...input,
+      analogy: input.analogy ?? null,
+      capital: input.capital ?? null,
+      risk_profile: input.risk_profile ?? null,
+      estimated_usage_usd: typeof input.estimated_usage_usd === 'number' ? input.estimated_usage_usd : null,
+    },
+  }
+}
+
 function textValue(value, fallback = '') {
   const text = typeof value === 'string' ? value.trim() : ''
   return text || fallback
@@ -461,15 +477,15 @@ export class ResearchJob {
     if (pathname === '/cancel' && request.method === 'POST') {
       const job = await this.state.storage.get('job')
       if (!job) return researchJson({ detail: 'Research job not found' }, 404)
-      if (['completed', 'failed', 'cancelled'].includes(job.status)) return researchJson(job)
-      const cancelled = { ...job, status: 'cancelled', progress: 100, current_stage: 'cancelled', error: 'Cancelled by user' }
+      if (['completed', 'failed', 'cancelled'].includes(job.status)) return researchJson(normalizeStoredJob(job))
+      const cancelled = { ...normalizeStoredJob(job), status: 'cancelled', progress: 100, current_stage: 'cancelled', error: 'Cancelled by user' }
       await this.state.storage.put('job', cancelled)
       await callQuota(this.env.RESEARCH_RATE_LIMITER, job.ip_hash, 'release', job.id).catch(() => null)
       return researchJson(cancelled)
     }
     if (pathname === '/status' && request.method === 'GET') {
       const job = await this.state.storage.get('job')
-      return researchJson(job ?? { detail: 'Research job not found' }, job ? 200 : 404)
+      return researchJson(normalizeStoredJob(job) ?? { detail: 'Research job not found' }, job ? 200 : 404)
     }
     return researchJson({ detail: 'Unhandled research job route' }, 404)
   }

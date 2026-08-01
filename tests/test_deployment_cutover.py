@@ -34,10 +34,8 @@ def test_render_yaml_uses_only_prod_facing_deploy_targets() -> None:
     assert "finance-analyst" not in content
     assert "finance-screener" not in content
     assert "finance-web-ui-dev" not in content
-    assert 'name: finance-web-ui' in content
-    assert "branch: main" in content
-    assert "VITE_API_BASE_URL" in content
-    assert "https://finance-api.rxlab.workers.dev" in content
+    assert "finance-web-ui" not in content
+    assert "finance-cache" in content
 
 
 def test_wrangler_config_only_defines_prod_worker() -> None:

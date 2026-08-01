@@ -782,14 +782,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     })
 
     try {
-      const [bundle, searchResults] = await Promise.all([
-        fetchAnalyzeBundle(normalized, controller.signal),
-        fetchSymbolSearch(normalized),
-      ])
+      const bundle = await fetchAnalyzeBundle(normalized, controller.signal)
       if (abortedRef.current || fetchIdRef.current !== fetchId) {
         return
       }
-      rememberSuggestionNames(searchResults)
       setViewState({
         phase: 'ready',
         bundle,
@@ -820,7 +816,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
         controllerRef.current = null
       }
     }
-  }, [rememberSuggestionNames])
+  }, [])
 
   useEffect(() => {
     return () => {

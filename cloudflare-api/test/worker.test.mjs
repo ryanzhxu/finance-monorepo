@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import worker, { __testOnly, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
+import worker, { __testOnly, ResearchJob, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
 import { __researchTestOnly } from '../src/research.js'
 
 test.beforeEach(() => {
@@ -202,7 +202,7 @@ test('research jobs fail closed while decision support is disabled and do not ca
   }
 })
 
-test('research decision support uses separate fail-closed gate and accepts analogy input', () => {
+test('research decision support keeps legacy analogy input and accepts risk profile context', () => {
   assert.deepEqual(
     __researchTestOnly.researchGate({ RESEARCH_DECISION_SUPPORT_ENABLED: 'false', RESEARCH_MODEL_STATUS: 'validated' }),
     { ok: false, status: 503, detail: 'Research decision support is disabled' },
@@ -214,8 +214,10 @@ test('research decision support uses separate fail-closed gate and accepts analo
     universe: 'US-listed common stocks',
     analogy: 'Sandisk',
     max_candidates: 3,
+    risk_profile: 'balanced',
   })
   assert.equal(parsed.value?.analogy, 'Sandisk')
+  assert.equal(parsed.value?.risk_profile, 'balanced')
   assert.equal(__researchTestOnly.validateJobInput({
     question: 'Find durable demand growth.',
     mode: 'upside_discovery',
@@ -223,6 +225,43 @@ test('research decision support uses separate fail-closed gate and accepts analo
     analogy: 'x'.repeat(241),
     max_candidates: 3,
   }).error, 'analogy must be at most 240 characters')
+})
+
+test('research status keeps older persisted jobs readable after additive fields were introduced', async () => {
+  const legacyJob = {
+    id: 'legacy-job',
+    status: 'completed',
+    progress: 100,
+    current_stage: 'completed',
+    candidate_progress: { completed: 1, total: 1 },
+    elapsed_seconds: 3,
+    input: {
+      question: 'Find durable demand growth.',
+      mode: 'upside_discovery',
+      universe: 'US-listed common stocks',
+      analogy: 'Sandisk',
+      max_candidates: 1,
+    },
+    result: null,
+    error: null,
+  }
+  const state = {
+    storage: {
+      async get() {
+        return legacyJob
+      },
+      async put() {},
+    },
+  }
+  const response = await new ResearchJob(state, {}).fetch(new Request('https://research-job.local/status'))
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.id, 'legacy-job')
+  assert.equal(payload.estimated_usage_usd, null)
+  assert.equal(payload.input.analogy, 'Sandisk')
+  assert.equal(payload.input.capital, null)
+  assert.equal(payload.input.risk_profile, null)
+  assert.equal(payload.input.estimated_usage_usd, null)
 })
 
 test('research result normalization emits evidence-backed decision support fields', () => {
@@ -488,4 +527,29 @@ test('shared watchlist routes support session, login, add, and remove', async ()
   )
   assert.equal(cookieSession.status, 200)
   assert.equal((await cookieSession.json()).authenticated, true)
+})
+
+test('Pages production origin receives credentialed CORS for shared watchlist sessions', async () => {
+  const env = createSharedWatchlistEnv()
+  const origin = 'https://finance-web-ui.pages.dev'
+  const response = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/session', {
+      headers: { origin },
+    }),
+    env,
+  )
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('access-control-allow-origin'), origin)
+  assert.equal(response.headers.get('access-control-allow-credentials'), 'true')
+
+  const preflight = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/session', {
+      method: 'OPTIONS',
+      headers: { origin, 'access-control-request-method': 'GET' },
+    }),
+    env,
+  )
+  assert.equal(preflight.status, 204)
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin)
+  assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true')
 })

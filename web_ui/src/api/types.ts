@@ -325,14 +325,17 @@ export interface ResearchJobState {
   current_stage: string
   candidate_progress: { completed: number; total: number }
   elapsed_seconds: number
-  estimated_usage_usd: number
+  estimated_usage_usd?: number | null
   input: {
     question: string
     mode: 'upside_discovery' | 'downside_risk_scan'
     universe: string
-    analogy: string | null
-    max_candidates: number
-    risk_profile: string | null
+    /** @deprecated Retained so older clients and persisted jobs remain readable. */
+    analogy?: string | null
+    max_candidates?: number
+    capital?: number | null
+    risk_profile?: string | null
+    estimated_usage_usd?: number | null
   }
   result: ResearchJobResult | null
   error: string | null
@@ -342,7 +345,8 @@ export interface ResearchJobRequest {
   question: string
   mode: 'upside_discovery' | 'downside_risk_scan'
   universe: string
+  /** @deprecated Retained for backwards-compatible API clients. */
   analogy?: string
-  max_candidates: number
+  max_candidates?: number
   risk_profile?: string
 }
