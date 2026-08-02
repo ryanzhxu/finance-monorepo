@@ -16,12 +16,12 @@ def _cors_origins(app) -> list[str]:
     return list(middleware.kwargs["allow_origins"])
 
 
-def test_cors_allowlists_keep_prod_ui_and_drop_dev_ui() -> None:
+def test_cors_allowlists_keep_local_ui_only_after_cloudflare_cutover() -> None:
     for app in (analyst_app, screener_app):
         origins = _cors_origins(app)
         assert "http://localhost:5173" in origins
         assert "http://127.0.0.1:5173" in origins
-        assert "https://finance-web-ui.onrender.com" in origins
+        assert "https://finance-web-ui.onrender.com" not in origins
         assert "https://finance-web-ui-dev.onrender.com" not in origins
 
 
@@ -29,15 +29,8 @@ def test_warm_cache_defaults_to_prod_worker() -> None:
     assert warm_cache.DEFAULT_ANALYST_BASE_URL == "https://finance-api.rxlab.workers.dev"
 
 
-def test_render_yaml_uses_only_prod_facing_deploy_targets() -> None:
-    content = (REPO_ROOT / "render.yaml").read_text()
-    assert "finance-analyst" not in content
-    assert "finance-screener" not in content
-    assert "finance-web-ui-dev" not in content
-    assert 'name: finance-web-ui' in content
-    assert "branch: main" in content
-    assert "VITE_API_BASE_URL" in content
-    assert "https://finance-api.rxlab.workers.dev" in content
+def test_retired_deploy_blueprint_is_removed_after_cloudflare_cutover() -> None:
+    assert not (REPO_ROOT / "render.yaml").exists()
 
 
 def test_wrangler_config_only_defines_prod_worker() -> None:
