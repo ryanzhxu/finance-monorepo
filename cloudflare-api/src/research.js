@@ -49,14 +49,12 @@ function validateJobInput(body) {
   const question = String(body?.question ?? '').trim()
   const mode = String(body?.mode ?? '').trim()
   const universe = String(body?.universe ?? '').trim()
-  const analogy = body?.analogy == null ? null : String(body.analogy).trim()
   const maxCandidates = Number(body?.max_candidates ?? 5)
   if (!question || question.length > 2_000) return { error: 'question is required and must be at most 2000 characters' }
   if (!['upside_discovery', 'downside_risk_scan'].includes(mode)) {
     return { error: 'mode must be upside_discovery or downside_risk_scan' }
   }
   if (!universe || universe.length > 500) return { error: 'universe is required and must be at most 500 characters' }
-  if (analogy && analogy.length > 240) return { error: 'analogy must be at most 240 characters' }
   if (!Number.isInteger(maxCandidates) || maxCandidates < 1 || maxCandidates > MAX_CANDIDATES) {
     return { error: `max_candidates must be an integer from 1 to ${MAX_CANDIDATES}` }
   }
@@ -69,7 +67,6 @@ function validateJobInput(body) {
       question,
       mode,
       universe,
-      analogy,
       max_candidates: maxCandidates,
       capital,
       risk_profile: body?.risk_profile == null ? null : String(body.risk_profile).slice(0, 500),
@@ -305,7 +302,7 @@ async function cursorJson(env, stage, prompt, requireWebSearch) {
     body: JSON.stringify({
       prompt: {
         text: [
-          'talk like caveman: You are a no-repo equity research agent.',
+          'You are a no-repo equity research agent.',
           requireWebSearch ? 'Use public web research and include source URLs.' : 'Use only the supplied evidence.',
           'Return valid JSON only. Do not give price targets or direct trading instructions.',
           prompt,
@@ -383,7 +380,7 @@ async function runResearch(state, env, jobId, ipHash, input) {
         candidates,
         evidence: discovery.evidence ?? [],
         output_contract: {
-          candidate_reviews: 'one per candidate with symbol, thesis, analogy_comparison, catalysts, risks, entry_conditions, reasons_to_avoid, unknowns',
+          candidate_reviews: 'one per candidate with symbol, thesis, catalysts, risks, entry_conditions, reasons_to_avoid, unknowns',
           all_points: 'objects with statement and evidence_ids from supplied evidence',
           no_personalized_allocation: true,
         },

@@ -202,7 +202,7 @@ test('research jobs fail closed while decision support is disabled and do not ca
   }
 })
 
-test('research decision support uses separate fail-closed gate and accepts analogy input', () => {
+test('research decision support uses separate fail-closed gate and ignores legacy analogy input', () => {
   assert.deepEqual(
     __researchTestOnly.researchGate({ RESEARCH_DECISION_SUPPORT_ENABLED: 'false', RESEARCH_MODEL_STATUS: 'validated' }),
     { ok: false, status: 503, detail: 'Research decision support is disabled' },
@@ -215,14 +215,8 @@ test('research decision support uses separate fail-closed gate and accepts analo
     analogy: 'Sandisk',
     max_candidates: 3,
   })
-  assert.equal(parsed.value?.analogy, 'Sandisk')
-  assert.equal(__researchTestOnly.validateJobInput({
-    question: 'Find durable demand growth.',
-    mode: 'upside_discovery',
-    universe: 'US-listed common stocks',
-    analogy: 'x'.repeat(241),
-    max_candidates: 3,
-  }).error, 'analogy must be at most 240 characters')
+  assert.equal(parsed.error, undefined)
+  assert.equal(Object.hasOwn(parsed.value ?? {}, 'analogy'), false)
 })
 
 test('research result normalization emits evidence-backed decision support fields', () => {
