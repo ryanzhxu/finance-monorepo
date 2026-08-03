@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 10
     env:
       ANALYST_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.analyst_base_url || 'https://finance-api.rxlab.workers.dev' }}
-      WARMUP_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.batch_size || '20' }}
+      WARMUP_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.batch_size || '5' }}
       WARMUP_VERIFY_SAMPLE_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.verify_sample_size || '5' }}
       WARMUP_SYMBOLS_FILE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.symbols_file || '' }}
     steps:
