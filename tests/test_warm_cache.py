@@ -26,6 +26,10 @@ def test_iter_batches_chunks_symbols() -> None:
     assert batches == [["A", "B"], ["C", "D"], ["E"]]
 
 
+def test_default_batch_size_is_conservative_for_worker_warmup() -> None:
+    assert warm_cache.DEFAULT_BATCH_SIZE == 5
+
+
 class _FakeResponse:
     def __init__(self, payload, status_code: int = 200) -> None:
         self._payload = payload
