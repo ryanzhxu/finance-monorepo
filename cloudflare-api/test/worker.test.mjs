@@ -128,6 +128,20 @@ function mockCboeFallbackFetch(input) {
   return mockFinanceQueryFetch(input)
 }
 
+function mockBatchFailureFetch(input) {
+  const rawUrl =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input?.url ?? input?.href ?? String(input)
+  const url = new URL(rawUrl)
+  if (url.pathname.endsWith('/quote/FAIL')) {
+    return Promise.reject(new Error('simulated upstream failure'))
+  }
+  return mockFinanceQueryFetch(input)
+}
+
 function createSharedWatchlistEnv() {
   const storage = new Map()
   const state = {
@@ -364,6 +378,52 @@ test('analyze endpoint returns a shaped response', async () => {
     assert.equal(payload.fundamentals.analyst_upgrades_30d, 1)
     assert.equal(payload.fundamentals.analyst_downgrades_30d, 1)
     assert.equal(payload.sentiment.put_call_ratio, 0.84)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('batch diagnostic mode preserves response order and reports symbol errors', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockBatchFailureFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/batch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbols: ['NVDA', 'FAIL'], include_narrative: false, include_errors: true }),
+      }),
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    assert.equal(payload.length, 2)
+    assert.equal(payload[0].symbol, 'NVDA')
+    assert.equal(payload[0].error, null)
+    assert.equal(payload[1].symbol, 'FAIL')
+    assert.equal(payload[1].response, null)
+    assert.equal(payload[1].error.code, 'analysis_error')
+    assert.equal(payload[1].error.message, 'simulated upstream failure')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('batch default mode retains the existing raw response shape', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/batch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbols: ['NVDA'], include_narrative: false }),
+      }),
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    assert.equal(payload.length, 1)
+    assert.equal(payload[0].symbol, 'NVDA')
+    assert.equal(Object.hasOwn(payload[0], 'response'), false)
   } finally {
     globalThis.fetch = originalFetch
   }

@@ -167,6 +167,49 @@ def test_run_warmup_emits_summary(monkeypatch) -> None:
     assert any(event == "warmup_summary" for event, _ in emitted)
 
 
+def test_batch_payload_requests_symbol_level_errors() -> None:
+    assert warm_cache._analyze_payload(["AAPL"]) == {
+        "symbols": ["AAPL"],
+        "include_narrative": False,
+        "include_errors": True,
+    }
+
+
+def test_run_warmup_reports_structured_batch_errors(monkeypatch) -> None:
+    fake_client = _FakeClient()
+    original_post = fake_client.post
+
+    def post_with_error(url: str, json: dict | None = None):
+        if url.endswith("/batch"):
+            symbol = json["symbols"][0]
+            payload = {
+                "symbol": symbol,
+                "response": None,
+                "error": {"code": "upstream_http_error", "status": 429, "message": "rate limited"},
+            }
+            return _FakeResponse([payload])
+        return original_post(url, json)
+
+    fake_client.post = post_with_error
+    monkeypatch.setattr(warm_cache.httpx, "Client", lambda *args, **kwargs: fake_client)
+
+    emitted: list[tuple[str, dict]] = []
+    summary = warm_cache.run_warmup(
+        base_url="https://example.com",
+        symbols=["AAPL"],
+        batch_size=1,
+        verify_sample_size=0,
+        emit=lambda event, **fields: emitted.append((event, fields)),
+    )
+
+    assert summary.cached_symbols == 0
+    assert summary.failed_symbols == 1
+    batch_summary = next(fields for event, fields in emitted if event == "batch_summary")
+    assert batch_summary["parse_failures"] == [
+        {"symbol": "AAPL", "error": {"code": "upstream_http_error", "status": 429, "message": "rate limited"}}
+    ]
+
+
 def test_main_fails_below_threshold(monkeypatch) -> None:
     monkeypatch.setattr(warm_cache, "load_symbols", lambda symbols_file=None: ["AAPL", "MSFT"])
     monkeypatch.setattr(
