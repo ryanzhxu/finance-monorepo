@@ -172,6 +172,23 @@ test('health endpoint returns worker status', async () => {
   }
 })
 
+test('Pages origin receives credentialed CORS headers', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.com/health', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://finance-web-ui.pages.dev',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'content-type, authorization',
+      },
+    }),
+  )
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://finance-web-ui.pages.dev')
+  assert.equal(response.headers.get('access-control-allow-credentials'), 'true')
+  assert.equal(response.headers.get('vary'), 'Origin')
+})
+
 test('research jobs fail closed while decision support is disabled and do not call Cursor', async () => {
   const originalFetch = globalThis.fetch
   let cursorCalled = false
