@@ -330,9 +330,10 @@ export interface ResearchJobState {
     question: string
     mode: 'upside_discovery' | 'downside_risk_scan'
     universe: string
-    analogy: string | null
     max_candidates: number
+    capital: number | null
     risk_profile: string | null
+    estimated_usage_usd: number
   }
   result: ResearchJobResult | null
   error: string | null
@@ -342,7 +343,7 @@ export interface ResearchJobRequest {
   question: string
   mode: 'upside_discovery' | 'downside_risk_scan'
   universe: string
-  analogy?: string
   max_candidates: number
+  capital?: number
   risk_profile?: string
 }

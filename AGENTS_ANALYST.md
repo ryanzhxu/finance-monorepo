@@ -1,6 +1,6 @@
 # AGENTS.md — AI Stock Analyst (`finance-monorepo/analyst-service`)
 
-> **Status note (2026-06-20):** this file is analyst-service-specific historical context. For current monorepo truth, read root `AGENTS.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, `render.yaml`, and the current `analyst_service/` plus `web_ui/` code first.
+> **Status note (2026-06-20):** this file is analyst-service-specific historical context. For current monorepo truth, read root `AGENTS.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, `cloudflare-api/wrangler.toml`, and the current `analyst_service/` plus `web_ui/` code first.
 
 > **Who built this**: Two high-school friends — one a software engineer (primary developer), one with finance/quant background. The finance partner owns the analytical framework and signal definitions; the engineering partner owns the implementation.
 >

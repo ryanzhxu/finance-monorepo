@@ -9,7 +9,7 @@ Use this skill when the task is to refresh repo guidance for future Codex sessio
 
 ## Workflow
 
-1. Inspect current repo state before editing docs: `git status`, current branch, recent commits, manifests, `render.yaml`, active app directories, tests, and existing skills.
+1. Inspect current repo state before editing docs: `git status`, current branch, recent commits, manifests, `cloudflare-api/wrangler.toml`, active app directories, tests, and existing skills.
 2. Read `AGENTS.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, relevant package manifests, and any Claude guidance as secondary context.
 3. Trust current code and deploy wiring over older docs. Call out mismatches instead of copying stale text forward.
 4. Keep `AGENTS.md` short. Put repeatable workflows and caveats into `skills/*/SKILL.md`.

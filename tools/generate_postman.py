@@ -69,6 +69,8 @@ pm.test("analyst attachment is present", function () {
 pm.test("analyst degradation did not trigger", function () {
   pm.expect(typeof first.reason === "string" && first.reason.includes("Analyst unavailable")).to.eql(false);
 });"""
+WORKER_COLLECTION_NAME = "finance-monorepo worker"
+WORKER_BASE_URL_VAR = "worker_base_url"
 
 
 def load_openapi(service: str) -> dict[str, Any]:
@@ -247,20 +249,157 @@ def upsert_prod_cross_service_check(collection: dict[str, Any]) -> None:
     )
 
 
-def write_local_environment() -> None:
+def worker_collection_path() -> Path:
+    return POSTMAN_DIR / "worker.postman_collection.json"
+
+
+def build_worker_collection() -> dict[str, Any]:
+    start_body = {
+        "question": (
+            "Find one underfollowed US-listed company with verifiable demand inflection, "
+            "durable business leverage, and materially asymmetric upside if the thesis is right. "
+            "Favor non-obvious candidates over consensus megacaps when evidence quality is comparable. "
+            "Return evidence, thesis, catalysts, risks, entry conditions, reasons to avoid, "
+            "and unknowns. No price targets or trade instructions."
+        ),
+        "mode": "upside_discovery",
+        "universe": "US-listed companies",
+        "max_candidates": 1,
+    }
+    return {
+        "info": {
+            "name": WORKER_COLLECTION_NAME,
+            "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        "item": [
+            {
+                "name": "Worker Health",
+                "request": {
+                    "method": "GET",
+                    "url": {
+                        "raw": f"{{{{{WORKER_BASE_URL_VAR}}}}}/health",
+                        "host": [f"{{{{{WORKER_BASE_URL_VAR}}}}}"],
+                        "path": ["health"],
+                    },
+                },
+                "event": [
+                    {
+                        "listen": "test",
+                        "script": {
+                            "type": "text/javascript",
+                            "exec": [
+                                'pm.test("status is 200", function () {',
+                                "  pm.response.to.have.status(200);",
+                                "});",
+                            ],
+                        },
+                    }
+                ],
+                "response": [],
+            },
+            {
+                "name": "Start Research Job (Cursor Prompt Path)",
+                "request": {
+                    "method": "POST",
+                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                    "body": {
+                        "mode": "raw",
+                        "raw": json.dumps(start_body, indent=2),
+                        "options": {"raw": {"language": "json"}},
+                    },
+                    "url": {
+                        "raw": f"{{{{{WORKER_BASE_URL_VAR}}}}}/research/jobs",
+                        "host": [f"{{{{{WORKER_BASE_URL_VAR}}}}}"],
+                        "path": ["research", "jobs"],
+                    },
+                    "description": (
+                        "Live Cursor-backed research entrypoint. The Worker queues discovery, "
+                        "verification, and review stages through the Cursor Agents API when "
+                        "RESEARCH_DECISION_SUPPORT_ENABLED is true."
+                    ),
+                },
+                "event": [
+                    {
+                        "listen": "test",
+                        "script": {
+                            "type": "text/javascript",
+                            "exec": [
+                                'pm.test("status is 202 or 503", function () {',
+                                "  pm.expect([202, 503]).to.include(pm.response.code);",
+                                "});",
+                                "const payload = pm.response.json();",
+                                "if (pm.response.code === 202 && payload.id) {",
+                                '  pm.collectionVariables.set("research_job_id", payload.id);',
+                                "}",
+                            ],
+                        },
+                    }
+                ],
+                "response": [],
+            },
+            {
+                "name": "Get Research Job",
+                "request": {
+                    "method": "GET",
+                    "url": {
+                        "raw": f"{{{{{WORKER_BASE_URL_VAR}}}}}/research/jobs/{{{{research_job_id}}}}",
+                        "host": [f"{{{{{WORKER_BASE_URL_VAR}}}}}"],
+                        "path": ["research", "jobs", "{{research_job_id}}"],
+                    },
+                },
+                "response": [],
+            },
+            {
+                "name": "Cancel Research Job",
+                "request": {
+                    "method": "POST",
+                    "url": {
+                        "raw": f"{{{{{WORKER_BASE_URL_VAR}}}}}/research/jobs/{{{{research_job_id}}}}/cancel",
+                        "host": [f"{{{{{WORKER_BASE_URL_VAR}}}}}"],
+                        "path": ["research", "jobs", "{{research_job_id}}", "cancel"],
+                    },
+                },
+                "response": [],
+            },
+        ],
+        "variable": [
+            {
+                "key": "research_job_id",
+                "value": "",
+                "type": "string",
+            }
+        ],
+    }
+
+
+def write_worker_collection() -> None:
+    POSTMAN_DIR.mkdir(parents=True, exist_ok=True)
+    worker_collection_path().write_text(
+        json.dumps(build_worker_collection(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_environment(name: str, analyst_base_url: str, screener_base_url: str, worker_base_url: str, target: Path) -> None:
     POSTMAN_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        "name": "finance-monorepo local",
+        "name": name,
         "values": [
             {
                 "key": "analyst_base_url",
-                "value": "http://localhost:8001",
+                "value": analyst_base_url,
                 "type": "default",
                 "enabled": True,
             },
             {
                 "key": "screener_base_url",
-                "value": "http://localhost:8002",
+                "value": screener_base_url,
+                "type": "default",
+                "enabled": True,
+            },
+            {
+                "key": "worker_base_url",
+                "value": worker_base_url,
                 "type": "default",
                 "enabled": True,
             },
@@ -268,7 +407,6 @@ def write_local_environment() -> None:
         "_postman_variable_scope": "environment",
         "_postman_exported_using": "finance-monorepo",
     }
-    target = POSTMAN_DIR / "local.postman_environment.json"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
@@ -277,7 +415,21 @@ def main() -> None:
     for service in ("analyst", "screener"):
         run_converter(service)
         normalize_collection(service)
-    write_local_environment()
+    write_worker_collection()
+    write_environment(
+        "finance-monorepo local",
+        "http://localhost:8001",
+        "http://localhost:8002",
+        "http://localhost:8787",
+        POSTMAN_DIR / "local.postman_environment.json",
+    )
+    write_environment(
+        "finance-monorepo production",
+        "https://finance-api.rxlab.workers.dev",
+        "https://finance-api.rxlab.workers.dev",
+        "https://finance-api.rxlab.workers.dev",
+        POSTMAN_DIR / "production.postman_environment.json",
+    )
 
 
 if __name__ == "__main__":

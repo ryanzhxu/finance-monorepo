@@ -1,0 +1,131 @@
+{
+  "info": {
+    "name": "finance-monorepo worker",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "name": "Worker Health",
+      "request": {
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{worker_base_url}}"
+          ],
+          "path": [
+            "health"
+          ],
+          "raw": "{{worker_base_url}}/health"
+        }
+      },
+      "response": []
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"status is 202 or 503\", function () {",
+              "  pm.expect([202, 503]).to.include(pm.response.code);",
+              "});",
+              "const payload = pm.response.json();",
+              "if (pm.response.code === 202 && payload.id) {",
+              "  pm.collectionVariables.set(\"research_job_id\", payload.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "name": "Start Research Job (Cursor Prompt Path)",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\n  \"question\": \"Find one underfollowed US-listed company with verifiable demand inflection, durable business leverage, and materially asymmetric upside if the thesis is right. Favor non-obvious candidates over consensus megacaps when evidence quality is comparable. Return evidence, thesis, catalysts, risks, entry conditions, reasons to avoid, and unknowns. No price targets or trade instructions.\",\n  \"mode\": \"upside_discovery\",\n  \"universe\": \"US-listed companies\",\n  \"max_candidates\": 1\n}"
+        },
+        "description": "Live Cursor-backed research entrypoint. The Worker queues discovery, verification, and review stages through the Cursor Agents API when RESEARCH_DECISION_SUPPORT_ENABLED is true.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{worker_base_url}}"
+          ],
+          "path": [
+            "research",
+            "jobs"
+          ],
+          "raw": "{{worker_base_url}}/research/jobs"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Research Job",
+      "request": {
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{worker_base_url}}"
+          ],
+          "path": [
+            "research",
+            "jobs",
+            "{{research_job_id}}"
+          ],
+          "raw": "{{worker_base_url}}/research/jobs/{{research_job_id}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cancel Research Job",
+      "request": {
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{worker_base_url}}"
+          ],
+          "path": [
+            "research",
+            "jobs",
+            "{{research_job_id}}",
+            "cancel"
+          ],
+          "raw": "{{worker_base_url}}/research/jobs/{{research_job_id}}/cancel"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "research_job_id",
+      "type": "string",
+      "value": ""
+    }
+  ]
+}

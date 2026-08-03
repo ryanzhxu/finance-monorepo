@@ -4,6 +4,18 @@ import { cancelResearchJob, fetchResearchJob, startResearchJob } from '../api/cl
 import type { ResearchDecisionSupport, ResearchJobRequest, ResearchPoint } from '../api/types'
 
 const terminalStatuses = new Set(['completed', 'failed', 'cancelled'])
+const researchUniverses = [
+  { label: 'US-listed common stocks', value: 'US-listed common stocks' },
+  {
+    label: 'US-listed common stocks above $10B market cap',
+    value: 'US-listed common stocks with market capitalization above USD 10 billion',
+  },
+  { label: 'S&P 500 constituents', value: 'S&P 500 constituents' },
+  { label: 'Nasdaq-100 constituents', value: 'Nasdaq-100 constituents' },
+  { label: 'Russell 1000 constituents', value: 'Russell 1000 constituents' },
+  { label: 'Russell 2000 constituents', value: 'Russell 2000 constituents' },
+  { label: 'Dow Jones Industrial Average constituents', value: 'Dow Jones Industrial Average constituents' },
+]
 
 function PointList({ title, points }: { title: string; points: ResearchPoint[] }) {
   return (
@@ -117,10 +129,10 @@ function DecisionCard({ decision }: { decision: ResearchDecisionSupport }) {
 function Research() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [question, setQuestion] = useState('Find companies with durable demand growth and explain what could invalidate the thesis.')
-  const [analogy, setAnalogy] = useState('')
   const [universe, setUniverse] = useState('US-listed common stocks')
   const [mode, setMode] = useState<ResearchJobRequest['mode']>('upside_discovery')
   const [maxCandidates, setMaxCandidates] = useState(3)
+  const [riskProfile, setRiskProfile] = useState('')
 
   const jobQuery = useQuery({
     queryKey: ['research-job', jobId],
@@ -149,8 +161,8 @@ function Research() {
       question: question.trim(),
       mode,
       universe: universe.trim(),
-      ...(analogy.trim() ? { analogy: analogy.trim() } : {}),
       max_candidates: maxCandidates,
+      ...(riskProfile.trim() ? { risk_profile: riskProfile.trim() } : {}),
     })
   }
 
@@ -168,7 +180,7 @@ function Research() {
             Evidence before conviction
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Ask for ranked candidates, analogy comparisons, catalysts, risks, entry conditions, and reasons to avoid. Research output is decision support, not guaranteed returns or personalized allocation advice.
+            Ask for ranked candidates, catalysts, risks, entry conditions, reasons to avoid, and evidence-backed follow-up work. Research output is decision support, not guaranteed returns or personalized allocation advice.
           </p>
         </div>
 
@@ -185,21 +197,24 @@ function Research() {
           </label>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Analogy lens</span>
-              <input
-                value={analogy}
-                onChange={(event) => setAnalogy(event.target.value)}
-                maxLength={240}
-                placeholder="Optional: Sandisk"
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#11151d] dark:text-slate-100 dark:focus:border-slate-300 dark:focus:ring-slate-800"
-              />
-            </label>
-            <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Universe</span>
-              <input
+              <select
                 value={universe}
                 onChange={(event) => setUniverse(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#11151d] dark:text-slate-100 dark:focus:border-slate-300 dark:focus:ring-slate-800"
+              >
+                {researchUniverses.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Trigger context</span>
+              <input
+                value={riskProfile}
+                onChange={(event) => setRiskProfile(event.target.value)}
                 maxLength={500}
+                placeholder="Optional: Existing holding review triggered by a concentration alert."
                 className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#11151d] dark:text-slate-100 dark:focus:border-slate-300 dark:focus:ring-slate-800"
               />
             </label>

@@ -90,9 +90,4 @@ Set `POSTMAN_WORKSPACE_ID` as well if you want a workspace other than `My Worksp
 
 ## Deployment
 
-`render.yaml` is the deploy source of truth for:
-
-- `finance-cache`
-- `finance-web-ui`
-
-`cloudflare-api/wrangler.toml` is the deploy source of truth for `finance-api`.
+`cloudflare-api/wrangler.toml` is the deploy source of truth for `finance-api`; `web_ui/` deploys to the `finance-web-ui` Cloudflare Pages project. This repository no longer provisions or depends on Render resources.

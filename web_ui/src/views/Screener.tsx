@@ -63,19 +63,19 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
   const undervaluedQuery = useQuery({
     queryKey: ['screen', 'undervalued'],
     queryFn: fetchUndervaluedScreen,
-    enabled: activeTab === 'undervalued',
+    enabled: false,
   })
 
   const demandShockQuery = useQuery({
     queryKey: ['screen', 'demand-shock'],
     queryFn: fetchDemandShockScreen,
-    enabled: activeTab === 'demand_shock',
+    enabled: false,
   })
 
   const trendingQuery = useQuery({
     queryKey: ['screen', 'trending'],
     queryFn: fetchTrendingScreen,
-    enabled: activeTab === 'trending',
+    enabled: false,
   })
 
   const activeQuery =
@@ -90,6 +90,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
       : activeTab === 'demand_shock'
         ? demandShockQuery.data?.results.map(mapUndervaluedRow) ?? []
       : trendingQuery.data?.results.map(mapTrendingRow) ?? []
+  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Screen'
 
   return (
     <div className="space-y-6">
@@ -128,7 +129,16 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
           </div>
         </div>
 
-        {activeQuery.isLoading ? (
+        <button
+          type="button"
+          onClick={() => void activeQuery.refetch()}
+          disabled={activeQuery.isFetching}
+          className="mt-4 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+        >
+          {activeQuery.isFetching ? 'Running...' : `Run ${activeTabLabel}`}
+        </button>
+
+        {activeQuery.isFetching ? (
           <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">Loading results...</p>
         ) : null}
 
@@ -138,7 +148,13 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
           </p>
         ) : null}
 
-        {!activeQuery.isLoading && !activeQuery.isError ? (
+        {!activeQuery.isFetching && !activeQuery.isError && !activeQuery.isFetched ? (
+          <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">
+            Run this screen to load results.
+          </p>
+        ) : null}
+
+        {!activeQuery.isFetching && !activeQuery.isError && activeQuery.data ? (
           <div className="mt-6 space-y-4">
             <div className="flex flex-wrap gap-3 text-sm text-slate-600">
               <span className="rounded-full bg-stone-50 px-3 py-1">

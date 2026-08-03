@@ -41,4 +41,4 @@ At the latest repo guidance refresh, `npm run build` passed and `npm run lint` f
 
 - The frontend talks directly to the backend through `src/api/client.ts`.
 - If backend response shapes change, update `src/api/types.ts` and regenerate API artifacts from the repo root.
-- Production deploys through the static `finance-web-ui` service in `render.yaml`.
+- Production deploys to the `finance-web-ui` Cloudflare Pages project.
