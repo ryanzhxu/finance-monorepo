@@ -97,36 +97,40 @@ class _FakeClient:
             [
                 {
                     "symbol": symbol,
-                    "generated_at": "2026-06-23T05:00:00Z",
-                    "data_freshness": {"price": "live"},
-                    "data_quality_score": 96,
-                    "confidence": 0.5,
-                    "technicals": {
-                        "rsi_14": 50,
-                        "rsi_weekly": 50,
-                        "macd": {},
-                        "ma_20": 100,
-                        "ma_50": 100,
-                        "ma_200": 100,
-                        "support_levels": [95, 90],
-                        "resistance_levels": [105, 110],
-                        "atr_14": 1,
-                    },
-                    "fundamentals": {},
-                    "sentiment": {},
-                    "macro": {"market_regime": "neutral"},
-                    "signals": [],
-                    "entry": None,
-                    "recommendation": {
-                        "direction": "HOLD",
+                    "response": {
+                        "symbol": symbol,
+                        "generated_at": "2026-06-23T05:00:00Z",
+                        "data_freshness": {"price": "live"},
+                        "data_quality_score": 96,
                         "confidence": 0.5,
-                        "signal_vote": {"HOLD": 1},
-                        "weighted_score": 0.0,
-                        "horizon": "2-4W",
-                        "review_action": "hold_monitor",
-                        "risk_flags": [],
+                        "technicals": {
+                            "rsi_14": 50,
+                            "rsi_weekly": 50,
+                            "macd": {},
+                            "ma_20": 100,
+                            "ma_50": 100,
+                            "ma_200": 100,
+                            "support_levels": [95, 90],
+                            "resistance_levels": [105, 110],
+                            "atr_14": 1,
+                        },
+                        "fundamentals": {},
+                        "sentiment": {},
+                        "macro": {"market_regime": "neutral"},
+                        "signals": [],
+                        "entry": None,
+                        "recommendation": {
+                            "direction": "HOLD",
+                            "confidence": 0.5,
+                            "signal_vote": {"HOLD": 1},
+                            "weighted_score": 0.0,
+                            "horizon": "2-4W",
+                            "review_action": "hold_monitor",
+                            "risk_flags": [],
+                        },
+                        "narrative": None,
                     },
-                    "narrative": None,
+                    "error": None,
                 }
                 for symbol in symbols
             ]
@@ -171,11 +175,10 @@ def test_run_warmup_emits_summary(monkeypatch) -> None:
     assert any(event == "warmup_summary" for event, _ in emitted)
 
 
-def test_batch_payload_requests_symbol_level_errors() -> None:
+def test_batch_payload_uses_canonical_response_envelopes() -> None:
     assert warm_cache._analyze_payload(["AAPL"]) == {
         "symbols": ["AAPL"],
         "include_narrative": False,
-        "include_errors": True,
     }
 
 

@@ -1507,7 +1507,6 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
   if (pathname === '/batch' && request.method === 'POST') {
     const body = await readJson(request)
     const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
-    const includeErrors = body?.include_errors === true
     const responses = []
     for (const symbol of symbols.slice(0, 20)) {
       try {
@@ -1516,11 +1515,9 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
             includeEntry: body?.include_entry !== false,
             env,
           })
-        responses.push(includeErrors ? { symbol, response, error: null } : response)
+        responses.push({ symbol, response, error: null })
       } catch (error) {
-        if (includeErrors) {
-          responses.push({ symbol, response: null, error: serializeBatchError(error) })
-        }
+        responses.push({ symbol, response: null, error: serializeBatchError(error) })
       }
     }
     return jsonCors(responses)
