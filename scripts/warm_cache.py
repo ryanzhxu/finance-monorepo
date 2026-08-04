@@ -253,7 +253,7 @@ def iter_batches(symbols: list[str], batch_size: int) -> Iterable[list[str]]:
 
 
 def _analyze_payload(symbols: list[str]) -> dict[str, Any]:
-    return {"symbols": symbols, "include_narrative": False, "include_errors": True}
+    return {"symbols": symbols, "include_narrative": False}
 
 
 def _request_batch(
@@ -275,14 +275,16 @@ def _request_batch(
             parse_failures.append({"symbol": symbol, "error": "missing response item"})
             continue
         item = payload[index]
-        if isinstance(item, dict) and ("response" in item or "error" in item):
-            if item.get("error") is not None:
-                parse_failures.append({"symbol": item.get("symbol") or symbol, "error": item["error"]})
-                continue
-            item = item.get("response")
-            if item is None:
-                parse_failures.append({"symbol": symbol, "error": "missing response payload"})
-                continue
+        if not isinstance(item, dict) or "response" not in item or "error" not in item:
+            parse_failures.append({"symbol": symbol, "error": "unexpected response envelope"})
+            continue
+        if item.get("error") is not None:
+            parse_failures.append({"symbol": item.get("symbol") or symbol, "error": item["error"]})
+            continue
+        item = item.get("response")
+        if item is None:
+            parse_failures.append({"symbol": symbol, "error": "missing response payload"})
+            continue
         try:
             parsed_responses.append(AnalyzeResponse.model_validate(item))
         except ValidationError as exc:

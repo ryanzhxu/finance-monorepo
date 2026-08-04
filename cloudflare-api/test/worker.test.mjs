@@ -400,7 +400,7 @@ test('analyze endpoint returns a shaped response', async () => {
   }
 })
 
-test('batch diagnostic mode preserves response order and reports symbol errors', async () => {
+test('batch response envelopes preserve order and report symbol errors', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockBatchFailureFetch
   try {
@@ -408,7 +408,7 @@ test('batch diagnostic mode preserves response order and reports symbol errors',
       new Request('https://example.com/batch', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ symbols: ['NVDA', 'FAIL'], include_narrative: false, include_errors: true }),
+        body: JSON.stringify({ symbols: ['NVDA', 'FAIL'], include_narrative: false }),
       }),
     )
     assert.equal(response.status, 200)
@@ -425,7 +425,7 @@ test('batch diagnostic mode preserves response order and reports symbol errors',
   }
 })
 
-test('batch default mode retains the existing raw response shape', async () => {
+test('batch always returns response envelopes', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch
   try {
@@ -440,7 +440,8 @@ test('batch default mode retains the existing raw response shape', async () => {
     const payload = await response.json()
     assert.equal(payload.length, 1)
     assert.equal(payload[0].symbol, 'NVDA')
-    assert.equal(Object.hasOwn(payload[0], 'response'), false)
+    assert.equal(payload[0].error, null)
+    assert.equal(payload[0].response.symbol, 'NVDA')
   } finally {
     globalThis.fetch = originalFetch
   }
