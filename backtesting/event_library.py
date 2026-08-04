@@ -34,6 +34,7 @@ class MarketImpact(BaseModel):
     window_start: date
     window_end: date
     benchmark: str = "SPY"
+    benchmark_relative_return_pct: float | None = None
     peak_drawdown_pct: float | None = None
     volatility_peak: float | None = None
     recovery_days: int | None = Field(default=None, ge=0)
@@ -52,7 +53,13 @@ class MarketImpact(BaseModel):
         if self.window_end < self.window_start:
             raise ValueError("impact window_end must not precede window_start")
         if self.measurement_status == "unmeasured" and any(
-            value is not None for value in (self.peak_drawdown_pct, self.volatility_peak, self.recovery_days)
+            value is not None
+            for value in (
+                self.benchmark_relative_return_pct,
+                self.peak_drawdown_pct,
+                self.volatility_peak,
+                self.recovery_days,
+            )
         ):
             raise ValueError("unmeasured impact cannot contain measured metrics")
         return self
