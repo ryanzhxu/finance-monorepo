@@ -1,0 +1,162 @@
+[
+  {
+    "event_id": "global-financial-crisis-2008",
+    "version": 1,
+    "event_type": "liquidity_credit_stress",
+    "title": "Global financial crisis and U.S. recession",
+    "start_date": "2007-12-01",
+    "end_date": "2009-06-30",
+    "geography": ["US", "global"],
+    "affected_sectors": ["financials", "real_estate", "industrials", "consumer_discretionary"],
+    "trigger_description": "Broad credit and liquidity stress coinciding with a U.S. recession.",
+    "policy_response": "Government and central-bank stabilization measures require separate event evidence.",
+    "transmission_channels": ["credit availability", "liquidity", "housing", "employment"],
+    "known_confounders": ["Energy-price volatility", "existing housing-market deterioration"],
+    "impact": {
+      "window_start": "2007-12-01",
+      "window_end": "2009-06-30",
+      "benchmark": "SPY",
+      "recovery_definition": "Return to the pre-event closing level.",
+      "measurement_status": "unmeasured"
+    },
+    "evidence": [
+      {
+        "source_url": "https://www.nber.org/research/business-cycle-dating/business-cycle-dating",
+        "publisher": "NBER",
+        "source_type": "academic",
+        "published_on": "2009-09-20",
+        "retrieved_at": "2026-08-03T00:00:00Z",
+        "note": "Fixture reference; market-impact metrics remain unmeasured until the ingestion task runs."
+      }
+    ],
+    "provenance_status": "fixture"
+  },
+  {
+    "event_id": "flash-crash-2010",
+    "version": 1,
+    "event_type": "liquidity_credit_stress",
+    "title": "U.S. equity market flash crash",
+    "start_date": "2010-05-06",
+    "end_date": "2010-05-06",
+    "geography": ["US"],
+    "affected_sectors": ["broad_market", "financials"],
+    "trigger_description": "Abrupt intraday market dislocation requiring a market-structure investigation.",
+    "policy_response": "Market-structure review and subsequent controls require separate event evidence.",
+    "transmission_channels": ["liquidity", "market structure", "automated execution"],
+    "known_confounders": ["Intraday data-quality and timestamp differences"],
+    "impact": {
+      "window_start": "2010-05-06",
+      "window_end": "2010-05-06",
+      "benchmark": "SPY",
+      "recovery_definition": "Return to the pre-event closing level.",
+      "measurement_status": "unmeasured"
+    },
+    "evidence": [
+      {
+        "source_url": "https://www.sec.gov/news/studies/2010/marketevents-report.pdf",
+        "publisher": "U.S. SEC and CFTC",
+        "source_type": "regulator",
+        "published_on": "2010-05-06",
+        "retrieved_at": "2026-08-03T00:00:00Z",
+        "note": "Fixture reference; market-impact metrics remain unmeasured until the ingestion task runs."
+      }
+    ],
+    "provenance_status": "fixture"
+  },
+  {
+    "event_id": "covid-19-market-shock-2020",
+    "version": 1,
+    "event_type": "pandemic_public_health",
+    "title": "COVID-19 public-health shock",
+    "start_date": "2020-02-19",
+    "end_date": "2020-04-30",
+    "geography": ["global"],
+    "affected_sectors": ["travel", "energy", "consumer_discretionary", "financials", "healthcare"],
+    "trigger_description": "Global public-health escalation causing demand, mobility, and supply-chain disruption.",
+    "policy_response": "Public-health and fiscal responses require separate event evidence.",
+    "transmission_channels": ["mobility", "demand", "supply chain", "credit"],
+    "known_confounders": ["Pre-existing valuation and market-cycle conditions"],
+    "impact": {
+      "window_start": "2020-02-19",
+      "window_end": "2020-04-30",
+      "benchmark": "SPY",
+      "recovery_definition": "Return to the pre-event closing level.",
+      "measurement_status": "unmeasured"
+    },
+    "evidence": [
+      {
+        "source_url": "https://www.who.int/news/item/27-04-2020-who-timeline---covid-19",
+        "publisher": "World Health Organization",
+        "source_type": "government",
+        "published_on": "2020-04-27",
+        "retrieved_at": "2026-08-03T00:00:00Z",
+        "note": "Fixture reference; market-impact metrics remain unmeasured until the ingestion task runs."
+      }
+    ],
+    "provenance_status": "fixture"
+  },
+  {
+    "event_id": "svb-bank-failure-2023",
+    "version": 1,
+    "event_type": "sovereign_banking_crisis",
+    "title": "Silicon Valley Bank failure and banking stress",
+    "start_date": "2023-03-08",
+    "end_date": "2023-03-17",
+    "geography": ["US"],
+    "affected_sectors": ["financials", "regional_banks", "commercial_real_estate"],
+    "trigger_description": "Bank failure and rapid deposit/solvency concerns spreading across regional-bank equities.",
+    "policy_response": "Supervisory and resolution responses require separate event evidence.",
+    "transmission_channels": ["deposits", "duration risk", "liquidity", "confidence"],
+    "known_confounders": ["Concurrent rate and inflation uncertainty"],
+    "impact": {
+      "window_start": "2023-03-08",
+      "window_end": "2023-03-17",
+      "benchmark": "SPY",
+      "recovery_definition": "Return to the pre-event closing level.",
+      "measurement_status": "unmeasured"
+    },
+    "evidence": [
+      {
+        "source_url": "https://www.federalreserve.gov/publications/files/svb-review-20230428.pdf",
+        "publisher": "Board of Governors of the Federal Reserve System",
+        "source_type": "government",
+        "published_on": "2023-04-28",
+        "retrieved_at": "2026-08-03T00:00:00Z",
+        "note": "Fixture reference; market-impact metrics remain unmeasured until the ingestion task runs."
+      }
+    ],
+    "provenance_status": "fixture"
+  },
+  {
+    "event_id": "monetary-tightening-shock-2022",
+    "version": 1,
+    "event_type": "monetary_inflation",
+    "title": "Accelerating monetary tightening cycle",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "geography": ["US", "global"],
+    "affected_sectors": ["technology", "consumer_discretionary", "real_estate", "financials"],
+    "trigger_description": "Rapid policy-rate repricing and inflation response changing discount rates and risk appetite.",
+    "policy_response": "Federal Reserve policy statements and Treasury curve data require separate event evidence.",
+    "transmission_channels": ["discount rates", "yield curve", "financial conditions", "valuation"],
+    "known_confounders": ["Geopolitical and commodity shocks"],
+    "impact": {
+      "window_start": "2022-01-01",
+      "window_end": "2022-12-31",
+      "benchmark": "SPY",
+      "recovery_definition": "Return to the pre-event closing level.",
+      "measurement_status": "unmeasured"
+    },
+    "evidence": [
+      {
+        "source_url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20220316a.htm",
+        "publisher": "Board of Governors of the Federal Reserve System",
+        "source_type": "government",
+        "published_on": "2022-03-16",
+        "retrieved_at": "2026-08-03T00:00:00Z",
+        "note": "Fixture reference; market-impact metrics remain unmeasured until the ingestion task runs."
+      }
+    ],
+    "provenance_status": "fixture"
+  }
+]
