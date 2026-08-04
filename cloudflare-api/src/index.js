@@ -1410,6 +1410,17 @@ function badRequest(message) {
   return jsonCors({ detail: message }, 400)
 }
 
+function serializeBatchError(error) {
+  const rawMessage = error instanceof Error ? error.message : 'Unexpected analysis failure'
+  const message = rawMessage.replace(/https?:\/\/\S+/g, '[upstream]').slice(0, 200) || 'Analysis failed'
+  const statusMatch = rawMessage.match(/^HTTP (\d+) from /)
+  return {
+    code: statusMatch ? 'upstream_http_error' : 'analysis_error',
+    message,
+    ...(statusMatch ? { status: Number(statusMatch[1]) } : {}),
+  }
+}
+
 async function readJson(request) {
   try {
     return await request.json()
@@ -1496,18 +1507,20 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
   if (pathname === '/batch' && request.method === 'POST') {
     const body = await readJson(request)
     const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
+    const includeErrors = body?.include_errors === true
     const responses = []
     for (const symbol of symbols.slice(0, 20)) {
       try {
-        responses.push(
-          await buildAnalyze(symbol, {
+        const response = await buildAnalyze(symbol, {
             includeNarrative: body?.include_narrative !== false,
             includeEntry: body?.include_entry !== false,
             env,
-          }),
-        )
-      } catch {
-        continue
+          })
+        responses.push(includeErrors ? { symbol, response, error: null } : response)
+      } catch (error) {
+        if (includeErrors) {
+          responses.push({ symbol, response: null, error: serializeBatchError(error) })
+        }
       }
     }
     return jsonCors(responses)
