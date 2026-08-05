@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAnalystHealth, fetchScreenerHealth } from '../api/client'
 import type { AnalystHealthResponse, ScreenerHealthResponse } from '../api/types'
+import { useI18n } from '../i18n'
 
 function providerDot(value: string): string {
   const v = value.toLowerCase()
@@ -78,13 +79,14 @@ function ServiceCard({
   error: Error | null
   loading: boolean
 }) {
+  const { t } = useI18n()
   const isUp = !!data && data.status === 'ok'
   const coreRows = [
-    { label: 'Status', value: data?.status ?? 'unreachable' },
-    { label: 'Config valid', value: data?.config_valid != null ? String(data.config_valid) : '—' },
-    { label: 'Cache', value: data?.cache_backend ?? '—' },
+    { label: t('status'), value: data?.status ?? t('unreachable') },
+    { label: t('configValid'), value: data?.config_valid != null ? String(data.config_valid) : '—' },
+    { label: t('cache'), value: data?.cache_backend ?? '—' },
     ...(data?.llm_available != null
-      ? [{ label: 'LLM', value: data.llm_available ? 'available' : 'unavailable' }]
+      ? [{ label: t('languageModel'), value: data.llm_available ? t('available') : t('unavailable') }]
       : []),
   ]
 
@@ -107,14 +109,14 @@ function ServiceCard({
               : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
           ].join(' ')}
         >
-          {isUp ? 'Healthy' : 'Down'}
+          {isUp ? t('healthy') : t('down')}
         </span>
       </div>
 
       <hr className="my-4 border-slate-200 dark:border-slate-800" />
 
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-        Core
+        {t('core')}
       </p>
       {coreRows.map(({ label, value }) => (
         <ProviderRow key={label} label={label} value={value} />
@@ -123,7 +125,7 @@ function ServiceCard({
       {data?.providers && Object.keys(data.providers).length > 0 ? (
         <>
           <p className="mb-1 mt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-            Data providers
+            {t('dataProviders')}
           </p>
           {Object.entries(data.providers).map(([provider, status]) => (
             <ProviderRow key={provider} label={provider} value={status} />
@@ -132,7 +134,7 @@ function ServiceCard({
       ) : null}
 
       {loading ? (
-        <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">Checking…</p>
+        <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">{t('checking')}</p>
       ) : null}
       {error ? (
         <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-400">
@@ -144,6 +146,7 @@ function ServiceCard({
 }
 
 function Health() {
+  const { locale, t } = useI18n()
   const analystQuery = useQuery({
     queryKey: ['health', 'analyst'],
     queryFn: fetchAnalystHealth,
@@ -161,7 +164,7 @@ function Health() {
   const lastChecked = Math.max(analystQuery.dataUpdatedAt ?? 0, screenerQuery.dataUpdatedAt ?? 0)
   const lastCheckedLabel =
     lastChecked > 0
-      ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      ? new Date(lastChecked).toLocaleTimeString(locale === 'zh-HK' ? 'zh-HK' : undefined, { hour: '2-digit', minute: '2-digit' })
       : null
 
   function handleRefresh() {
@@ -171,18 +174,18 @@ function Health() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-stone-50 p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
+      <section className="rounded-3xl border border-slate-200 bg-stone-50 p-4 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14] sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-              Health
+              {t('health')}
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-              Service heartbeat
+              {t('healthTitle')}
             </h1>
             {lastCheckedLabel ? (
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Last checked: {lastCheckedLabel} · auto-refresh 30s
+                {t('lastChecked', { time: lastCheckedLabel })}
               </p>
             ) : null}
           </div>
@@ -194,21 +197,21 @@ function Health() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
             </svg>
-            Refresh
+            {t('refresh')}
           </button>
         </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <ServiceCard
-          title="Analyst"
+          title={t('analyst')}
           portLabel="Edge API · analyst"
           data={analystQuery.data}
           error={analystQuery.error ?? null}
           loading={analystQuery.isLoading}
         />
         <ServiceCard
-          title="Screener"
+          title={t('screener')}
           portLabel="Edge API · screener"
           data={screenerQuery.data}
           error={screenerQuery.error ?? null}

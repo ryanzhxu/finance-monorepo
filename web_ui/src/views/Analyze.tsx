@@ -9,6 +9,8 @@ import type {
   FibonacciLevels,
   Signal,
 } from '../api/types'
+import { formatDirection } from '../formatters'
+import { useI18n, type MessageKey } from '../i18n'
 
 type AnalyzeProps = {
   requestedSymbol: {
@@ -341,17 +343,23 @@ function sentimentTone(value: number | null | undefined, buyCeiling: number, sel
   return 'text-slate-600 dark:text-slate-300'
 }
 
-const loaderStages = [
-  { key: 'price', label: 'Fetch price data' },
-  { key: 'technicals', label: 'Compute technicals' },
-  { key: 'fundamentals', label: 'Load fundamentals' },
-  { key: 'signals', label: 'Assemble signals' },
-  { key: 'confluence', label: 'Build confluence' },
-] as const
+type LoaderStageKey = 'price' | 'technicals' | 'fundamentals' | 'signals' | 'confluence'
 
-type LoaderStageKey = (typeof loaderStages)[number]['key']
+const loaderStageKeys: LoaderStageKey[] = ['price', 'technicals', 'fundamentals', 'signals', 'confluence']
+const loaderStageMessageKeys: Record<LoaderStageKey, MessageKey> = {
+  price: 'fetchPriceData',
+  technicals: 'computeTechnicals',
+  fundamentals: 'loadFundamentals',
+  signals: 'assembleSignals',
+  confluence: 'buildConfluence',
+}
 
 function AnalysisLoader({ symbol }: { symbol: string }) {
+  const { t } = useI18n()
+  const loaderStages = loaderStageKeys.map((key) => ({
+    key,
+    label: t(loaderStageMessageKeys[key]),
+  }))
   const [activeStageIndex, setActiveStageIndex] = useState(0)
   const [stageTimes, setStageTimes] = useState<Partial<Record<LoaderStageKey, string>>>({})
   const startTimeRef = useRef<number>(0)
@@ -361,14 +369,14 @@ function AnalysisLoader({ symbol }: { symbol: string }) {
 
     const interval = window.setInterval(() => {
       setActiveStageIndex((current) => {
-        if (current >= loaderStages.length - 1) {
+        if (current >= loaderStageKeys.length - 1) {
           return current
         }
 
-        const finishedStage = loaderStages[current]
+        const finishedStage = loaderStageKeys[current]
         setStageTimes((existing) => ({
           ...existing,
-          [finishedStage.key]: `${((Date.now() - startTimeRef.current) / 1000).toFixed(1)}s`,
+          [finishedStage]: `${((Date.now() - startTimeRef.current) / 1000).toFixed(1)}s`,
         }))
         return current + 1
       })
@@ -377,7 +385,7 @@ function AnalysisLoader({ symbol }: { symbol: string }) {
     return () => window.clearInterval(interval)
   }, [])
 
-  const activeStageLabel = loaderStages[activeStageIndex]?.label ?? 'Loading analysis'
+  const activeStageLabel = loaderStages[activeStageIndex]?.label ?? t('loadingAnalysis')
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-white/5 dark:bg-[#0d0f14]">
@@ -393,7 +401,7 @@ function AnalysisLoader({ symbol }: { symbol: string }) {
       <div className="flex items-start justify-between gap-4">
         <h2 className="text-3xl font-medium text-slate-950 dark:text-slate-50">{symbol || '—'}</h2>
         <span className="rounded border border-slate-200 px-2 py-0.5 text-[10px] text-slate-400 dark:border-[#1e2330] dark:text-slate-500">
-          analyzing
+          {t('analyzing')}
         </span>
       </div>
 
@@ -477,15 +485,16 @@ function AnalysisLoader({ symbol }: { symbol: string }) {
 }
 
 function SignalVoteCard({ signalVote }: { signalVote: Record<Direction, number> }) {
+  const { locale, t } = useI18n()
   const maxCount = Math.max(signalVote.BUY, signalVote.HOLD, signalVote.SELL, 1)
 
   return (
-    <StatCard label="Signal vote">
+    <StatCard label={t('signalVote')}>
       <div className="mt-2 space-y-2">
         {(['BUY', 'HOLD', 'SELL'] as Direction[]).map((direction) => (
           <div key={direction} className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium text-slate-600 dark:text-slate-300">{direction}</span>
+              <span className="font-medium text-slate-600 dark:text-slate-300">{formatDirection(direction, locale)}</span>
               <span className="tabular-nums text-slate-500 dark:text-slate-400">
                 {signalVote[direction]}
               </span>
@@ -522,6 +531,7 @@ function ResultsPanel({
     vix?: number | null
   }
 }) {
+  const { t } = useI18n()
   const nextFomc =
     macro.next_fomc_date && macro.days_to_next_fomc != null
       ? `${formatDateLabel(macro.next_fomc_date)} · ${macro.days_to_next_fomc}d`
@@ -547,14 +557,14 @@ function ResultsPanel({
           {entry.resistance_levels.map((price, index) => (
             <LevelRow
               key={`resistance-${index}`}
-              label={`Resistance ${index + 1}`}
+              label={`${t('resistance')} ${index + 1}`}
               value={formatPrice(price)}
               dotClassName="border-slate-300 bg-slate-300 dark:border-[#2a3040] dark:bg-[#2a3040]"
             />
           ))}
 
           <LevelRow
-            label="Breakout buy level"
+            label={t('breakoutBuyLevel')}
             value={formatPrice(entry.breakout_buy_level)}
             dotClassName="border-violet-500 bg-violet-500"
           />
@@ -563,7 +573,7 @@ function ResultsPanel({
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-3 w-3 rounded-full border border-slate-950 bg-slate-950 dark:border-slate-100 dark:bg-slate-100" />
               <span className="truncate text-[13px] font-semibold text-slate-950 dark:text-slate-50">
-                Current price
+                {t('currentPrice')}
               </span>
             </div>
             <span className="text-right text-base font-semibold tabular-nums text-slate-950 dark:text-slate-50">
@@ -572,7 +582,7 @@ function ResultsPanel({
           </div>
 
           <div className="rounded-xl bg-green-50 px-3 py-3 text-green-800 dark:bg-green-950/40 dark:text-green-400">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Ideal buy zone</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">{t('idealBuyZone')}</p>
             <p className="mt-1 text-sm font-medium">
               {formatPrice(Math.min(...entry.ideal_buy_zone))} - {formatPrice(Math.max(...entry.ideal_buy_zone))}
             </p>
@@ -580,7 +590,7 @@ function ResultsPanel({
 
           {fibonacci ? (
             <div className="rounded-xl bg-blue-50 px-3 py-3 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Fib golden pocket</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">{t('fibGoldenPocket')}</p>
               <p className="mt-1 text-sm font-medium">
                 {formatPrice(Math.min(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))} -{' '}
                 {formatPrice(Math.max(fibonacci.golden_pocket_low, fibonacci.golden_pocket_high))}
@@ -589,19 +599,19 @@ function ResultsPanel({
           ) : null}
 
           <LevelRow
-            label="Conservative entry"
+            label={t('conservativeEntry')}
             value={formatPrice(entry.conservative_entry_price)}
             dotClassName="border-amber-500 bg-amber-500"
             valueClassName="text-amber-600 dark:text-amber-400"
           />
           <LevelRow
-            label="Stop loss"
+            label={t('stopLoss')}
             value={formatPrice(entry.stop_loss_suggestion)}
             dotClassName="border-red-500 bg-red-500"
             valueClassName="text-red-600 dark:text-red-400"
           />
           <LevelRow
-            label="Invalidation"
+            label={t('invalidation')}
             value={formatPrice(entry.invalidation_level)}
             dotClassName="border-red-500"
             valueClassName="text-red-600 dark:text-red-400"
@@ -611,7 +621,7 @@ function ResultsPanel({
           {entry.support_levels.map((price, index) => (
             <LevelRow
               key={`support-${index}`}
-              label={`Support ${index + 1}`}
+              label={`${t('support')} ${index + 1}`}
               value={formatPrice(price)}
               dotClassName="border-slate-300 bg-slate-300 dark:border-[#2a3040] dark:bg-[#2a3040]"
             />
@@ -621,7 +631,7 @@ function ResultsPanel({
         <div className="mt-4 space-y-3">
           {confluence?.overlap ? (
             <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-green-800 dark:bg-green-950 dark:text-green-400">
-              High conviction zone
+              {t('highConvictionZone')}
             </span>
           ) : null}
           {!confluence?.overlap && confluence?.divergence_note ? (
@@ -641,17 +651,17 @@ function ResultsPanel({
       <div className="flex flex-col gap-2">
         <SignalVoteCard signalVote={signalVote} />
         <StatCard
-          label="Conservative entry"
+          label={t('conservativeEntry')}
           value={formatPrice(entry.conservative_entry_price)}
           valueClassName="text-green-600 dark:text-green-400"
         />
         <StatCard
-          label="Stop loss"
+          label={t('stopLoss')}
           value={formatPrice(entry.stop_loss_suggestion)}
           valueClassName="text-red-600 dark:text-red-400"
         />
-        <StatCard label="Next FOMC" value={nextFomc} />
-        <StatCard label="Rate cut prob" value={rateCut} valueClassName={rateCutTone} />
+        <StatCard label={t('nextFomc')} value={nextFomc} />
+        <StatCard label={t('rateCutProbability')} value={rateCut} valueClassName={rateCutTone} />
         <StatCard label="VIX · 10Y" value={vixAnd10Y} />
       </div>
     </div>
@@ -679,6 +689,7 @@ function normalizeSymbol(value: string): string {
 }
 
 function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: AnalyzeProps) {
+  const { locale, t } = useI18n()
   const initialSymbol = normalizeSymbol(requestedSymbol?.value ?? '') || 'NVDA'
   const [symbolInput, setSymbolInput] = useState(initialSymbol)
   const [signalsOpen, setSignalsOpen] = useState(false)
@@ -863,7 +874,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     analysis?.company_name ??
     (analysis?.symbol ? companyNameCache[normalizeSymbol(analysis.symbol)] ?? null : null)
   const isInWatchlist = !!resultSymbol && watchlistSymbols.includes(resultSymbol)
-  const watchlistButtonLabel = isInWatchlist || watchlistConfirmation === resultSymbol ? 'Added ✓' : 'Add to Watchlist'
+  const watchlistButtonLabel = isInWatchlist || watchlistConfirmation === resultSymbol ? t('added') : t('addToWatchlist')
 
   const signalVote = useMemo(() => {
     const signals = analysis?.signals ?? []
@@ -971,11 +982,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-stone-50 p-5 shadow-sm">
+      <section className="rounded-3xl border border-slate-200 bg-stone-50 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <label htmlFor="symbol" className="mb-2 block text-sm font-medium text-slate-700">
-              Symbol
+              {t('symbol')}
             </label>
             <input
               id="symbol"
@@ -1057,7 +1068,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                 onClick={stopAnalysis}
                 className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
               >
-                Stop
+                {t('stop')}
               </button>
             ) : (
               <button
@@ -1071,7 +1082,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                   <line x1="12" y1="20" x2="12" y2="4"/>
                   <line x1="6" y1="20" x2="6" y2="14"/>
                 </svg>
-                Analyze
+                {t('analyze')}
               </button>
             )}
           </div>
@@ -1114,7 +1125,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                         recommendationTone[analysis!.recommendation.direction],
                       ].join(' ')}
                     >
-                      {analysis!.recommendation.direction}
+                      {formatDirection(analysis!.recommendation.direction, locale)}
                     </span>
                     <button
                       type="button"
@@ -1144,7 +1155,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                       {formatPercent(analysis!.confidence * 100)}
                     </p>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      confidence
+                      {t('confidence')}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1191,7 +1202,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                 />
               ) : (
                 <div className="rounded-[18px] border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  Entry structure unavailable for this response.
+                  {t('entryStructureUnavailable')}
                 </div>
               )}
             </div>
@@ -1201,12 +1212,12 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-                  Signals
+                  {t('signals')}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
-                  <span>BUY: {signalVote.BUY}</span>
-                  <span>HOLD: {signalVote.HOLD}</span>
-                  <span>SELL: {signalVote.SELL}</span>
+                  <span>{formatDirection('BUY', locale)}: {signalVote.BUY}</span>
+                  <span>{formatDirection('HOLD', locale)}: {signalVote.HOLD}</span>
+                  <span>{formatDirection('SELL', locale)}: {signalVote.SELL}</span>
                 </div>
               </div>
               <button
@@ -1214,7 +1225,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                 onClick={() => setSignalsOpen((value) => !value)}
                 className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-200 dark:hover:text-slate-100"
               >
-                {signalsOpen ? 'Hide signals' : 'Show signals'}
+                {signalsOpen ? t('hideSignals') : t('showSignals')}
               </button>
             </div>
 
@@ -1223,10 +1234,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                 <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
                   <thead>
                     <tr className="text-slate-500 dark:text-slate-400">
-                      <th className="pb-3 pr-4 font-medium">Dimension</th>
-                      <th className="pb-3 pr-4 font-medium">Signal</th>
-                      <th className="pb-3 pr-4 font-medium">Weight</th>
-                      <th className="pb-3 font-medium">Note</th>
+                      <th className="pb-3 pr-4 font-medium">{t('dimension')}</th>
+                      <th className="pb-3 pr-4 font-medium">{t('signals')}</th>
+                      <th className="pb-3 pr-4 font-medium">{t('weight')}</th>
+                      <th className="pb-3 font-medium">{t('note')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
@@ -1242,7 +1253,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                               signalTone[signal.signal],
                             ].join(' ')}
                           >
-                            {signal.signal}
+                            {formatDirection(signal.signal, locale)}
                           </span>
                         </td>
                         <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">
@@ -1265,7 +1276,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             >
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-                  Fundamentals
+                  {t('fundamentals')}
                 </p>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{fundamentalsSummary}</p>
               </div>
@@ -1278,7 +1289,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               <div className="mt-6 grid gap-x-6 gap-y-0 md:grid-cols-2">
                 <div>
                   <DetailRow
-                    label="EPS surprise"
+                    label={t('epsSurprise')}
                     value={formatPercent(analysis.fundamentals.eps_surprise_pct)}
                     valueClassName={
                       analysis.fundamentals.eps_surprise_pct == null
@@ -1290,8 +1301,8 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                             : 'text-slate-600 dark:text-slate-300'
                     }
                   />
-                  <DetailRow label="PE ratio" value={ratioLabel(analysis.fundamentals.pe_ratio)} />
-                  <DetailRow label="PE percentile (5y)">
+                  <DetailRow label={t('peRatio')} value={ratioLabel(analysis.fundamentals.pe_ratio)} />
+                  <DetailRow label={t('pePercentile')}>
                     <div className="flex items-center justify-end gap-3">
                       <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                         <div
@@ -1304,7 +1315,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                       </span>
                     </div>
                   </DetailRow>
-                  <DetailRow label="FCF trend">
+                  <DetailRow label={t('fcfTrend')}>
                     {analysis.fundamentals.fcf_trend ? (
                       <span
                         className={[
@@ -1323,7 +1334,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     )}
                   </DetailRow>
                   <DetailRow
-                    label="Analyst upgrades (30d)"
+                    label={t('analystUpgrades')}
                     value={
                       analysis.fundamentals.analyst_upgrades_30d == null
                         ? '—'
@@ -1332,7 +1343,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     valueClassName="text-green-600 dark:text-green-400"
                   />
                   <DetailRow
-                    label="Analyst downgrades (30d)"
+                    label={t('analystDowngrades')}
                     value={
                       analysis.fundamentals.analyst_downgrades_30d == null
                         ? '—'
@@ -1344,7 +1355,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
                 <div>
                   <DetailRow
-                    label="Revenue growth YoY"
+                    label={t('revenueGrowth')}
                     value={formatPercent(analysis.fundamentals.revenue_growth_yoy_pct)}
                     valueClassName={
                       analysis.fundamentals.revenue_growth_yoy_pct == null
@@ -1355,13 +1366,13 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     }
                   />
                   <DetailRow
-                    label="Gross margin"
+                    label={t('grossMargin')}
                     value={formatPercent(analysis.fundamentals.gross_margin_pct)}
                   />
-                  <DetailRow label="P/B ratio" value={ratioLabel(analysis.fundamentals.pb_ratio)} />
-                  <DetailRow label="P/S ratio" value={ratioLabel(analysis.fundamentals.ps_ratio)} />
-                  <DetailRow label="EV/EBITDA" value={ratioLabel(analysis.fundamentals.ev_ebitda)} />
-                  <DetailRow label="As-of date">
+                  <DetailRow label={t('pbRatio')} value={ratioLabel(analysis.fundamentals.pb_ratio)} />
+                  <DetailRow label={t('psRatio')} value={ratioLabel(analysis.fundamentals.ps_ratio)} />
+                  <DetailRow label={t('evEbitda')} value={ratioLabel(analysis.fundamentals.ev_ebitda)} />
+                  <DetailRow label={t('asOfDate')}>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {formatDateTimeSmall(analysis.fundamentals.as_of)}
                     </span>
@@ -1379,7 +1390,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             >
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-                  Sentiment
+                  {t('sentiment')}
                 </p>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{sentimentSummary}</p>
               </div>
@@ -1392,7 +1403,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               <div className="mt-6 grid gap-x-6 gap-y-0 md:grid-cols-2">
                 <div>
                   <DetailRow
-                    label="Put/call ratio"
+                    label={t('putCallRatio')}
                     value={
                       analysis.sentiment.put_call_ratio == null
                         ? '—'
@@ -1406,7 +1417,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     }
                     valueClassName={sentimentTone(analysis.sentiment.put_call_ratio, 0.7, 1.0)}
                   />
-                  <DetailRow label="IV rank (approx)">
+                  <DetailRow label={t('ivRank')}>
                     <div className="space-y-1">
                       <div className="flex items-center justify-end gap-3">
                         <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
@@ -1428,7 +1439,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     </div>
                   </DetailRow>
                   <DetailRow
-                    label="Short interest"
+                    label={t('shortInterest')}
                     value={formatPercent(analysis.sentiment.short_interest_pct)}
                     valueClassName={
                       analysis.sentiment.short_interest_pct == null
@@ -1441,7 +1452,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     }
                   />
                   <DetailRow
-                    label="Reddit mentions"
+                    label={t('redditMentions')}
                     value={
                       analysis.sentiment.reddit_mention_spike_24h_pct == null
                         ? '— missing'
@@ -1453,7 +1464,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
                 <div>
                   <DetailRow
-                    label="Reddit sentiment"
+                    label={t('redditSentiment')}
                     value={
                       analysis.sentiment.reddit_positive_pct == null
                         ? '— missing'
@@ -1462,7 +1473,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     valueClassName="text-slate-600 dark:text-slate-300"
                   />
                   <DetailRow
-                    label="Institutional 13F"
+                    label={t('institutional13f')}
                     value={
                       analysis.sentiment.institutional_net_shares_last_13f == null
                         ? '— delayed 45d'
@@ -1500,9 +1511,9 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             </svg>
           </div>
           <div>
-            <p className="text-base font-medium text-slate-900 dark:text-slate-50">Analysis stopped</p>
+            <p className="text-base font-medium text-slate-900 dark:text-slate-50">{t('analysisStopped')}</p>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {viewState.activeSymbol} · request cancelled
+              {viewState.activeSymbol} · {t('requestCancelled')}
             </p>
           </div>
           <button
@@ -1510,11 +1521,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
             onClick={handlePrimaryAction}
             className="rounded-2xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
-            Run again
+            {t('runAgain')}
           </button>
         </section>
       ) : (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Enter a symbol above to begin.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('enterSymbol')}</p>
       )}
     </div>
   )

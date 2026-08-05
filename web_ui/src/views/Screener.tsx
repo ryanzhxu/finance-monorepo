@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchDemandShockScreen, fetchTrendingScreen, fetchUndervaluedScreen } from '../api/client'
 import type { ScreenResultItem, TrendingResultItem } from '../api/types'
+import { formatDirection } from '../formatters'
+import { useI18n } from '../i18n'
 
 type ScreenerProps = {
   onAnalyzeSymbol: (symbol: string) => void
@@ -17,12 +19,6 @@ type ScreenerRow = {
   entryAssessment: string | null
   dataQuality: number | null
 }
-
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: 'undervalued', label: 'Undervalued' },
-  { key: 'demand_shock', label: 'Demand Shock' },
-  { key: 'trending', label: 'Trending' },
-]
 
 function formatScore(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) {
@@ -58,7 +54,13 @@ function mapTrendingRow(item: TrendingResultItem): ScreenerRow {
 }
 
 function Screener({ onAnalyzeSymbol }: ScreenerProps) {
+  const { locale, t } = useI18n()
   const [activeTab, setActiveTab] = useState<TabKey>('undervalued')
+  const tabs: Array<{ key: TabKey; label: string }> = [
+    { key: 'undervalued', label: t('undervalued') },
+    { key: 'demand_shock', label: t('demandShock') },
+    { key: 'trending', label: t('trending') },
+  ]
 
   const undervaluedQuery = useQuery({
     queryKey: ['screen', 'undervalued'],
@@ -90,21 +92,21 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
       : activeTab === 'demand_shock'
         ? demandShockQuery.data?.results.map(mapUndervaluedRow) ?? []
       : trendingQuery.data?.results.map(mapTrendingRow) ?? []
-  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Screen'
+  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? t('screener')
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Screener
+              {t('screener')}
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              Live screen results by strategy
+              {t('screenerTitle')}
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              Endpoints are called directly from the browser with the repo&apos;s actual POST contracts.
+              {t('screenerDescription')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 rounded-full border border-slate-200 bg-stone-50 p-1">
@@ -135,11 +137,11 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
           disabled={activeQuery.isFetching}
           className="mt-4 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {activeQuery.isFetching ? 'Running...' : `Run ${activeTabLabel}`}
+          {activeQuery.isFetching ? t('running') : t('run', { screen: activeTabLabel })}
         </button>
 
         {activeQuery.isFetching ? (
-          <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">Loading results...</p>
+          <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">{t('loadingResults')}</p>
         ) : null}
 
         {activeQuery.isError ? (
@@ -150,7 +152,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
 
         {!activeQuery.isFetching && !activeQuery.isError && !activeQuery.isFetched ? (
           <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">
-            Run this screen to load results.
+            {t('runScreenHint')}
           </p>
         ) : null}
 
@@ -158,13 +160,13 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
           <div className="mt-6 space-y-4">
             <div className="flex flex-wrap gap-3 text-sm text-slate-600">
               <span className="rounded-full bg-stone-50 px-3 py-1">
-                Universe {activeQuery.data?.universe ?? '—'}
+                {t('universe')} {activeQuery.data?.universe ?? '—'}
               </span>
               <span className="rounded-full bg-stone-50 px-3 py-1">
-                Regime {activeQuery.data?.market_regime ?? '—'}
+                {t('regime')} {activeQuery.data?.market_regime ?? '—'}
               </span>
               <span className="rounded-full bg-stone-50 px-3 py-1">
-                Quality {activeQuery.data?.data_quality_score ?? '—'}
+                {t('quality')} {activeQuery.data?.data_quality_score ?? '—'}
               </span>
             </div>
 
@@ -172,13 +174,13 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
               <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                 <thead className="bg-stone-50 text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Symbol</th>
-                    <th className="px-4 py-3 font-medium">Score</th>
-                    <th className="px-4 py-3 font-medium">Direction</th>
-                    <th className="px-4 py-3 font-medium">Confidence</th>
-                    <th className="px-4 py-3 font-medium">Entry Assessment</th>
-                    <th className="px-4 py-3 font-medium">Data Quality</th>
-                    <th className="px-4 py-3 font-medium">Actions</th>
+                    <th className="px-4 py-3 font-medium">{t('symbol')}</th>
+                    <th className="px-4 py-3 font-medium">{t('score')}</th>
+                    <th className="px-4 py-3 font-medium">{t('direction')}</th>
+                    <th className="px-4 py-3 font-medium">{t('confidence')}</th>
+                    <th className="px-4 py-3 font-medium">{t('entryAssessment')}</th>
+                    <th className="px-4 py-3 font-medium">{t('dataQuality')}</th>
+                    <th className="px-4 py-3 font-medium">{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -186,7 +188,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                     <tr key={`${activeTab}-${row.symbol}`}>
                       <td className="px-4 py-3 font-semibold text-slate-950">{row.symbol}</td>
                       <td className="px-4 py-3 text-slate-700">{formatScore(row.score)}</td>
-                      <td className="px-4 py-3 text-slate-700">{row.direction ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatDirection(row.direction, locale)}</td>
                       <td className="px-4 py-3 text-slate-700">
                         {row.confidence == null ? '—' : `${(row.confidence * 100).toFixed(1)}%`}
                       </td>
@@ -198,7 +200,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                           onClick={() => onAnalyzeSymbol(row.symbol)}
                           className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
                         >
-                          Analyze →
+                          {t('analyze')} →
                         </button>
                       </td>
                     </tr>

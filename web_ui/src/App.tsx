@@ -7,6 +7,7 @@ import Health from './views/Health'
 import Screener from './views/Screener'
 import Research from './views/Research'
 import SharedSpace from './views/SharedSpace'
+import { useI18n } from './i18n'
 import { applyTheme, getStoredTheme, storeTheme, type Theme } from './theme'
 import {
   addSymbol,
@@ -30,13 +31,6 @@ type AnalyzeSelection = {
   } | null
 }
 
-const tabs: Array<{ key: ViewKey; label: string }> = [
-  { key: 'analyze', label: 'Analyze' },
-  { key: 'screener', label: 'Screener' },
-  { key: 'research', label: 'Research' },
-  { key: 'health', label: 'Health' },
-]
-
 const THEME_CYCLE: Theme[] = ['light', 'dark', 'system']
 
 function nextTheme(current: Theme): Theme {
@@ -45,6 +39,7 @@ function nextTheme(current: Theme): Theme {
 }
 
 function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
+  const { t } = useI18n()
   const next = nextTheme(theme)
   const icons: Record<Theme, React.ReactNode> = {
     light: (
@@ -72,8 +67,8 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (theme: Them
   return (
     <button
       type="button"
-      aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
+      aria-label={t('switchTheme', { theme: t(next) })}
+      title={t('switchTheme', { theme: t(next) })}
       onClick={() => onChange(next)}
       className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-100"
     >
@@ -83,6 +78,7 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (theme: Them
 }
 
 function PublicApp() {
+  const { locale, setLocale, t } = useI18n()
   const [activeView, setActiveView] = useState<ViewKey>('analyze')
   const [requestedSymbol, setRequestedSymbol] = useState<AnalyzeSelection | null>(null)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
@@ -122,6 +118,13 @@ function PublicApp() {
     applyTheme(nextTheme)
     setTheme(nextTheme)
   }
+
+  const tabs: Array<{ key: ViewKey; label: string }> = [
+    { key: 'analyze', label: t('analyze') },
+    { key: 'screener', label: t('screener') },
+    { key: 'research', label: t('research') },
+    { key: 'health', label: t('health') },
+  ]
 
   const processRefreshQueue = useCallback(async () => {
     if (refreshInFlightRef.current) {
@@ -276,9 +279,9 @@ function PublicApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 transition-colors duration-150 dark:bg-[#090c12] sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)] transition-colors duration-150 dark:border-slate-800 dark:bg-[#0d0f14]">
-        <header className="border-b border-slate-200 bg-white px-6 py-6 dark:border-slate-800 dark:bg-[#0d0f14] sm:px-8">
+    <div className="min-h-screen bg-slate-50 p-3 transition-colors duration-150 dark:bg-[#090c12] sm:p-6 lg:p-8">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)] transition-colors duration-150 dark:border-slate-800 dark:bg-[#0d0f14] sm:min-h-[calc(100vh-3rem)] sm:rounded-[2rem]">
+        <header className="border-b border-slate-200 bg-white px-4 py-5 dark:border-slate-800 dark:bg-[#0d0f14] sm:px-8 sm:py-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -286,16 +289,27 @@ function PublicApp() {
               </p>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl">
-                  Market Analysis Console
+                  {t('appTitle')}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-                  A focused console for market analysis, grounded research, screening, and service health checks.
+                  {t('appDescription')}
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-3 lg:items-end">
-              <ThemeToggle theme={theme} onChange={handleThemeChange} />
-              <nav className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 self-start lg:self-end">
+                <button
+                  type="button"
+                  onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')}
+                  aria-label={t('switchLanguage')}
+                  title={t('switchLanguage')}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-slate-100"
+                >
+                  {t('localeButton')}
+                </button>
+                <ThemeToggle theme={theme} onChange={handleThemeChange} />
+              </div>
+              <nav className="-mx-1 flex max-w-full gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:flex-wrap lg:justify-end">
                 {tabs.map((tab) => {
                   const isActive = activeView === tab.key
                   return (
@@ -304,7 +318,7 @@ function PublicApp() {
                       type="button"
                       onClick={() => setActiveView(tab.key)}
                       className={[
-                        'border-b-2 px-1 pb-2 text-sm font-medium transition',
+                        'shrink-0 border-b-2 px-1 pb-2 text-sm font-medium transition',
                         isActive
                           ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
                           : 'border-transparent text-slate-500 dark:text-slate-400',
@@ -319,8 +333,8 @@ function PublicApp() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <aside className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 p-3 transition-colors duration-150 dark:border-slate-800">
+        <div className="flex flex-1 flex-col lg:flex-row">
+          <aside className="border-b border-slate-200 p-3 transition-colors duration-150 dark:border-slate-800 lg:w-56 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <Watchlist
               entries={watchlistEntries}
               refreshingSymbol={refreshingSymbol}
@@ -329,7 +343,7 @@ function PublicApp() {
               onAnalyze={handleWatchlistAnalyze}
             />
           </aside>
-          <main className="flex-1 overflow-y-auto p-6 transition-colors duration-150 sm:p-8">
+          <main className="min-w-0 flex-1 p-4 transition-colors duration-150 sm:p-6 lg:overflow-y-auto lg:p-8">
             {activeView === 'analyze' ? (
               <Analyze
               key={requestedSymbol?.nonce ?? 'analyze-default'}

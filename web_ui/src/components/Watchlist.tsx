@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { WatchlistEntry } from '../watchlist'
+import { formatDirection } from '../formatters'
+import { useI18n } from '../i18n'
 
 type WatchlistProps = {
   entries: WatchlistEntry[]
@@ -9,25 +11,25 @@ type WatchlistProps = {
   onAnalyze: (symbol: string) => void
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: ReturnType<typeof useI18n>['t']): string {
   const timestamp = new Date(iso).getTime()
   if (Number.isNaN(timestamp)) {
-    return 'just now'
+    return t('justNow')
   }
   const deltaMs = Math.max(0, Date.now() - timestamp)
   const minutes = Math.floor(deltaMs / 60000)
   if (minutes < 1) {
-    return 'just now'
+    return t('justNow')
   }
   if (minutes < 60) {
-    return `${minutes}m ago`
+    return t('minutesAgo', { count: minutes })
   }
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
-    return `${hours}h ago`
+    return t('hoursAgo', { count: hours })
   }
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return t('daysAgo', { count: days })
 }
 
 function RefreshIcon() {
@@ -74,6 +76,7 @@ function formatPrice(value: number | null): string {
 }
 
 function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: WatchlistProps) {
+  const { locale, t } = useI18n()
   const [inputValue, setInputValue] = useState('')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -87,7 +90,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            Watchlist
+            {t('watchlist')}
           </p>
         </div>
         <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -95,11 +98,11 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
         </span>
       </div>
 
-      <div className="flex flex-col gap-1.5 pr-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pr-1">
         {entries.map((entry) => (
           <div
             key={entry.symbol}
-            className="relative rounded-lg border border-slate-200 bg-slate-50 px-[10px] py-2 transition-colors duration-150 hover:border-slate-300 dark:border-white/5 dark:bg-[#161a23] dark:hover:border-slate-700"
+            className="relative min-w-40 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-[10px] py-2 transition-colors duration-150 hover:border-slate-300 dark:border-white/5 dark:bg-[#161a23] dark:hover:border-slate-700 lg:min-w-0"
           >
             <button
               type="button"
@@ -108,7 +111,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
                 onRemove(entry.symbol)
               }}
               className="absolute right-2 top-2 text-base leading-none text-slate-400 transition hover:text-red-500"
-              aria-label={`Remove ${entry.symbol}`}
+              aria-label={t('removeSymbol', { symbol: entry.symbol })}
             >
               ×
             </button>
@@ -129,7 +132,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
                       directionTone(entry.direction),
                     ].join(' ')}
                   >
-                    {entry.direction ?? '—'}
+                    {formatDirection(entry.direction, locale)}
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -146,7 +149,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
                 {refreshingSymbol === entry.symbol ? (
                   <RefreshIcon />
                 ) : entry.freshness === 'never' ? (
-                  <span>never run</span>
+                  <span>{t('neverRun')}</span>
                 ) : (
                   <>
                     <span
@@ -155,7 +158,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
                         entry.freshness === 'live' ? 'bg-green-500' : 'bg-amber-500',
                       ].join(' ')}
                     />
-                    <span>{entry.lastAnalyzedAt ? timeAgo(entry.lastAnalyzedAt) : 'stale'}</span>
+                    <span>{entry.lastAnalyzedAt ? timeAgo(entry.lastAnalyzedAt, t) : t('stale')}</span>
                   </>
                 )}
               </div>
@@ -165,7 +168,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
 
         {entries.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Add a symbol to start a lightweight watchlist.
+            {t('addSymbol')}
           </div>
         ) : null}
       </div>
@@ -174,14 +177,14 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
         <input
           value={inputValue}
           onChange={(event) => setInputValue(event.target.value.toUpperCase())}
-          placeholder="Symbol…"
+          placeholder={t('symbol')}
           className="flex-1 rounded-lg border px-2.5 py-1.5 text-xs outline-none bg-white border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-[#161a23] dark:border-white/10 dark:text-slate-100 dark:placeholder-slate-500 transition-colors duration-150"
         />
         <button
           type="submit"
           className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
-          Add
+          {t('add')}
         </button>
       </form>
     </div>

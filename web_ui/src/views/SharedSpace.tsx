@@ -25,6 +25,7 @@ import {
   type WatchlistEntry,
 } from '../watchlist'
 import Analyze from './Analyze'
+import { useI18n } from '../i18n'
 
 type SharedSpaceProps = {
   slug: string
@@ -39,12 +40,6 @@ type AnalyzeSelection = {
   } | null
 }
 
-const PRIVATE_SPACE_TITLE = 'Private watchlist'
-const PRIVATE_SPACE_LABEL = 'Private watchlist'
-const PRIVATE_SPACE_LOADING = 'Loading private watchlist...'
-const PRIVATE_SPACE_LOGIN_HELP = 'Enter the shared passcode to access your private stock pool.'
-const PRIVATE_SPACE_LOGIN_CTA = 'Unlock private watchlist'
-const PRIVATE_SPACE_LOAD_ERROR = 'Unable to load private watchlist'
 const RETRY_DELAY_MS = [150, 500, 1000] as const
 
 function withFreshness(entry: WatchlistEntry): WatchlistEntry {
@@ -65,6 +60,7 @@ function isAuthRaceError(error: unknown): boolean {
 }
 
 function SharedSpace({ slug }: SharedSpaceProps) {
+  const { locale, setLocale, t } = useI18n()
   const storageKey = storageKeyForSharedSpace(slug)
   const sessionTokenStorageKey = storageKeyForSharedSpaceSession(slug)
   const [session, setSession] = useState<SharedSpaceSessionResponse | null>(null)
@@ -141,8 +137,8 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       }
     }
 
-    throw new Error(PRIVATE_SPACE_LOAD_ERROR)
-  }, [applySharedSymbols, sessionToken, slug])
+    throw new Error(t('unableToLoadPrivateWatchlist'))
+  }, [applySharedSymbols, sessionToken, slug, t])
 
   const processRefreshQueue = useCallback(async () => {
     if (refreshInFlightRef.current || !session?.authenticated) {
@@ -240,7 +236,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
             if (cancelled) {
               return
             }
-            setSessionError(error instanceof Error ? error.message : PRIVATE_SPACE_LOAD_ERROR)
+            setSessionError(error instanceof Error ? error.message : t('unableToLoadPrivateWatchlist'))
           }
         } else {
           setSessionError(null)
@@ -250,14 +246,14 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           return
         }
         updateStoredSessionToken(null)
-        setSession({ authenticated: false, slug, display_name: PRIVATE_SPACE_TITLE })
-        setSessionError(error instanceof Error ? error.message : PRIVATE_SPACE_LOAD_ERROR)
+        setSession({ authenticated: false, slug, display_name: t('privateWatchlist') })
+        setSessionError(error instanceof Error ? error.message : t('unableToLoadPrivateWatchlist'))
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [refreshRemoteWatchlist, sessionToken, slug, updateStoredSessionToken])
+  }, [refreshRemoteWatchlist, sessionToken, slug, t, updateStoredSessionToken])
 
   useEffect(() => {
     if (!session?.authenticated) {
@@ -283,7 +279,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       setPasscode('')
       await refreshRemoteWatchlist(nextSessionToken)
     } catch (error) {
-      setSessionError(error instanceof Error ? error.message : 'Unable to authenticate')
+      setSessionError(error instanceof Error ? error.message : t('unableToAuthenticate'))
     } finally {
       setAuthSubmitting(false)
     }
@@ -297,7 +293,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       setSessionError(null)
       setRequestedSymbol(null)
     } catch (error) {
-      setSessionError(error instanceof Error ? error.message : 'Unable to log out')
+      setSessionError(error instanceof Error ? error.message : t('unableToLogout'))
     }
   }
 
@@ -314,7 +310,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           enqueueSymbols([normalized])
         }
       } catch (error) {
-        setSessionError(error instanceof Error ? error.message : 'Unable to update shared watchlist')
+        setSessionError(error instanceof Error ? error.message : t('unableToUpdateWatchlist'))
       }
     })()
   }
@@ -329,7 +325,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           setRefreshingSymbol(null)
         }
       } catch (error) {
-        setSessionError(error instanceof Error ? error.message : 'Unable to update shared watchlist')
+        setSessionError(error instanceof Error ? error.message : t('unableToUpdateWatchlist'))
       }
     })()
   }
@@ -347,7 +343,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#090c12] sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-4xl items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#0d0f14]">
-          <p className="text-sm text-slate-600 dark:text-slate-400">{PRIVATE_SPACE_LOADING}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t('loadingPrivateWatchlist')}</p>
         </div>
       </div>
     )
@@ -358,15 +354,18 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#090c12] sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-4xl items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#0d0f14]">
           <div className="w-full max-w-md space-y-6">
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
+            </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                {PRIVATE_SPACE_LABEL}
+                {t('privateWatchlist')}
               </p>
               <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
-                {PRIVATE_SPACE_TITLE}
+                {t('privateWatchlist')}
               </h1>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                {PRIVATE_SPACE_LOGIN_HELP}
+                {t('privateWatchlistHelp')}
               </p>
             </div>
             <form onSubmit={handleLogin} className="space-y-3">
@@ -374,7 +373,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
                 type="password"
                 value={passcode}
                 onChange={(event) => setPasscode(event.target.value)}
-                placeholder="Passcode"
+                placeholder={t('passcode')}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition dark:border-white/10 dark:bg-[#161a23] dark:text-slate-100"
               />
               <button
@@ -382,7 +381,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
                 disabled={authSubmitting}
                 className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
               >
-                {authSubmitting ? 'Checking passcode...' : PRIVATE_SPACE_LOGIN_CTA}
+                {authSubmitting ? t('checkingPasscode') : t('unlockPrivateWatchlist')}
               </button>
             </form>
             {sessionError ? (
@@ -397,30 +396,33 @@ function SharedSpace({ slug }: SharedSpaceProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 transition-colors duration-150 dark:bg-[#090c12] sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)] transition-colors duration-150 dark:border-slate-800 dark:bg-[#0d0f14]">
-        <header className="border-b border-slate-200 bg-white px-6 py-6 dark:border-slate-800 dark:bg-[#0d0f14] sm:px-8">
+    <div className="min-h-screen bg-slate-50 p-3 transition-colors duration-150 dark:bg-[#090c12] sm:p-6 lg:p-8">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)] transition-colors duration-150 dark:border-slate-800 dark:bg-[#0d0f14] sm:min-h-[calc(100vh-3rem)] sm:rounded-[2rem]">
+        <header className="border-b border-slate-200 bg-white px-4 py-5 dark:border-slate-800 dark:bg-[#0d0f14] sm:px-8 sm:py-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                {PRIVATE_SPACE_LABEL}
+                {t('privateWatchlist')}
               </p>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl">
-                  {PRIVATE_SPACE_TITLE}
+                  {t('privateWatchlist')}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-                  Shared symbol pool for private collaboration. Membership is shared, analysis stays fast per device.
+                  {t('sharedWatchlistDescription')}
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100"
-            >
-              Log out
-            </button>
+            <div className="flex items-center gap-2 self-start lg:self-end">
+              <button type="button" onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100"
+              >
+                {t('logout')}
+              </button>
+            </div>
           </div>
           {sessionError ? (
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
@@ -429,8 +431,8 @@ function SharedSpace({ slug }: SharedSpaceProps) {
           ) : null}
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <aside className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 p-3 transition-colors duration-150 dark:border-slate-800">
+        <div className="flex flex-1 flex-col lg:flex-row">
+          <aside className="border-b border-slate-200 p-3 transition-colors duration-150 dark:border-slate-800 lg:w-56 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <Watchlist
               entries={watchlistEntries}
               refreshingSymbol={refreshingSymbol}
@@ -439,7 +441,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
               onAnalyze={handleWatchlistAnalyze}
             />
           </aside>
-          <main className="flex-1 overflow-y-auto p-6 transition-colors duration-150 sm:p-8">
+          <main className="min-w-0 flex-1 p-4 transition-colors duration-150 sm:p-6 lg:overflow-y-auto lg:p-8">
             <Analyze
               key={requestedSymbol?.nonce ?? 'shared-analyze-default'}
               requestedSymbol={requestedSymbol}
