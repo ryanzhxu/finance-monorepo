@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-export type Locale = 'en' | 'zh-Hant'
+export type Locale = 'en' | 'zh-HK'
 
 const messages = {
   en: {
@@ -21,8 +21,8 @@ const messages = {
     minutesAgo: '{count}m ago',
     hoursAgo: '{count}h ago',
     daysAgo: '{count}d ago',
-    switchLanguage: '切換為繁體中文',
-    localeButton: '繁',
+    switchLanguage: 'Switch to Hong Kong Cantonese',
+    localeButton: '粵',
     switchTheme: 'Switch to {theme} mode',
     light: 'light', dark: 'dark', system: 'system',
     screenerTitle: 'Live screen results by strategy',
@@ -62,29 +62,29 @@ const messages = {
     putCallRatio: 'Put/call ratio', ivRank: 'IV rank (approx)', shortInterest: 'Short interest', redditMentions: 'Reddit mentions',
     redditSentiment: 'Reddit sentiment', institutional13f: 'Institutional 13F', freshness: 'Freshness',
   },
-  'zh-Hant': {
-    appTitle: '市場分析主控台',
-    appDescription: '專注於市場分析、實證研究、篩選與服務健康狀態的工作台。',
-    analyze: '分析', screener: '篩選器', research: '研究', health: '健康狀態', watchlist: '自選清單',
-    add: '加入', addSymbol: '加入股票代號以建立輕量自選清單。', symbol: '股票代號', removeSymbol: '移除 {symbol}',
-    neverRun: '尚未執行', stale: '已過期', justNow: '剛剛', minutesAgo: '{count} 分鐘前', hoursAgo: '{count} 小時前', daysAgo: '{count} 天前',
-    switchLanguage: 'Switch to English', localeButton: 'EN', switchTheme: '切換至{theme}模式', light: '淺色', dark: '深色', system: '系統',
-    screenerTitle: '依策略顯示即時篩選結果', screenerDescription: '端點會直接由瀏覽器依照實際 POST 合約呼叫。',
-    undervalued: '價值低估', demandShock: '需求衝擊', trending: '熱門趨勢', run: '執行{screen}', running: '執行中...', loadingResults: '正在載入結果...',
-    runScreenHint: '執行此篩選器以載入結果。', universe: '股票池', regime: '市場狀態', quality: '品質', score: '分數', direction: '方向',
-    confidence: '信心度', entryAssessment: '進場評估', dataQuality: '資料品質', actions: '操作',
-    healthTitle: '服務心跳狀態', lastChecked: '最後檢查：{time} · 每 30 秒自動更新', refresh: '重新整理', healthy: '正常', down: '異常', core: '核心', dataProviders: '資料供應商', checking: '檢查中…', status: '狀態', configValid: '設定有效', cache: '快取', languageModel: '語言模型', available: '可用', unavailable: '不可用', unreachable: '無法連線', evidence: '佐證', job: '工作', analyst: '分析服務',
-    researchLab: '研究實驗室', evidenceBeforeConviction: '先有證據，再談信念', researchDescription: '取得排序後的候選公司、催化因素、風險、進場條件、避開理由與可驗證的後續工作。研究結果僅供決策支援，不保證報酬，也不是個人化配置建議。',
-    question: '問題', universeLabel: '股票池', triggerContext: '觸發背景', mode: '模式', candidates: '候選數量', optionalTrigger: '選填：因持倉集中度警示而進行既有持倉檢視。',
-    upsideDiscovery: '上行機會探索', downsideRiskScan: '下行風險掃描', runResearch: '執行研究', starting: '啟動中…', cancel: '取消',
-    usCommon: '美國上市普通股', usCommonAbove10b: '市值高於 100 億美元的美國上市普通股', sp500: '標普 500 成分股', nasdaq100: '那斯達克 100 成分股', russell1000: '羅素 1000 成分股', russell2000: '羅素 2000 成分股', dowJones: '道瓊工業平均指數成分股',
-    noSupportedItems: '沒有可佐證的項目。', rank: '排名', decisionSupport: '決策支援', analogyComparison: '類比比較', thesis: '投資論點', catalysts: '催化因素', risks: '風險', entryConditions: '進場條件', reasonsToAvoid: '避開理由', reviewRisk: '審查風險', unknowns: '未知事項', sources: '來源', noSources: '沒有回傳來源。',
-    privateWatchlist: '私人自選清單', loadingPrivateWatchlist: '正在載入私人自選清單...', privateWatchlistHelp: '輸入共享密碼以存取你的私人股票池。', passcode: '密碼', unlockPrivateWatchlist: '解鎖私人自選清單', checkingPasscode: '正在驗證密碼...', logout: '登出', sharedWatchlistDescription: '供私人協作使用的共享股票池；成員資格會同步，各裝置仍可快速完成分析。',
-    unableToLoadPrivateWatchlist: '無法載入私人自選清單', unableToAuthenticate: '無法驗證身分', unableToLogout: '無法登出', unableToUpdateWatchlist: '無法更新共享自選清單',
-    stop: '停止', added: '已加入 ✓', addToWatchlist: '加入自選清單', analysisStopped: '分析已停止', requestCancelled: '請求已取消', runAgain: '再次執行', enterSymbol: '在上方輸入股票代號以開始。',
-    signals: '訊號', showSignals: '顯示訊號', hideSignals: '隱藏訊號', dimension: '面向', note: '說明', fundamentals: '基本面', sentiment: '市場情緒', currentPrice: '目前價格', idealBuyZone: '理想買入區間', fibGoldenPocket: '費波那契黃金區', conservativeEntry: '保守進場價', stopLoss: '停損價', invalidation: '失效價位', highConvictionZone: '高信心區間', signalVote: '訊號票數', nextFomc: '下次 FOMC', rateCutProbability: '降息機率', resistance: '壓力位', support: '支撐位', breakoutBuyLevel: '突破買入價位', weight: '權重',
-    fetchPriceData: '取得價格資料', computeTechnicals: '計算技術指標', loadFundamentals: '載入基本面', assembleSignals: '彙整訊號', buildConfluence: '建立共識', loadingAnalysis: '正在載入分析', analyzing: '分析中', entryStructureUnavailable: '此回應沒有可用的進場結構。',
-    epsSurprise: '每股盈餘意外值', peRatio: '本益比', pePercentile: '本益比分位數（5 年）', fcfTrend: '自由現金流趨勢', analystUpgrades: '分析師調升（30 日）', analystDowngrades: '分析師調降（30 日）', revenueGrowth: '營收年增率', grossMargin: '毛利率', pbRatio: '股價淨值比', psRatio: '股價營收比', evEbitda: '企業價值／EBITDA', asOfDate: '資料截至日', putCallRatio: '賣權／買權比', ivRank: '隱含波動率排名（約）', shortInterest: '放空比率', redditMentions: 'Reddit 提及量', redditSentiment: 'Reddit 情緒', institutional13f: '機構 13F', freshness: '新鮮度',
+  'zh-HK': {
+    appTitle: '市場分析工作台',
+    appDescription: '集中做市場分析、實證研究、篩選同服務狀態檢查嘅工作台。',
+    analyze: '分析', screener: '篩選器', research: '研究', health: '系統狀態', watchlist: '自選清單',
+    add: '加入', addSymbol: '加個股票代號，開始整你嘅簡單自選清單。', symbol: '股票代號', removeSymbol: '移除 {symbol}',
+    neverRun: '未做過', stale: '過咗期', justNow: '啱啱', minutesAgo: '{count} 分鐘前', hoursAgo: '{count} 個鐘前', daysAgo: '{count} 日前',
+    switchLanguage: 'Switch to English', localeButton: 'EN', switchTheme: '切換去{theme}模式', light: '淺色', dark: '深色', system: '跟系統',
+    screenerTitle: '按策略睇即時篩選結果', screenerDescription: '瀏覽器會按實際 POST 合約直接呼叫端點。',
+    undervalued: '估值偏低', demandShock: '需求衝擊', trending: '趨勢中', run: '執行{screen}', running: '執行緊...', loadingResults: '載入緊結果...',
+    runScreenHint: '執行呢個篩選器去載入結果。', universe: '股票範圍', regime: '市況', quality: '質素', score: '分數', direction: '方向',
+    confidence: '信心', entryAssessment: '入場評估', dataQuality: '資料質素', actions: '操作',
+    healthTitle: '服務狀態', lastChecked: '最後檢查：{time} · 每 30 秒自動更新', refresh: '重新整理', healthy: '正常', down: '未能運作', core: '核心', dataProviders: '資料供應商', checking: '檢查緊…', status: '狀態', configValid: '設定有效', cache: '快取', languageModel: '語言模型', available: '可用', unavailable: '唔可用', unreachable: '連唔到', evidence: '證據', job: '工作', analyst: '分析服務',
+    researchLab: '研究室', evidenceBeforeConviction: '先睇證據，再作判斷', researchDescription: '搵出排好序嘅候選公司、催化因素、風險、入場條件、避開原因，同埋有證據支持嘅後續工作。研究結果只作決策參考，唔保證回報，亦唔係個人化資產配置建議。',
+    question: '問題', universeLabel: '股票範圍', triggerContext: '觸發原因', mode: '模式', candidates: '候選數目', optionalTrigger: '可選：因為持倉太集中嘅提示，而重新檢視現有持倉。',
+    upsideDiscovery: '上升機會探索', downsideRiskScan: '向下風險掃描', runResearch: '執行研究', starting: '開始緊…', cancel: '取消',
+    usCommon: '喺美國上市嘅普通股', usCommonAbove10b: '市值超過 100 億美元、喺美國上市嘅普通股', sp500: '標普 500 指數成分股', nasdaq100: '納斯達克 100 指數成分股', russell1000: '羅素 1000 指數成分股', russell2000: '羅素 2000 指數成分股', dowJones: '道瓊斯工業平均指數成分股',
+    noSupportedItems: '冇可支持嘅項目。', rank: '排名', decisionSupport: '決策參考', analogyComparison: '類比比較', thesis: '投資理據', catalysts: '催化因素', risks: '風險', entryConditions: '入場條件', reasonsToAvoid: '避開原因', reviewRisk: '審核風險', unknowns: '未知事項', sources: '資料來源', noSources: '冇返到資料來源。',
+    privateWatchlist: '私人自選清單', loadingPrivateWatchlist: '載入緊私人自選清單...', privateWatchlistHelp: '輸入共用密碼，開啟你嘅私人股票池。', passcode: '密碼', unlockPrivateWatchlist: '開啟私人自選清單', checkingPasscode: '驗證緊密碼...', logout: '登出', sharedWatchlistDescription: '俾私人協作用嘅共享股票池；成員資格會同步，而每部裝置都可以快速分析。',
+    unableToLoadPrivateWatchlist: '載入唔到私人自選清單', unableToAuthenticate: '驗證唔到身分', unableToLogout: '登出唔到', unableToUpdateWatchlist: '更新唔到共享自選清單',
+    stop: '停止', added: '已加 ✓', addToWatchlist: '加入自選清單', analysisStopped: '已停止分析', requestCancelled: '請求已取消', runAgain: '再試', enterSymbol: '喺上面輸入股票代號開始。',
+    signals: '訊號', showSignals: '顯示訊號', hideSignals: '收埋訊號', dimension: '範疇', note: '說明', fundamentals: '基本因素', sentiment: '市場情緒', currentPrice: '現價', idealBuyZone: '理想買入區', fibGoldenPocket: '費波那契黃金區', conservativeEntry: '保守入場價', stopLoss: '止蝕價', invalidation: '失效位', highConvictionZone: '高信心區', signalVote: '訊號票數', nextFomc: '下次 FOMC', rateCutProbability: '減息機率', resistance: '阻力位', support: '支持位', breakoutBuyLevel: '突破買入位', weight: '權重',
+    fetchPriceData: '攞價格資料', computeTechnicals: '計技術指標', loadFundamentals: '載入基本因素', assembleSignals: '整合訊號', buildConfluence: '建立共識', loadingAnalysis: '載入緊分析', analyzing: '分析緊', entryStructureUnavailable: '呢個回應冇可用嘅入場結構。',
+    epsSurprise: '每股盈利驚喜', peRatio: '市盈率', pePercentile: '市盈率百分位（5 年）', fcfTrend: '自由現金流趨勢', analystUpgrades: '分析師調升（30 日）', analystDowngrades: '分析師調降（30 日）', revenueGrowth: '收入按年增長', grossMargin: '毛利率', pbRatio: '市賬率', psRatio: '市銷率', evEbitda: '企業價值／EBITDA', asOfDate: '資料截止日', putCallRatio: '認沽／認購比率', ivRank: '隱含波動率排名（約）', shortInterest: '沽空比率', redditMentions: 'Reddit 提及次數', redditSentiment: 'Reddit 情緒', institutional13f: '機構 13F', freshness: '資料新鮮度',
   },
 } as const
 
@@ -101,7 +101,7 @@ const LOCALE_STORAGE_KEY = 'finance-monorepo.locale'
 
 function getInitialLocale(): Locale {
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
-  return stored === 'zh-Hant' ? 'zh-Hant' : 'en'
+  return stored === 'zh-HK' || stored === 'zh-Hant' ? 'zh-HK' : 'en'
 }
 
 function formatMessage(message: string, values?: Record<string, string | number>): string {
@@ -113,7 +113,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem(LOCALE_STORAGE_KEY, locale)
-    document.documentElement.lang = locale === 'zh-Hant' ? 'zh-Hant' : 'en'
+    document.documentElement.lang = locale
   }, [locale])
 
   const value = useMemo<I18nValue>(() => ({

@@ -300,7 +300,7 @@ function PublicApp() {
               <div className="flex items-center gap-2 self-start lg:self-end">
                 <button
                   type="button"
-                  onClick={() => setLocale(locale === 'en' ? 'zh-Hant' : 'en')}
+                  onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')}
                   aria-label={t('switchLanguage')}
                   title={t('switchLanguage')}
                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-slate-100"
