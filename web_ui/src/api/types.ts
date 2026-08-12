@@ -31,8 +31,8 @@ export interface Sentiment {
   institutional_net_shares_last_13f?: number | null
   institutional_13f_as_of?: string | null
   institutional_13f_freshness?: string | null
-  reddit_mention_spike_24h_pct?: number | null
-  reddit_positive_pct?: number | null
+  volume_spike_vs_90d_avg_pct?: number | null
+  price_volume_momentum_pct?: number | null
   freshness?: string | null
 }
 

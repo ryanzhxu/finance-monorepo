@@ -1441,11 +1441,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     }
                   />
                   <DetailRow
-                    label="Reddit mentions"
+                    label="Volume spike (vs 90d avg)"
                     value={
-                      analysis.sentiment.reddit_mention_spike_24h_pct == null
+                      analysis.sentiment.volume_spike_vs_90d_avg_pct == null
                         ? '— missing'
-                        : formatPercent(analysis.sentiment.reddit_mention_spike_24h_pct)
+                        : formatPercent(analysis.sentiment.volume_spike_vs_90d_avg_pct)
                     }
                     valueClassName="text-slate-600 dark:text-slate-300"
                   />
@@ -1453,11 +1453,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
                 <div>
                   <DetailRow
-                    label="Reddit sentiment"
+                    label="Price/volume momentum"
                     value={
-                      analysis.sentiment.reddit_positive_pct == null
+                      analysis.sentiment.price_volume_momentum_pct == null
                         ? '— missing'
-                        : `${analysis.sentiment.reddit_positive_pct.toFixed(1)}% positive`
+                        : `${analysis.sentiment.price_volume_momentum_pct.toFixed(1)}%`
                     }
                     valueClassName="text-slate-600 dark:text-slate-300"
                   />
