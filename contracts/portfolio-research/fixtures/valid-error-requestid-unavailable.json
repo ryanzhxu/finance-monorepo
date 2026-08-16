@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": null,
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "The request body could not be parsed as JSON, so no requestId was available to echo.",
+    "retryable": false
+  }
+}

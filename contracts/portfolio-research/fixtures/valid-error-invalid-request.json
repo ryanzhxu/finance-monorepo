@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "The request did not match the portfolio-research.v1 request schema.",
+    "retryable": false
+  }
+}

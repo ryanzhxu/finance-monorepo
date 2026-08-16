@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-monorepo.internal/contracts/portfolio-research/v1/request.schema.json",
+  "title": "portfolio-research.v1 request envelope",
+  "description": "Request envelope for POST /api/portfolio-research. Producer: Research specialist. Consumer: Position Lens. Carries only symbols, deterministic reason codes, optional opaque review-item IDs, and timestamps -- no personal balances, liabilities, goals, policies, account identifiers, holdings quantities/values, cost basis, or other brokerage/personal data. Maximum serialized request body is 16 KiB; this limit cannot be expressed in JSON Schema and MUST be enforced by the transport layer independently of this schema. Unknown top-level fields are rejected (additionalProperties: false) -- this is the privacy boundary, not just a convention.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "requestId", "requestedAt", "symbols", "reasonCodes"],
+  "properties": {
+    "contractVersion": {
+      "const": "portfolio-research.v1",
+      "description": "Must be the exact literal 'portfolio-research.v1'. Any other value (including other portfolio-research.vN strings) must be rejected explicitly, never best-effort parsed as v1."
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque idempotency/correlation identifier. Must not encode identity or account data."
+    },
+    "requestedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "ISO 8601 UTC timestamp, Z-suffixed."
+    },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]{1,10}([.-][A-Z]{1,4})?$",
+        "description": "Normalized listed-equity symbol."
+      }
+    },
+    "reasonCodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "CONCENTRATION",
+          "DRAWDOWN",
+          "THESIS_REVIEW",
+          "CATALYST_REVIEW",
+          "DATA_STALE"
+        ]
+      },
+      "description": "Closed enum of deterministic triggers for why public research was requested. Must never disclose threshold values, holding size, loss amount, risk tolerance, or personal goals."
+    },
+    "reviewItemIds": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Opaque Position Lens-local reference. Must not encode account or holding data."
+      },
+      "description": "Optional; maximum 5 opaque review-item references."
+    }
+  }
+}

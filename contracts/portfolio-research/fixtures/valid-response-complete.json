@@ -1,0 +1,74 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "generatedAt": "2026-08-06T18:00:30Z",
+  "status": "complete",
+  "providerStatus": "available",
+  "research": [
+    {
+      "symbol": "NVDA",
+      "summary": "Data-center accelerator demand remains the primary revenue driver, with public disclosures showing continued sequential growth.",
+      "thesis": "Sustained hyperscaler capex on AI accelerators supports multi-year demand for the company's data-center GPU platform.",
+      "counterThesis": "Customer concentration among a handful of hyperscalers, combined with rising internal-silicon efforts at those same customers, could compress long-run demand and pricing power.",
+      "risks": [
+        "Export-control changes could restrict addressable market in key regions.",
+        "Two customers account for a large share of disclosed data-center revenue."
+      ],
+      "unknowns": [
+        "Next-generation platform yield rates have not been publicly disclosed."
+      ],
+      "falsifiers": [
+        "A sustained multi-quarter sequential decline in data-center segment revenue.",
+        "Public confirmation that a top-two customer has materially cut multi-year orders."
+      ],
+      "sources": [
+        {
+          "url": "https://example.invalid/investor-relations/latest-10q",
+          "title": "Quarterly report (10-Q)",
+          "publishedAt": "2026-08-05T00:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:10Z",
+          "sourceType": "primary"
+        },
+        {
+          "url": "https://example.invalid/news/data-center-capex-outlook",
+          "title": "Independent analysis of hyperscaler capex trends",
+          "publishedAt": "2026-08-03T12:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:12Z",
+          "sourceType": "secondary"
+        }
+      ],
+      "freshness": {
+        "state": "fresh",
+        "asOf": "2026-08-06T18:00:10Z"
+      }
+    },
+    {
+      "symbol": "MU",
+      "summary": "Memory pricing has firmed on constrained supply and AI-driven demand for high-bandwidth memory.",
+      "thesis": "A multi-year memory upcycle, driven in part by HBM demand, supports margin expansion.",
+      "counterThesis": "Memory markets are historically cyclical; a supply response from competitors could compress pricing sooner than the base case assumes.",
+      "risks": [
+        "Commodity memory pricing is historically volatile and cyclical."
+      ],
+      "unknowns": [
+        "Competitor capacity-expansion timelines are not fully public."
+      ],
+      "falsifiers": [
+        "A sustained decline in spot DRAM or NAND pricing over consecutive quarters."
+      ],
+      "sources": [
+        {
+          "url": "https://example.invalid/news/memory-pricing-update",
+          "title": "Memory market pricing update",
+          "publishedAt": "2026-08-04T09:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:15Z",
+          "sourceType": "secondary"
+        }
+      ],
+      "freshness": {
+        "state": "fresh",
+        "asOf": "2026-08-06T18:00:15Z"
+      }
+    }
+  ]
+}

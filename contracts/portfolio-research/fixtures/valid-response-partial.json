@@ -1,0 +1,65 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "generatedAt": "2026-08-06T18:00:30Z",
+  "status": "partial",
+  "providerStatus": "available",
+  "research": [
+    {
+      "symbol": "NVDA",
+      "summary": "Data-center accelerator demand remains the primary revenue driver.",
+      "thesis": "Sustained hyperscaler capex supports multi-year demand for the company's data-center GPU platform.",
+      "counterThesis": "Customer concentration could compress long-run demand and pricing power.",
+      "risks": [
+        "Export-control changes could restrict addressable market in key regions."
+      ],
+      "unknowns": [
+        "Next-generation platform yield rates have not been publicly disclosed."
+      ],
+      "falsifiers": [
+        "A sustained multi-quarter sequential decline in data-center segment revenue."
+      ],
+      "sources": [
+        {
+          "url": "https://example.invalid/investor-relations/latest-10q",
+          "title": "Quarterly report (10-Q)",
+          "publishedAt": "2026-08-05T00:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:10Z",
+          "sourceType": "primary"
+        }
+      ],
+      "freshness": {
+        "state": "fresh",
+        "asOf": "2026-08-06T18:00:10Z"
+      }
+    },
+    {
+      "symbol": "MU",
+      "summary": "Prior-cycle memory pricing commentary; current-quarter disclosures were not yet available at request time.",
+      "thesis": "A multi-year memory upcycle supports margin expansion, based on the most recently available public data.",
+      "counterThesis": "Memory markets are historically cyclical and a supply response could compress pricing sooner than assumed.",
+      "risks": [
+        "Commodity memory pricing is historically volatile and cyclical."
+      ],
+      "unknowns": [
+        "Most recent quarter's disclosures were not retrievable at generation time; figures reflect the prior public filing."
+      ],
+      "falsifiers": [
+        "A sustained decline in spot DRAM or NAND pricing over consecutive quarters."
+      ],
+      "sources": [
+        {
+          "url": "https://example.invalid/news/memory-pricing-update-prior-quarter",
+          "title": "Memory market pricing update (prior quarter)",
+          "publishedAt": "2026-05-04T09:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:20Z",
+          "sourceType": "secondary"
+        }
+      ],
+      "freshness": {
+        "state": "stale",
+        "asOf": "2026-05-04T09:00:00Z"
+      }
+    }
+  ]
+}

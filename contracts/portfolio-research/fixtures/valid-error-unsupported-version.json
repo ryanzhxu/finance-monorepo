@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "UNSUPPORTED_VERSION",
+    "message": "The requested contractVersion is not supported by this endpoint.",
+    "retryable": false
+  }
+}
