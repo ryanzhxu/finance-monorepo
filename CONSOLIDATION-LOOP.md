@@ -88,7 +88,7 @@ Keep each cycle tight. A small, correct, committed increment beats an ambitious 
 
 Work top to bottom. Tick off as you go.
 
-- [ ] **1. `contracts/decision/README.md`** — what the contract is, who produces it, who consumes
+- [x] **1. `contracts/decision/README.md`** — what the contract is, who produces it, who consumes
       it, the versioning rule. Read `contracts/portfolio-research/README.md` first and match tone.
 - [ ] **2. `schema/decision.v1.schema.json`** — the response envelope. Required fields:
       `contract_version`, `ticker`, `generated_at`, `horizons` (an object keyed `short`/`mid`/`long`).
@@ -154,6 +154,28 @@ Newest at the bottom. Append, never rewrite history.
 - **Next cycle should:** do Plan item 1 — write `contracts/decision/README.md`, modelled closely
   on `contracts/portfolio-research/README.md`. Read that file before writing.
 
+### Cycle 1 — 07:43 PDT
+- **Tests before / after:** 138 / 138
+- **Did:** Plan item 1 — wrote `contracts/decision/README.md`.
+- **Commit:** `e38bb3b`
+- **Changed vs last cycle:** the contract now has a written definition: purpose, layout,
+  closed vocabularies, the price-state legality table, a producer mapping for both engines,
+  and a Judgment calls section. No schema or fixtures yet.
+- **Uncertain about:** I overrode the seed plan's field casing. The seed wrote
+  `contract_version` / `price_state`; I used camelCase (`contractVersion`, `priceState`)
+  because `contracts/portfolio-research/` is camelCase throughout and the dashboard producer
+  is JavaScript emitting camelCase natively. **Later cycles must use camelCase** — the
+  vocabulary block below still shows snake_case in one place and the README is now the
+  authority. Also: I deferred a request envelope entirely, reasoning that the dashboard
+  publishes a feed rather than answering requests. Both calls are logged in the README for
+  Ryan to override.
+- **Next cycle should:** do Plan item 2 — write `contracts/decision/schema/decision.schema.json`.
+  Read `contracts/portfolio-research/schema/response.schema.json` first and match it exactly:
+  draft 2020-12, `$id` under `https://finance-monorepo.internal/contracts/decision/v1/`,
+  `contractVersion` as a `const`, `additionalProperties: false`, Z-suffixed timestamp pattern.
+  Envelope only this cycle (`contractVersion`, `ticker`, `generatedAt`, `producer`, `horizons`);
+  leave the horizon object itself to Plan item 3.
+
 ---
 
 ## Open questions for Ryan
@@ -166,3 +188,10 @@ Do not act on these. Log more as you find them.
    runs 138 without the untracked WIP. All three numbers disagree.
 3. `git worktree list` shows 18 worktrees marked `prunable` — their directories were wiped from
    `/private/tmp`. `git worktree prune` would clear the stale admin entries.
+4. Field casing: the seed plan said snake_case, the repo's existing contract is camelCase.
+   Resolved as camelCase in cycle 1. Say if you want it flipped before the schema is written.
+5. `decision.v1` vs `stock-decision.v1` as the version string — the existing contract is named
+   for its endpoint, this one is not named for anything yet.
+6. Contract tests run standalone (`uv run --no-project --with jsonschema`), not under pytest,
+   matching portfolio-research. So the 138 pytest baseline will not move as this work lands —
+   the contract has its own separate exit-code check.
