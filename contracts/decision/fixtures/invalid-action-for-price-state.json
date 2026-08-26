@@ -1,0 +1,94 @@
+{
+  "contractVersion": "decision.v1",
+  "ticker": "NVDA",
+  "generatedAt": "2026-08-26T20:05:00Z",
+  "producer": {
+    "id": "stock-decision-dashboard",
+    "engineVersion": "v1"
+  },
+  "currentPrice": 182.4,
+  "horizons": {
+    "short": {
+      "action": "buy",
+      "confidence": 71,
+      "priceState": "IN_OPPORTUNITY_ZONE",
+      "executionIntent": "enter",
+      "opportunityRange": {
+        "low": 176.5,
+        "high": 184.0
+      },
+      "reduceRange": {
+        "low": 205.0,
+        "high": 214.0
+      },
+      "invalidation": 171.2,
+      "reasons": {
+        "supporting": [
+          "Price is inside a Fibonacci and confirmed-swing confluence zone on 4H.",
+          "MACD histogram turned positive on 4H with rising volume.",
+          "ADX above 25 with +DI over -DI confirms an intact up-trend."
+        ],
+        "limiting": [
+          "RVOL is below its 20-session median, so participation is thin."
+        ]
+      },
+      "dataQuality": {
+        "state": "complete"
+      }
+    },
+    "mid": {
+      "action": "hold",
+      "confidence": 48,
+      "priceState": "NEUTRAL_ZONE",
+      "executionIntent": "hold",
+      "opportunityRange": {
+        "low": 158.0,
+        "high": 168.5
+      },
+      "reduceRange": {
+        "low": 210.0,
+        "high": 226.0
+      },
+      "invalidation": 152.0,
+      "reasons": {
+        "supporting": [
+          "Daily structure remains above the rising 50-session average."
+        ],
+        "limiting": [
+          "Price sits between the opportunity and reduce bands, so no action is permitted.",
+          "Relative strength against QQQ has flattened over 21 sessions."
+        ]
+      },
+      "dataQuality": {
+        "state": "complete"
+      }
+    },
+    "long": {
+      "action": "buy",
+      "confidence": 64,
+      "priceState": "IN_REDUCE_ZONE",
+      "executionIntent": "reduce",
+      "opportunityRange": {
+        "low": 130.0,
+        "high": 152.0
+      },
+      "reduceRange": {
+        "low": 178.0,
+        "high": 192.0
+      },
+      "invalidation": 126.0,
+      "reasons": {
+        "supporting": [
+          "Weekly price is inside a historical distribution band drawn from 52-week structure.",
+          "Weekly KDJ has been above 80 for six consecutive bars."
+        ],
+        "limiting": [
+          "Weekly trend direction is still positive, so this is a trim rather than an exit."
+        ]
+      },
+      "dataQuality": {
+        "state": "complete"
+      }
+    }
+  }
+}
