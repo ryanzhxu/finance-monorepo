@@ -90,7 +90,7 @@ Work top to bottom. Tick off as you go.
 
 - [x] **1. `contracts/decision/README.md`** — what the contract is, who produces it, who consumes
       it, the versioning rule. Read `contracts/portfolio-research/README.md` first and match tone.
-- [ ] **2. `schema/decision.schema.json`** — the response envelope. Required fields:
+- [x] **2. `schema/decision.schema.json`** — the response envelope. Required fields:
       `contractVersion`, `ticker`, `generatedAt`, `horizons` (an object keyed `short`/`mid`/`long`).
 - [ ] **3. Horizon object** — `action`, `confidence`, `priceState`, `executionIntent`,
       `opportunityRange`, `reduceRange`, `invalidation`, `reasons`, `dataQuality`.
@@ -178,6 +178,38 @@ Newest at the bottom. Append, never rewrite history.
   Envelope only this cycle (`contractVersion`, `ticker`, `generatedAt`, `producer`, `horizons`);
   leave the horizon object itself to Plan item 3.
 
+### Cycle 2 — 09:03 PDT
+- **Tests before / after:** 138 / 138
+- **Did:** Plan item 2 — wrote `contracts/decision/schema/decision.schema.json` (envelope only).
+- **Commit:** `66c38b0`
+- **Changed vs last cycle:** the contract is now machine-checkable at the envelope level.
+  `contractVersion` is a `const`, `ticker` reuses the portfolio-research symbol pattern,
+  `generatedAt` requires a Z suffix, and `additionalProperties: false` blocks an engine from
+  smuggling internal scores across. All three horizon keys are required. Verified the schema is
+  valid draft 2020-12 and that 10 envelope cases behave (share-class ticker, null price, wrong
+  version, missing horizon, unknown field, underscore producer id, lowercase ticker, non-Z
+  timestamp, negative price).
+- **Uncertain about:** I added two fields the plan's item-2 list did not name.
+  (a) `producer` — an object with `id` and optional `engineVersion`. This contract has two
+  producers and the agreement layer cannot report concurrence without knowing who emitted what.
+  `id` is a slug-patterned open string rather than a closed enum, so a third engine needs no
+  version bump, while the pattern prevents `analyst_service` vs `analyst-service` drift.
+  (b) `currentPrice` — one value per snapshot, so it belongs in the envelope not the horizon;
+  item 7's legality invariants cannot be checked without it.
+  Also considered and rejected: a top-level `status` (complete/partial/unavailable) as in
+  portfolio-research. Per-horizon `dataQuality` from item 3 should cover it; adding both risks
+  two sources of truth. Flag if you disagree.
+  `$defs.horizonDecision` is deliberately unconstrained, so fixtures written before item 3
+  lands will validate loosely. Item 3 must add `additionalProperties: false` and a required list.
+- **Next cycle should:** do Plan item 3 — define `$defs.horizonDecision` in the same schema file.
+  Fields: `action`, `confidence` (0-100, support consistency not a probability), `priceState`,
+  `executionIntent`, `opportunityRange`, `reduceRange`, `invalidation`, `reasons`
+  (supporting/limiting, max 5 each), `dataQuality`. Use the closed vocabularies in the Plan
+  above. Every price field nullable. Add `additionalProperties: false` and a required list.
+  Encode the price-state action legality table as `allOf` / `if` / `then` — that gate is the
+  single most valuable thing this contract enforces. Re-run the same inline verification style
+  as cycle 2 before committing.
+
 ---
 
 ## Open questions for Ryan
@@ -197,3 +229,7 @@ Do not act on these. Log more as you find them.
 6. Contract tests run standalone (`uv run --no-project --with jsonschema`), not under pytest,
    matching portfolio-research. So the 138 pytest baseline will not move as this work lands —
    the contract has its own separate exit-code check.
+7. The envelope gained `producer` and `currentPrice` beyond the seeded field list (cycle 2).
+   Both are justified in the cycle log; say if you want either dropped.
+8. Rejected a top-level `status` field in cycle 2, on the grounds that per-horizon `dataQuality`
+   covers it. Worth a second opinion once item 3 defines `dataQuality`.
