@@ -1,0 +1,66 @@
+{
+  "contractVersion": "decision.v1",
+  "ticker": "SBUX",
+  "generatedAt": "2026-08-26T20:05:00Z",
+  "producer": {
+    "id": "analyst-service",
+    "engineVersion": "forecast_baseline"
+  },
+  "currentPrice": 61.2,
+  "horizons": {
+    "short": {
+      "action": "hold",
+      "confidence": 0,
+      "priceState": "INVALID_LANDSCAPE",
+      "executionIntent": "hold",
+      "opportunityRange": null,
+      "reduceRange": null,
+      "invalidation": null,
+      "reasons": {
+        "supporting": [],
+        "limiting": [
+          "No independent structure clusters could form a separated opportunity and reduce band.",
+          "Emitting no zone rather than a fabricated one; this is not a hold recommendation."
+        ]
+      },
+      "dataQuality": { "state": "unavailable" }
+    },
+    "mid": {
+      "action": "hold",
+      "confidence": 39,
+      "priceState": "NEUTRAL_ZONE",
+      "executionIntent": "hold",
+      "opportunityRange": { "low": 52.0, "high": 56.5 },
+      "reduceRange": { "low": 70.0, "high": 76.0 },
+      "invalidation": 49.5,
+      "reasons": {
+        "supporting": [
+          "Daily trend is flat but intact above the 200-session average."
+        ],
+        "limiting": [
+          "Options-derived inputs were unavailable this run, so confidence is reduced."
+        ]
+      },
+      "dataQuality": { "state": "partial" }
+    },
+    "long": {
+      "action": "accumulate",
+      "confidence": 58,
+      "priceState": "IN_OPPORTUNITY_ZONE",
+      "executionIntent": "add",
+      "opportunityRange": { "low": 57.0, "high": 63.5 },
+      "reduceRange": { "low": 82.0, "high": 90.0 },
+      "invalidation": 54.0,
+      "reasons": {
+        "supporting": [
+          "Weekly price sits in a confluence of the 200-week average and a completed retracement.",
+          "Drawdown from the 252-session high is in the lower quintile of its own five-year range."
+        ],
+        "limiting": [
+          "Weekly volume confirmation is absent, so this is accumulate rather than buy."
+        ]
+      },
+      "dataQuality": { "state": "complete" }
+    }
+  }
+}

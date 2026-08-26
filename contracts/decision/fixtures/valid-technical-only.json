@@ -1,0 +1,67 @@
+{
+  "contractVersion": "decision.v1",
+  "ticker": "MU",
+  "generatedAt": "2026-08-26T20:05:00Z",
+  "producer": {
+    "id": "stock-decision-dashboard",
+    "engineVersion": "v1"
+  },
+  "currentPrice": 142.85,
+  "horizons": {
+    "short": {
+      "action": "buy",
+      "confidence": 68,
+      "priceState": "IN_OPPORTUNITY_ZONE",
+      "executionIntent": "enter",
+      "opportunityRange": { "low": 138.0, "high": 146.0 },
+      "reduceRange": { "low": 165.0, "high": 174.0 },
+      "invalidation": 133.5,
+      "reasons": {
+        "supporting": [
+          "4H price is inside a cross-category confluence of Fibonacci and confirmed swing lows.",
+          "OBV is making higher lows while price holds the band."
+        ],
+        "limiting": [
+          "ATR has expanded above its 21-session mean, so position risk is elevated."
+        ]
+      },
+      "dataQuality": { "state": "complete" }
+    },
+    "mid": {
+      "action": "hold",
+      "confidence": 44,
+      "priceState": "NEAR_OPPORTUNITY_ZONE",
+      "executionIntent": "hold",
+      "opportunityRange": { "low": 128.0, "high": 136.0 },
+      "reduceRange": { "low": 170.0, "high": 182.0 },
+      "invalidation": 124.0,
+      "reasons": {
+        "supporting": [
+          "Daily direction is positive with the 50-session average rising."
+        ],
+        "limiting": [
+          "Price is near but not inside the opportunity band; proximity alone is not an entry.",
+          "Daily MACD histogram is positive but shrinking."
+        ]
+      },
+      "dataQuality": { "state": "complete" }
+    },
+    "long": {
+      "action": "hold",
+      "confidence": 31,
+      "priceState": "NEUTRAL_ZONE",
+      "executionIntent": "hold",
+      "opportunityRange": { "low": 96.0, "high": 112.0 },
+      "reduceRange": { "low": 168.0, "high": 186.0 },
+      "invalidation": 92.0,
+      "reasons": {
+        "supporting": [],
+        "limiting": [
+          "Weekly bars form no confirmed swing, so long structure falls back to daily.",
+          "Price sits in the neutral band between both weekly zones."
+        ]
+      },
+      "dataQuality": { "state": "partial" }
+    }
+  }
+}
