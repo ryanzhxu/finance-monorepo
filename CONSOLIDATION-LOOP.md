@@ -90,29 +90,31 @@ Work top to bottom. Tick off as you go.
 
 - [x] **1. `contracts/decision/README.md`** — what the contract is, who produces it, who consumes
       it, the versioning rule. Read `contracts/portfolio-research/README.md` first and match tone.
-- [ ] **2. `schema/decision.v1.schema.json`** — the response envelope. Required fields:
-      `contract_version`, `ticker`, `generated_at`, `horizons` (an object keyed `short`/`mid`/`long`).
-- [ ] **3. Horizon object** — `action`, `confidence`, `price_state`, `execution_intent`,
-      `opportunity_range`, `reduce_range`, `invalidation`, `reasons`, `data_quality`.
+- [ ] **2. `schema/decision.schema.json`** — the response envelope. Required fields:
+      `contractVersion`, `ticker`, `generatedAt`, `horizons` (an object keyed `short`/`mid`/`long`).
+- [ ] **3. Horizon object** — `action`, `confidence`, `priceState`, `executionIntent`,
+      `opportunityRange`, `reduceRange`, `invalidation`, `reasons`, `dataQuality`.
       Vocabularies below. Every price field nullable — missing data must stay missing.
 - [ ] **4. Valid fixtures** — at minimum: full three-horizon response; a horizon with an
       unavailable landscape; a technical-only producer (no fundamentals) so Vincent's engine fits.
 - [ ] **5. Invalid fixtures** — wrong action for the price state (e.g. `buy` while
       `IN_REDUCE_ZONE`); overlapping opportunity/reduce ranges; unknown enum value; missing
       required field; unsupported version.
-- [ ] **6. `tests/test_decision_contract.py`** — validate every fixture against the schema, and
+- [ ] **6. `tests/test_contract.py`** — validate every fixture against the schema, and
       assert the invalid ones fail *for the stated reason*. Mirror the portfolio-research tests.
-- [ ] **7. Cross-engine invariants as tests** — `opportunity_range.high < reduce_range.low`;
+- [ ] **7. Cross-engine invariants as tests** — `opportunityRange.high < reduceRange.low`;
       action must be legal for its price state; `short`/`mid`/`long` independent, never averaged.
 - [ ] **8. Producer notes** — a short section in the README mapping each engine's native output
       onto the contract, so the mapping work is obvious later.
 
 ### Vocabularies (fixed — do not invent new members)
 
+**camelCase**, matching `contracts/portfolio-research/` and the JS producer. Settled cycle 1.
+
 ```
 action           strong_buy | buy | accumulate | hold | trim | sell | avoid
-execution_intent enter | add | hold | reduce | exit | avoid
-price_state      IN_OPPORTUNITY_ZONE | NEAR_OPPORTUNITY_ZONE | NEUTRAL_ZONE |
+executionIntent  enter | add | hold | reduce | exit | avoid
+priceState       IN_OPPORTUNITY_ZONE | NEAR_OPPORTUNITY_ZONE | NEUTRAL_ZONE |
                  NEAR_REDUCE_ZONE | IN_REDUCE_ZONE | BEYOND_REDUCE_ZONE |
                  BREAKDOWN_ZONE | INVALID_LANDSCAPE
 horizon          short | mid | long
