@@ -92,7 +92,7 @@ Work top to bottom. Tick off as you go.
       it, the versioning rule. Read `contracts/portfolio-research/README.md` first and match tone.
 - [x] **2. `schema/decision.schema.json`** — the response envelope. Required fields:
       `contractVersion`, `ticker`, `generatedAt`, `horizons` (an object keyed `short`/`mid`/`long`).
-- [ ] **3. Horizon object** — `action`, `confidence`, `priceState`, `executionIntent`,
+- [x] **3. Horizon object** — `action`, `confidence`, `priceState`, `executionIntent`,
       `opportunityRange`, `reduceRange`, `invalidation`, `reasons`, `dataQuality`.
       Vocabularies below. Every price field nullable — missing data must stay missing.
 - [ ] **4. Valid fixtures** — at minimum: full three-horizon response; a horizon with an
@@ -210,6 +210,38 @@ Newest at the bottom. Append, never rewrite history.
   single most valuable thing this contract enforces. Re-run the same inline verification style
   as cycle 2 before committing.
 
+### Cycle 3 — 10:43 PDT
+- **Tests before / after:** 138 / 138
+- **Did:** Plan item 3 — defined `$defs.horizonDecision` and encoded the price-state action
+  legality table.
+- **Commit:** `3bdd636`
+- **Changed vs last cycle:** the contract now enforces its central rule. `buy` or `hold` inside
+  `IN_REDUCE_ZONE` is a validation failure, and `INVALID_LANDSCAPE` additionally forces null
+  ranges so a producer cannot emit fake-precision bands while claiming no landscape. All nine
+  horizon fields are required including the nullable ones, so a consumer can tell "no zone" from
+  "field not implemented". Verified exhaustively: all 56 priceState x action combinations behave,
+  plus 9 edge cases (confidence bounds, reason caps, unknown fields, missing nullable key).
+- **Uncertain about:**
+  (a) **Two invariants are NOT schema-enforced and must land in item 7 tests**, or they will be
+  silently unchecked: `priceRange.low < priceRange.high`, and
+  `opportunityRange.high < reduceRange.low`. JSON Schema draft 2020-12 cannot compare two
+  numeric fields. The schema descriptions say so, but a description enforces nothing.
+  (b) `executionIntent` is enum-checked but NOT gated against `action`. A payload can legally
+  say `action: sell` with `executionIntent: enter`. The Plan's legality table covers action
+  only, so gating the pair would have been inventing a rule neither engine has written down.
+  Logged as open question 9 — it probably should be gated, but by agreement, not by my guess.
+  (c) `dataQuality.state` reuses portfolio-research's complete/partial/unavailable rather than a
+  new vocabulary. `unavailable` is documented as expecting `INVALID_LANDSCAPE` but that pairing
+  is not enforced either — another candidate for item 7.
+- **Next cycle should:** do Plan item 4 — write the valid fixtures under
+  `contracts/decision/fixtures/`. At minimum three files: `valid-three-horizon.json` (a full
+  short/mid/long payload with real-looking ranges), `valid-unavailable-landscape.json` (one
+  horizon at `INVALID_LANDSCAPE` with null ranges and `dataQuality.state: unavailable`), and
+  `valid-technical-only.json` (producer id `stock-decision-dashboard`, no fundamentals anywhere,
+  proving the contract fits an engine that forbids them). Use the filenames already listed in
+  `contracts/decision/README.md` under Layout. Validate each against the schema before
+  committing. Do NOT write the invalid fixtures — that is item 5.
+
 ---
 
 ## Open questions for Ryan
@@ -233,3 +265,9 @@ Do not act on these. Log more as you find them.
    Both are justified in the cycle log; say if you want either dropped.
 8. Rejected a top-level `status` field in cycle 2, on the grounds that per-horizon `dataQuality`
    covers it. Worth a second opinion once item 3 defines `dataQuality`.
+9. `executionIntent` is not gated against `action` (cycle 3). `action: sell` with
+   `executionIntent: enter` currently validates. The legality table you seeded covers action
+   only. Worth agreeing a pairing rule with Vincent rather than inventing one.
+10. Two numeric invariants cannot live in JSON Schema (`low < high`, and
+   `opportunityRange.high < reduceRange.low`). They must be enforced in the item 7 tests or
+   they are unchecked in practice.
