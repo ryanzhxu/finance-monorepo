@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-monorepo.internal/contracts/decision/v1/decision.schema.json",
+  "title": "decision.v1 payload",
+  "description": "A decision emitted by a stock decision engine for a single ticker, across three independent horizons. This is a data contract, not a model: it carries the decision and its price context, never the inputs that produced it. Producers disagree about permissible inputs (one is technical-only by rule, the other blends fundamentals) and that disagreement is deliberate on both sides, so no field here may require an input only one producer can supply. Short, mid and long are fully independent; a consumer must never average or vote across them, and this contract deliberately expresses no overall action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "ticker", "generatedAt", "producer", "currentPrice", "horizons"],
+  "properties": {
+    "contractVersion": {
+      "const": "decision.v1",
+      "description": "Exact match. Any other value is rejected outright, never best-effort parsed as v1."
+    },
+    "ticker": {
+      "type": "string",
+      "pattern": "^[A-Z]{1,10}([.-][A-Z]{1,4})?$",
+      "description": "Normalized listed-equity symbol. Same pattern as contracts/portfolio-research, allowing plain tickers and common share-class suffixes (e.g. BRK.B)."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "ISO 8601 UTC timestamp, Z-suffixed. When the producer computed this decision, not when it was transmitted."
+    },
+    "producer": { "$ref": "#/$defs/producer" },
+    "currentPrice": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "The price the producer evaluated against, as of generatedAt. Lives in the envelope rather than per-horizon because it is one value per snapshot: the horizons differ in their ranges, not in the price they are compared to. Null only when the producer had no usable quote, in which case every horizon must report an unusable landscape."
+    },
+    "horizons": { "$ref": "#/$defs/horizons" }
+  },
+  "$defs": {
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "description": "Which engine emitted this decision. Required because this contract has two producers, and the consuming agreement layer must be able to tell them apart to report concurrence or disagreement.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 64,
+          "description": "Stable producer slug. Not a closed enum, so a third engine does not require a contract version bump; the pattern prevents casing and separator drift (analyst-service, never Analyst_Service) so the consumer can compare ids reliably. Known values today: 'analyst-service' (this repo) and 'stock-decision-dashboard'."
+        },
+        "engineVersion": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Producer-defined model or build version, for attributing a change in behaviour to a change in the engine. Optional: a producer with no version concept emits null rather than a placeholder."
+        }
+      }
+    },
+    "horizons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["short", "mid", "long"],
+      "description": "All three horizons are always present and always independent. A producer that cannot evaluate a horizon still emits it, reporting an unusable landscape, rather than omitting the key: a missing horizon and a horizon with no opinion are different states, and only the second is honest.",
+      "properties": {
+        "short": { "$ref": "#/$defs/horizonDecision" },
+        "mid": { "$ref": "#/$defs/horizonDecision" },
+        "long": { "$ref": "#/$defs/horizonDecision" }
+      }
+    },
+    "horizonDecision": {
+      "type": "object",
+      "description": "PLACEHOLDER. Plan item 3 defines this object: action, confidence, priceState, executionIntent, opportunityRange, reduceRange, invalidation, reasons, dataQuality, plus the price-state action legality rule. Intentionally unconstrained for now (no additionalProperties: false, no required list) so the envelope is testable before the horizon object exists. Fixtures written against this placeholder validate loosely until item 3 lands."
+    }
+  }
+}
