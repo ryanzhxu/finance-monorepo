@@ -95,7 +95,7 @@ Work top to bottom. Tick off as you go.
 - [x] **3. Horizon object** — `action`, `confidence`, `priceState`, `executionIntent`,
       `opportunityRange`, `reduceRange`, `invalidation`, `reasons`, `dataQuality`.
       Vocabularies below. Every price field nullable — missing data must stay missing.
-- [ ] **4. Valid fixtures** — at minimum: full three-horizon response; a horizon with an
+- [x] **4. Valid fixtures** — at minimum: full three-horizon response; a horizon with an
       unavailable landscape; a technical-only producer (no fundamentals) so Vincent's engine fits.
 - [ ] **5. Invalid fixtures** — wrong action for the price state (e.g. `buy` while
       `IN_REDUCE_ZONE`); overlapping opportunity/reduce ranges; unknown enum value; missing
@@ -242,6 +242,47 @@ Newest at the bottom. Append, never rewrite history.
   `contracts/decision/README.md` under Layout. Validate each against the schema before
   committing. Do NOT write the invalid fixtures — that is item 5.
 
+### Cycle 4 — 12:03 PDT
+- **Tests before / after:** 138 / 138
+- **Did:** Plan item 4 — wrote the three valid fixtures.
+- **Commit:** `2a1a8d3`
+- **Changed vs last cycle:** the contract now has worked examples.
+  `valid-three-horizon.json` (NVDA, dashboard) deliberately emits **buy / hold / trim** across
+  short / mid / long on one ticker — a concrete demonstration of why averaging the horizons
+  would be wrong. `valid-unavailable-landscape.json` (SBUX, analyst-service) shows honest
+  degradation: short at `INVALID_LANDSCAPE` with null ranges and `dataQuality.state:
+  unavailable`, mid `partial`, long `complete`. `valid-technical-only.json` (MU, dashboard)
+  carries technical reasons only.
+  Verified beyond schema validation: `low < high` and `opportunityRange.high < reduceRange.low`
+  hold on all 9 horizons, `currentPrice` is coherent with every declared `priceState`, and a
+  keyword scan finds no fundamentals vocabulary in the technical-only fixture.
+- **Uncertain about:**
+  (a) I hand-verified the coherence invariants with a throwaway script this cycle. **That script
+  was not kept.** Item 7 must re-implement those checks as committed tests or the guarantee dies
+  with this cycle. The specific checks: `low < high`; `opportunityRange.high < reduceRange.low`;
+  `INVALID_LANDSCAPE` implies null ranges; `IN_OPPORTUNITY_ZONE` implies price inside the
+  opportunity band; `IN_REDUCE_ZONE` implies price inside the reduce band; the three neutral and
+  near states imply `opportunityRange.high < price < reduceRange.low`.
+  (b) `valid-unavailable-landscape.json` shows `analyst-service` emitting a real landscape on
+  mid and long. Per open question 1 it **cannot do that today** — it has no price-state
+  classifier at all. The fixture is aspirational, describing the post-Phase-3 target rather than
+  current behaviour. That is defensible for a contract fixture but a reader could mistake it for
+  a capability claim. Say if you want it relabelled.
+  (c) The near-zone boundary is producer-defined and ATR-normalized, so the coherence check can
+  only assert `NEAR_*` sits somewhere in the neutral band, not that it is genuinely "near".
+  That is unfalsifiable from the payload alone and probably should stay that way.
+- **Next cycle should:** do Plan item 5 — write the invalid fixtures under
+  `contracts/decision/fixtures/`, using the filenames already listed in
+  `contracts/decision/README.md` under Layout: `invalid-action-for-price-state.json` (buy while
+  `IN_REDUCE_ZONE`), `invalid-overlapping-ranges.json` (`opportunityRange.high >=
+  reduceRange.low`), `invalid-unknown-enum.json`, `invalid-missing-required-field.json`,
+  `invalid-unsupported-version.json`. Each must fail for exactly one stated reason — derive each
+  from a copy of `valid-three-horizon.json` with a single mutation, so the reason is unambiguous.
+  Note `invalid-overlapping-ranges.json` will NOT fail schema validation (JSON Schema cannot
+  compare the two numbers); it is the fixture that proves item 7's test is doing real work, so
+  write it and expect it to pass the schema and fail the invariant test. Do NOT write the test
+  file — that is item 6.
+
 ---
 
 ## Open questions for Ryan
@@ -271,3 +312,6 @@ Do not act on these. Log more as you find them.
 10. Two numeric invariants cannot live in JSON Schema (`low < high`, and
    `opportunityRange.high < reduceRange.low`). They must be enforced in the item 7 tests or
    they are unchecked in practice.
+11. `valid-unavailable-landscape.json` shows `analyst-service` emitting real opportunity and
+   reduce bands on two horizons. It cannot do that until Phase 3 ports price-state
+   classification. The fixture describes the target, not today. Relabel if that is misleading.
