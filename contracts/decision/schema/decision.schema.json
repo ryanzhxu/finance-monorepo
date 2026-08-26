@@ -62,9 +62,127 @@
         "long": { "$ref": "#/$defs/horizonDecision" }
       }
     },
+    "priceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "high"],
+      "description": "An inclusive price band. JSON Schema cannot express low < high, nor opportunityRange.high < reduceRange.low, because both are cross-field numeric comparisons; those two invariants are enforced by contracts/decision/tests, not here.",
+      "properties": {
+        "low": { "type": "number", "exclusiveMinimum": 0 },
+        "high": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
     "horizonDecision": {
       "type": "object",
-      "description": "PLACEHOLDER. Plan item 3 defines this object: action, confidence, priceState, executionIntent, opportunityRange, reduceRange, invalidation, reasons, dataQuality, plus the price-state action legality rule. Intentionally unconstrained for now (no additionalProperties: false, no required list) so the envelope is testable before the horizon object exists. Fixtures written against this placeholder validate loosely until item 3 lands."
+      "additionalProperties": false,
+      "required": ["action", "confidence", "priceState", "executionIntent", "opportunityRange", "reduceRange", "invalidation", "reasons", "dataQuality"],
+      "description": "One horizon's complete decision. Every field is required, including the nullable ones: a producer must state that it has no opportunity range rather than omit the key, so a consumer can distinguish 'no zone' from 'field not implemented'.",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["strong_buy", "buy", "accumulate", "hold", "trim", "sell", "avoid"],
+          "description": "What to do. Constrained by priceState via the allOf rules below."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Support consistency and stability of the decision, NOT a calibrated probability. A consumer must not read this as a likelihood of the action being profitable, and must not compare it across producers as if both were calibrated."
+        },
+        "priceState": {
+          "type": "string",
+          "enum": [
+            "IN_OPPORTUNITY_ZONE", "NEAR_OPPORTUNITY_ZONE", "NEUTRAL_ZONE",
+            "NEAR_REDUCE_ZONE", "IN_REDUCE_ZONE", "BEYOND_REDUCE_ZONE",
+            "BREAKDOWN_ZONE", "INVALID_LANDSCAPE"
+          ],
+          "description": "Where currentPrice sits relative to this horizon's price structure. This is the gate on action, not a decoration computed after it."
+        },
+        "executionIntent": {
+          "type": "string",
+          "enum": ["enter", "add", "hold", "reduce", "exit", "avoid"],
+          "description": "How to act on the position, as distinct from the directional call. Not gated against action by this schema; see contracts/decision/README.md open questions."
+        },
+        "opportunityRange": {
+          "anyOf": [{ "$ref": "#/$defs/priceRange" }, { "type": "null" }],
+          "description": "The band in which a positive action is permitted. Null when no usable zone could be formed. Never widen this to make a decision expressible: an absent zone is an honest answer."
+        },
+        "reduceRange": {
+          "anyOf": [{ "$ref": "#/$defs/priceRange" }, { "type": "null" }],
+          "description": "The band in which trimming or selling is permitted. Null when no usable zone could be formed."
+        },
+        "invalidation": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Price at which this horizon's thesis is structurally wrong. Null when the producer cannot derive one. Not a stop-loss recommendation and not position sizing."
+        },
+        "reasons": { "$ref": "#/$defs/reasons" },
+        "dataQuality": { "$ref": "#/$defs/dataQuality" }
+      },
+      "allOf": [
+        {
+          "description": "IN_OPPORTUNITY_ZONE permits only the positive action family. Being in the zone never automatically creates a buy; the producer chooses intensity within the family.",
+          "if": { "properties": { "priceState": { "const": "IN_OPPORTUNITY_ZONE" } }, "required": ["priceState"] },
+          "then": { "properties": { "action": { "enum": ["strong_buy", "buy", "accumulate"] } } }
+        },
+        {
+          "description": "The neutral band and both near-zones are informational only. They may shape reasons and confidence but can never trigger an early entry or an early reduction.",
+          "if": { "properties": { "priceState": { "enum": ["NEAR_OPPORTUNITY_ZONE", "NEUTRAL_ZONE", "NEAR_REDUCE_ZONE"] } }, "required": ["priceState"] },
+          "then": { "properties": { "action": { "const": "hold" } } }
+        },
+        {
+          "description": "Inside or beyond the reduce band, every positive action is prohibited and so is hold. A producer that wants hold here must rebuild its landscape rather than add an exception.",
+          "if": { "properties": { "priceState": { "enum": ["IN_REDUCE_ZONE", "BEYOND_REDUCE_ZONE"] } }, "required": ["priceState"] },
+          "then": { "properties": { "action": { "enum": ["trim", "sell"] } } }
+        },
+        {
+          "description": "A confirmed breakdown permits an exit or avoidance. Price being high alone is not a breakdown.",
+          "if": { "properties": { "priceState": { "const": "BREAKDOWN_ZONE" } }, "required": ["priceState"] },
+          "then": { "properties": { "action": { "enum": ["sell", "avoid"] } } }
+        },
+        {
+          "description": "With no usable landscape the producer may only decline to act. It must also emit null ranges rather than fabricate fake-precision bands.",
+          "if": { "properties": { "priceState": { "const": "INVALID_LANDSCAPE" } }, "required": ["priceState"] },
+          "then": {
+            "properties": {
+              "action": { "enum": ["hold", "avoid"] },
+              "opportunityRange": { "type": "null" },
+              "reduceRange": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "reasons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supporting", "limiting"],
+      "description": "Bounded free text. Both producers emit prose reasons today, so a closed reason-code enum would be invented rather than derived; revisit once real strings from both engines can be compared. Both arrays are required and may be empty.",
+      "properties": {
+        "supporting": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+        },
+        "limiting": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+        }
+      }
+    },
+    "dataQuality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "description": "Whether this horizon's inputs were good enough to trust the decision. Vocabulary reuses contracts/portfolio-research's status values rather than inventing a parallel set.",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["complete", "partial", "unavailable"],
+          "description": "'partial' means the decision stands on incomplete inputs and confidence should already reflect that. 'unavailable' means no decision could be formed, and priceState is expected to be INVALID_LANDSCAPE."
+        }
+      }
     }
   }
 }
