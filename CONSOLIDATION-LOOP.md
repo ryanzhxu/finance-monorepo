@@ -97,7 +97,7 @@ Work top to bottom. Tick off as you go.
       Vocabularies below. Every price field nullable — missing data must stay missing.
 - [x] **4. Valid fixtures** — at minimum: full three-horizon response; a horizon with an
       unavailable landscape; a technical-only producer (no fundamentals) so Vincent's engine fits.
-- [ ] **5. Invalid fixtures** — wrong action for the price state (e.g. `buy` while
+- [x] **5. Invalid fixtures** — wrong action for the price state (e.g. `buy` while
       `IN_REDUCE_ZONE`); overlapping opportunity/reduce ranges; unknown enum value; missing
       required field; unsupported version.
 - [ ] **6. `tests/test_contract.py`** — validate every fixture against the schema, and
@@ -282,6 +282,37 @@ Newest at the bottom. Append, never rewrite history.
   compare the two numbers); it is the fixture that proves item 7's test is doing real work, so
   write it and expect it to pass the schema and fail the invariant test. Do NOT write the test
   file — that is item 6.
+
+### Cycle 5 — 13:43 PDT
+- **Tests before / after:** 138 / 138
+- **Did:** Plan item 5 — wrote the five invalid fixtures.
+- **Commit:** `d09bf54`
+- **Changed vs last cycle:** every rule the contract claims to enforce now has a fixture that
+  violates it. Each file is `valid-three-horizon.json` with exactly one mutation, verified
+  programmatically to differ in exactly one field, so no fixture can pass for an accidental
+  second reason. Four fail schema validation at the exact expected `json_path`
+  (`$.horizons.long.action`, `$.horizons.short.executionIntent`, `$.horizons.mid`,
+  `$.contractVersion`). The fifth, `invalid-overlapping-ranges.json`, **passes schema and fails
+  only the invariant layer** — deliberate, and the reason it exists.
+- **Uncertain about:**
+  (a) **My first verification pass reported 3 of 5 fixtures as broken. The fixtures were fine;
+  my check was wrong.** I matched expected field names against jsonschema's error *messages*,
+  but jsonschema reports the offending *value* ("'buy' is not one of [...]"), never the field
+  name. Re-checked against `error.json_path` and all five passed. Lesson for item 6: **assert on
+  `json_path`, not on message text.** Message strings are also version-dependent and will drift.
+  (b) The invariant layer I keep re-writing inline is now needed by three cycles running. Item 6
+  or 7 must commit it as a real function; until then every cycle re-derives it and can re-derive
+  it differently.
+- **Next cycle should:** do Plan item 6 — write `contracts/decision/tests/test_contract.py`.
+  Read `contracts/portfolio-research/tests/test_contract.py` first and mirror it: a plain script
+  with a `FIXTURE_CASES` list, exit code 0 or 1, run via
+  `UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-project --with jsonschema python
+  contracts/decision/tests/test_contract.py`. This cycle covers **schema validation only**:
+  assert each of the 8 fixtures matches its expected valid/invalid outcome, and for the invalid
+  ones assert the single error lands at the expected `json_path`. Note that
+  `invalid-overlapping-ranges.json` must be marked schema-VALID here — its failure belongs to
+  item 7. Do NOT implement the invariant checks; that is item 7, and keeping them apart is what
+  proves the two layers are independent.
 
 ---
 
