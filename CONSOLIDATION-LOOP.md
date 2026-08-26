@@ -100,7 +100,7 @@ Work top to bottom. Tick off as you go.
 - [x] **5. Invalid fixtures** — wrong action for the price state (e.g. `buy` while
       `IN_REDUCE_ZONE`); overlapping opportunity/reduce ranges; unknown enum value; missing
       required field; unsupported version.
-- [ ] **6. `tests/test_contract.py`** — validate every fixture against the schema, and
+- [x] **6. `tests/test_contract.py`** — validate every fixture against the schema, and
       assert the invalid ones fail *for the stated reason*. Mirror the portfolio-research tests.
 - [ ] **7. Cross-engine invariants as tests** — `opportunityRange.high < reduceRange.low`;
       action must be legal for its price state; `short`/`mid`/`long` independent, never averaged.
@@ -314,6 +314,43 @@ Newest at the bottom. Append, never rewrite history.
   item 7. Do NOT implement the invariant checks; that is item 7, and keeping them apart is what
   proves the two layers are independent.
 
+### Cycle 6 — 15:03 PDT
+- **Tests before / after:** 138 / 138 (pytest). Contract test: **21 passed, exit 0**.
+- **Did:** Plan item 6 — wrote `contracts/decision/tests/test_contract.py`, schema layer only.
+- **Commit:** `2018db5`
+- **Changed vs last cycle:** the contract is now self-checking rather than checked by
+  hand-written throwaway scripts. Four runners: all 8 fixtures match their expected outcome;
+  each invalid fixture fails **exactly once** at the exact mutated `json_path`; no fixture on
+  disk can go untested; filename prefixes must match intent. Asserts on `json_path`, never on
+  message text, per cycle 5's lesson.
+  **Verified the test is falsifiable** — I broke it three ways (orphan fixture on disk, an
+  invalid fixture made valid, a second mutation added so the error count stops being 1) and each
+  drove exit 1. Then restored; `git diff` on the fixtures is empty.
+- **Uncertain about:**
+  (a) The **invariant layer still does not exist as committed code.** This is now the fourth
+  cycle in a row that has re-derived it inline. Item 7 is the last chance: if it lands anywhere
+  other than a committed function, `invalid-overlapping-ranges.json` is a fixture that nothing
+  rejects, and the contract silently permits overlapping zones.
+  (b) `check_invalid_fixtures_are_named_invalid` hardcodes `invalid-overlapping-ranges.json` as
+  its one schema-valid exception. If item 7 adds more invariant-only fixtures, that set must
+  grow or the runner will report a false failure. It is a `schema_valid_exceptions` set at the
+  top of the function.
+  (c) The test does not check that the schema's enums still match the vocabularies documented in
+  `contracts/decision/README.md` and in this file's Plan. Schema and prose can drift apart
+  silently. I judged that out of scope for item 6; worth adding in item 7 or 8.
+- **Next cycle should:** do Plan item 7 — add the cross-engine invariant checks. Put them in a
+  **new file**, `contracts/decision/tests/test_invariants.py`, not in `test_contract.py`, so the
+  two layers stay independently runnable and it stays obvious which layer rejects what. Same
+  script shape and exit-code convention. It must implement, as a committed function:
+  `priceRange.low < priceRange.high`; `opportunityRange.high < reduceRange.low`;
+  `INVALID_LANDSCAPE` implies both ranges null; `IN_OPPORTUNITY_ZONE` implies
+  `opportunityRange.low <= currentPrice <= opportunityRange.high`; `IN_REDUCE_ZONE` implies
+  price inside `reduceRange`; `NEUTRAL_ZONE` / `NEAR_OPPORTUNITY_ZONE` / `NEAR_REDUCE_ZONE`
+  imply `opportunityRange.high < currentPrice < reduceRange.low`. Assert the three
+  `valid-*.json` fixtures pass all of it and that `invalid-overlapping-ranges.json` is rejected
+  by exactly the `opportunityRange.high < reduceRange.low` rule. Verify the new file is
+  falsifiable the same way cycle 6 did.
+
 ---
 
 ## Open questions for Ryan
@@ -346,3 +383,6 @@ Do not act on these. Log more as you find them.
 11. `valid-unavailable-landscape.json` shows `analyst-service` emitting real opportunity and
    reduce bands on two horizons. It cannot do that until Phase 3 ports price-state
    classification. The fixture describes the target, not today. Relabel if that is misleading.
+12. Contract tests are now two commands, not one. Schema layer:
+   `uv run --no-project --with jsonschema python contracts/decision/tests/test_contract.py`.
+   Item 7 adds a second for the invariant layer. Worth a Makefile target so neither is forgotten.
