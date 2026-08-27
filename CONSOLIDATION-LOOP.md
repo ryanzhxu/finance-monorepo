@@ -1,6 +1,6 @@
 # decision.v1 — unattended build loop
 
-**Started:** 2026-08-26 07:40 PDT · **Runs until:** 22:43 tonight · **Cadence:** ~90 min
+**Ran:** 2026-08-26, 07:40-22:43 PDT · **11 cycles** · **Status: complete, loop ended**
 **Owner:** finance-monorepo-d2 (Claude). Ryan is AFK — this file is the handoff.
 
 ---
@@ -496,6 +496,17 @@ Newest at the bottom. Append, never rewrite history.
   last — the cron is pinned to 26 Aug, so the loop ends after it. If Ryan has not answered by
   then, leave the branch exactly as it is; it is a clean, reviewable unit of work and does not
   need a tidy-up commit.
+
+### Cycle 11 — 22:43 PDT — HOLD, no change — FINAL TICK
+- 138 pytest / 21 contract / 12 invariant, all green. Worktree clean, 20 commits on the branch,
+  main worktree still `a480abe`. Nothing built.
+- **This is the last tick.** Both cron expressions are pinned to `26 8`, so the loop ends here.
+  The branch is left exactly as it stands: a complete, reviewable unit of work. No tidy-up
+  commit was made, because there was nothing untidy.
+- **If this loop is ever restarted:** do not resume the plan. It is finished. Start by getting an
+  answer to blocker 1 in the HANDOVER at the top of this file — Vincent has never reviewed the
+  contract, and every vocabulary in it was read off his repo rather than agreed with him.
+  Building a mapping on an unreviewed contract is the one mistake that would waste all of it.
 
 ---
 
