@@ -104,7 +104,7 @@ Work top to bottom. Tick off as you go.
       assert the invalid ones fail *for the stated reason*. Mirror the portfolio-research tests.
 - [x] **7. Cross-engine invariants as tests** — `opportunityRange.high < reduceRange.low`;
       action must be legal for its price state; `short`/`mid`/`long` independent, never averaged.
-- [ ] **8. Producer notes** — a short section in the README mapping each engine's native output
+- [x] **8. Producer notes** — a short section in the README mapping each engine's native output
       onto the contract, so the mapping work is obvious later.
 
 ### Vocabularies (fixed — do not invent new members)
@@ -391,6 +391,48 @@ Newest at the bottom. Append, never rewrite history.
   After item 8 the plan is complete; a later cycle should then re-read this whole file and write
   a short handover summary for Ryan at the top rather than starting new work.
 
+### Cycle 8 — 18:03 PDT — PLAN COMPLETE
+- **Tests before / after:** 138 / 138 (pytest). Contract: 21 passed. Invariants: 12 passed.
+- **Did:** Plan item 8 — verified the producer mapping against the real code. **All 8 plan items
+  are now done.**
+- **Commit:** `1e8fefe`
+- **Changed vs last cycle:** cycle 1 wrote the `analyst_service` mapping column from
+  recollection. Reading `entry_engine.py`, `confluence.py`, `shared/enums.py` and
+  `shared/models.py` (read-only) found six things wrong with it:
+  1. **`invalidation` does have a source** — `EntryBlock.invalidation_level`, computed as
+     `min(support2, ma50 - atr)`. Cycle 1 omitted the row entirely.
+  2. **`confidence` is 0.0-1.0, not 0-100.** Needs scaling, and it already folds data quality in
+     via `majority_fraction * (data_quality_score / 100)`, so copying it across without
+     rescaling would silently divide every confidence by 100.
+  3. **`executionIntent` maps only partially.** `SHORT_TERM_TRADE_ONLY` and
+     `LONG_TERM_CANDIDATE` are horizon-suitability judgments, not execution intents, and map to
+     nothing.
+  4. **`accumulate` and `trim` have no source at all** in this repo.
+  5. **`Horizon` has four members** (`1D`, `1W`, `2-4W`, `3-6M`) and is a request parameter, so
+     `horizons` is a shape mismatch, not a rename.
+  6. **"`priceState` has no producer" was too strong.** `compute_entry` already derives three of
+     the eight states as unnamed booleans: `inside_zone` is exactly `IN_OPPORTUNITY_ZONE`,
+     `is_overextended` is close to an extended state, and `current_price < invalidation_level`
+     is already computed as `invalidation_breached`. The five remaining states all need a reduce
+     band, which does not exist. **Phase 3 is smaller than it looked on the opportunity side and
+     unavoidable on the reduce side.**
+  Also corrected the README's claim that the schema enforces zone separation — the invariant
+  layer does — and fixed the Layout block, which never listed `test_invariants.py`.
+- **Uncertain about:**
+  (a) **`schema/error.schema.json` was never built.** The README Layout has listed it since
+  cycle 1 and no plan item ever covered it, so eight cycles ran without noticing the plan did
+  not match its own layout. Now marked unbuilt in the Status list. It may genuinely not be
+  needed — this contract is a payload shape, not an endpoint response.
+  (b) The mapping table is desk analysis. Nothing executes it. A real mapping function with
+  round-trip tests would be the honest next step, but that means writing code under
+  `analyst_service/`, which this loop is forbidden to touch.
+- **Next cycle should:** **not start new work.** The plan is complete. Re-read this whole file
+  and write a short handover section at the very top of it, under the header, summarising for
+  Ryan: what exists now, the two commands to run it, the count of open questions, and the three
+  or four decisions that actually block Phase 3. Keep it under 30 lines — he will read the top
+  of this file first and the cycle log second. Do not modify anything under
+  `contracts/decision/`; that work is finished and should be reviewed before it is extended.
+
 ---
 
 ## Open questions for Ryan
@@ -432,3 +474,8 @@ Do not act on these. Log more as you find them.
    `currentPrice < opportunityRange.low`. Not added without your say-so.
 14. The schema says a null `currentPrice` implies every horizon is an unusable landscape.
    Nothing enforces it. Worth a seventh invariant rule.
+15. `schema/error.schema.json` is listed in the README layout but was never built and never
+   planned. Decide whether this contract needs an error envelope at all.
+16. `Recommendation.confidence` is 0.0-1.0 while `decision.v1` uses 0-100. Whoever writes the
+   mapping must rescale. This is the kind of thing that silently produces confidence=0.7
+   instead of 70 and nobody notices.
