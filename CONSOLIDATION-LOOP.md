@@ -3,6 +3,46 @@
 **Started:** 2026-08-26 07:40 PDT · **Runs until:** 22:43 tonight · **Cadence:** ~90 min
 **Owner:** finance-monorepo-d2 (Claude). Ryan is AFK — this file is the handoff.
 
+---
+
+## HANDOVER — read this first
+
+**Status: plan complete, 8 of 8 items done, across 9 cycles. Nothing is half-built.**
+
+`contracts/decision/` now holds `decision.v1`: a README, one JSON Schema, 8 fixtures (3 valid,
+5 invalid), and two independent test layers. Nothing outside `contracts/decision/` was touched —
+your main worktree sat at `a480abe` untouched the whole time.
+
+```bash
+cd ~/Developer/finance-monorepo-consolidation
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-project --with jsonschema \
+    python contracts/decision/tests/test_contract.py     # 21 checks
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-project \
+    python contracts/decision/tests/test_invariants.py   # 12 checks
+```
+
+Both were verified *falsifiable* — deliberately broken, confirmed to exit 1, then restored.
+The pytest baseline never moved from 138.
+
+**The contract's one real teeth:** action legality is gated by price state, so `buy` inside a
+reduce zone fails validation. `analyst_service` has no such gate today and can emit BUY at any
+price.
+
+**16 open questions are logged at the bottom. Four actually block Phase 3:**
+
+1. **Vincent has never seen any of this.** Every vocabulary here was read off his `AGENTS.md`
+   and engine source, never agreed with him. Nothing should be mapped against it until he does.
+2. **`reduceRange` has no source in this repo.** Five of the eight price states depend on it.
+   That is the irreducible part of Phase 3 — the opportunity side is closer than I first said,
+   because `compute_entry` already computes `inside_zone`, which *is* `IN_OPPORTUNITY_ZONE`.
+3. **`confidence` is 0.0-1.0 here and 0-100 in the contract.** A mapping that forgets to rescale
+   produces 0.7 instead of 70 and looks plausible.
+4. **`accumulate` and `trim` have no source at all** in `analyst_service`.
+
+**What I did not do:** write any mapping code (that means touching `analyst_service/`, which the
+loop is forbidden to do), build `schema/error.schema.json` (never planned — see Q15), or push
+anything. Review before extending.
+
 > **You have no memory of any conversation.** Everything you need is in this file and on disk.
 > Read this file first, every cycle, before doing anything else.
 
@@ -432,6 +472,22 @@ Newest at the bottom. Append, never rewrite history.
   or four decisions that actually block Phase 3. Keep it under 30 lines — he will read the top
   of this file first and the cycle log second. Do not modify anything under
   `contracts/decision/`; that work is finished and should be reviewed before it is extended.
+
+### Cycle 9 — 19:43 PDT — handover written, no new build work
+- **Tests before / after:** 138 / 138. Contract: 21 passed. Invariants: 12 passed.
+- **Did:** wrote the HANDOVER section at the top of this file. No code changed.
+- **Commit:** see below
+- **Changed vs last cycle:** nothing under `contracts/decision/`, deliberately. The plan is
+  complete and the work should be reviewed before it is extended. Ryan reads the top of this
+  file first, so the summary belongs there rather than buried in the log.
+- **Uncertain about:** I picked 4 of the 16 open questions as Phase-3 blockers — Vincent has not
+  reviewed the contract, `reduceRange` has no source, the confidence scale mismatch, and the
+  missing `accumulate`/`trim` sources. That ranking is my judgment; the other 12 are real but
+  reversible or cosmetic.
+- **Next cycle should:** **hold.** Do not build. Run both contract layers and the falsifier,
+  confirm `git status` is clean and the main worktree is still at `a480abe`, append a one-line
+  "no change" entry, and stop. New work needs Ryan's review first — specifically an answer on
+  blocker 1, since everything downstream is shaped by a contract Vincent has never seen.
 
 ---
 
