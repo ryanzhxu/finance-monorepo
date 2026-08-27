@@ -102,7 +102,7 @@ Work top to bottom. Tick off as you go.
       required field; unsupported version.
 - [x] **6. `tests/test_contract.py`** — validate every fixture against the schema, and
       assert the invalid ones fail *for the stated reason*. Mirror the portfolio-research tests.
-- [ ] **7. Cross-engine invariants as tests** — `opportunityRange.high < reduceRange.low`;
+- [x] **7. Cross-engine invariants as tests** — `opportunityRange.high < reduceRange.low`;
       action must be legal for its price state; `short`/`mid`/`long` independent, never averaged.
 - [ ] **8. Producer notes** — a short section in the README mapping each engine's native output
       onto the contract, so the mapping work is obvious later.
@@ -351,6 +351,46 @@ Newest at the bottom. Append, never rewrite history.
   by exactly the `opportunityRange.high < reduceRange.low` rule. Verify the new file is
   falsifiable the same way cycle 6 did.
 
+### Cycle 7 — 16:43 PDT
+- **Tests before / after:** 138 / 138 (pytest). Contract: 21 passed. Invariants: **12 passed**.
+- **Did:** Plan item 7 — wrote `contracts/decision/tests/test_invariants.py`.
+- **Commit:** `4c94186`
+- **Changed vs last cycle:** **the invariant layer finally exists as committed code.** Cycles 4,
+  5 and 6 each re-derived these rules inline and threw them away, which meant the guarantee
+  never actually existed. `check_invariants()` is now their permanent home: range order, zone
+  separation, `INVALID_LANDSCAPE` implies null ranges, and the three price-position rules.
+  No third-party dependency — pure arithmetic, so this layer runs without `jsonschema`.
+  `invalid-overlapping-ranges.json` is schema-valid and rejected here by exactly one rule, which
+  is the working proof the two layers are independent rather than one restating the other.
+  Two extra runners beyond the brief: every rule must be reachable (a rule nothing can trigger
+  is dead code that looks like a guarantee), and a null `currentPrice` skips the position rules
+  while still enforcing the structural ones.
+  Verified falsifiable: disabling zone separation, inverting range order, and silently repairing
+  the overlap fixture each drive exit 1. Restored clean.
+- **Uncertain about:**
+  (a) **My first run failed, and the test was right.** My `ZONE_SEPARATION` isolation case used
+  `NEUTRAL_ZONE`, so it tripped `NEUTRAL_PRICE_BETWEEN` as well — with overlapping bands no
+  price can sit strictly between them, so that combination cannot isolate one rule. Rebuilt the
+  case on `BREAKDOWN_ZONE`, which has no position rule. The checker was correct throughout.
+  (b) **`BREAKDOWN_ZONE` and `BEYOND_REDUCE_ZONE` have no price-position rule at all.** That is
+  what made the fix above possible, and it is a real gap: a producer can declare
+  `BEYOND_REDUCE_ZONE` at any price whatsoever and nothing objects. The six rules I was given
+  did not include them. The natural additions are `BEYOND_REDUCE_ZONE` implies
+  `currentPrice > reduceRange.high`, and `BREAKDOWN_ZONE` implies
+  `currentPrice < opportunityRange.low`. I did not invent them — logged as open question 13.
+  (c) The schema says a null `currentPrice` means *every* horizon must report an unusable
+  landscape. Nothing enforces that. Candidate seventh rule; also not invented here.
+- **Next cycle should:** do Plan item 8 — the last item. Add a "Producers" mapping section to
+  `contracts/decision/README.md`. A draft table already exists there from cycle 1; this cycle
+  should verify it against the real code rather than leave it as recollection. Read
+  `analyst_service/core/entry_engine.py`, `analyst_service/core/confluence.py` and
+  `shared/enums.py` in this worktree and correct the left-hand column to name the actual
+  functions and enum members a mapping would have to bridge. Do **not** modify anything under
+  `analyst_service/` — read only. Also update the README Status checklist, which still shows
+  schema, fixtures and tests as unbuilt, and add the two test commands from open question 12.
+  After item 8 the plan is complete; a later cycle should then re-read this whole file and write
+  a short handover summary for Ryan at the top rather than starting new work.
+
 ---
 
 ## Open questions for Ryan
@@ -386,3 +426,9 @@ Do not act on these. Log more as you find them.
 12. Contract tests are now two commands, not one. Schema layer:
    `uv run --no-project --with jsonschema python contracts/decision/tests/test_contract.py`.
    Item 7 adds a second for the invariant layer. Worth a Makefile target so neither is forgotten.
+13. `BREAKDOWN_ZONE` and `BEYOND_REDUCE_ZONE` have no price-position invariant, so a producer
+   can declare either at any price and nothing objects. Suggested rules:
+   `BEYOND_REDUCE_ZONE` implies `currentPrice > reduceRange.high`; `BREAKDOWN_ZONE` implies
+   `currentPrice < opportunityRange.low`. Not added without your say-so.
+14. The schema says a null `currentPrice` implies every horizon is an unusable landscape.
+   Nothing enforces it. Worth a seventh invariant rule.
