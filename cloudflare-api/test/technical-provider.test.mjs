@@ -1,4 +1,4 @@
-import test from 'node:test'
+import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ACTION_TO_DIRECTION,
@@ -219,6 +219,20 @@ test('resolve returns nothing and no flags when no verdict is supplied', () => {
   assert.deepEqual(riskFlags, [])
 })
 
+test('resolve logs a warning on a contract violation, mirroring the Python service', () => {
+  // analyst_service's resolve_technical_verdict calls logger.warning on the same
+  // rejection; the Worker silently swallowing it would leave no trace in
+  // `wrangler tail`/Logpush when Vincent's engine sends a bad payload.
+  const warn = mock.method(console, 'warn', () => {})
+  try {
+    resolveTechnicalVerdict(payload({ action: 'buy', priceState: 'IN_REDUCE_ZONE' }))
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(warn.mock.calls[0].arguments[0], /Rejected external technical verdict/)
+  } finally {
+    warn.mock.restore()
+  }
+})
+
 // --- per-horizon verdicts ----------------------------------------------------
 
 test('resolve by horizon carries each horizon independently', () => {
@@ -260,6 +274,24 @@ test('resolve by horizon drops an invalid payload rather than failing the batch'
   const resolved = resolveTechnicalVerdictsByHorizon(payloads)
 
   assert.deepEqual(new Set(resolved.map((entry) => entry.horizon)), new Set(['1W', '3-6M']))
+})
+
+test('resolve by horizon logs a warning for the dropped horizon, mirroring the Python service', () => {
+  // analyst_service's resolve_technical_verdicts_by_horizon calls logger.warning
+  // per dropped horizon; the Worker silently swallowing it would leave no trace
+  // when Vincent's engine sends a bad payload for just one horizon.
+  const warn = mock.method(console, 'warn', () => {})
+  try {
+    const resolved = resolveTechnicalVerdictsByHorizon({
+      '1W': payload({ action: 'buy' }),
+      '2-4W': payload({ action: 'sell' }),
+    })
+    assert.deepEqual(resolved.map((entry) => entry.horizon), ['1W'])
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(warn.mock.calls[0].arguments[0], /Rejected external technical verdict for 2-4W, omitting/)
+  } finally {
+    warn.mock.restore()
+  }
 })
 
 test('SHORT_MID_LONG_HORIZONS excludes 1D, Ryan\'s day-trade horizon', () => {
