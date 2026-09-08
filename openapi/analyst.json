@@ -1370,6 +1370,51 @@
         "title": "MarketRegime",
         "type": "string"
       },
+      "PerformanceBucketModel": {
+        "properties": {
+          "average_forward_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Forward Return"
+          },
+          "decision_count": {
+            "title": "Decision Count",
+            "type": "integer"
+          },
+          "evaluated_count": {
+            "title": "Evaluated Count",
+            "type": "integer"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "evaluated_count",
+          "decision_count"
+        ],
+        "title": "PerformanceBucketModel",
+        "type": "object"
+      },
       "PortfolioContext": {
         "properties": {
           "avg_cost": {
@@ -2218,6 +2263,263 @@
         "title": "Technicals",
         "type": "object"
       },
+      "TrackRecordCoverageResponse": {
+        "properties": {
+          "distinct_symbols": {
+            "title": "Distinct Symbols",
+            "type": "integer"
+          },
+          "earliest": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "record_count": {
+            "title": "Record Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_count",
+          "distinct_symbols"
+        ],
+        "title": "TrackRecordCoverageResponse",
+        "type": "object"
+      },
+      "TrackRecordEntryModel": {
+        "description": "One past call, and what the market did after it.",
+        "properties": {
+          "benchmark_relative_returns": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Benchmark Relative Returns",
+            "type": "object"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "entry_assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Assessment"
+          },
+          "forward_returns": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Forward Returns",
+            "type": "object"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "price_at_call": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price At Call"
+          },
+          "skipped_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Reason"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "target_window": {
+            "title": "Target Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "generated_at",
+          "direction",
+          "confidence",
+          "target_window"
+        ],
+        "title": "TrackRecordEntryModel",
+        "type": "object"
+      },
+      "TrackRecordPerformanceResponse": {
+        "properties": {
+          "advisory": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Advisory",
+            "type": "array"
+          },
+          "average_benchmark_relative_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Benchmark Relative Return"
+          },
+          "average_forward_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Forward Return"
+          },
+          "by_confidence": {
+            "items": {
+              "$ref": "#/components/schemas/PerformanceBucketModel"
+            },
+            "title": "By Confidence",
+            "type": "array"
+          },
+          "by_direction": {
+            "items": {
+              "$ref": "#/components/schemas/PerformanceBucketModel"
+            },
+            "title": "By Direction",
+            "type": "array"
+          },
+          "by_entry_assessment": {
+            "items": {
+              "$ref": "#/components/schemas/PerformanceBucketModel"
+            },
+            "title": "By Entry Assessment",
+            "type": "array"
+          },
+          "decision_count": {
+            "title": "Decision Count",
+            "type": "integer"
+          },
+          "evaluated_count": {
+            "title": "Evaluated Count",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          }
+        },
+        "required": [
+          "generated_at",
+          "evaluated_count",
+          "decision_count"
+        ],
+        "title": "TrackRecordPerformanceResponse",
+        "type": "object"
+      },
+      "TrackRecordTimelineResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TrackRecordEntryModel"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "generated_at"
+        ],
+        "title": "TrackRecordTimelineResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -2493,6 +2795,145 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/history/coverage": {
+      "get": {
+        "operationId": "history_coverage_history_coverage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackRecordCoverageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "History Coverage"
+      }
+    },
+    "/history/performance": {
+      "get": {
+        "operationId": "history_performance_history_performance_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackRecordPerformanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History Performance"
+      }
+    },
+    "/history/{symbol}": {
+      "get": {
+        "operationId": "history_symbol_history__symbol__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "symbol",
+            "required": true,
+            "schema": {
+              "title": "Symbol",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 500,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackRecordTimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History Symbol"
       }
     },
     "/search": {
