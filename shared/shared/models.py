@@ -27,6 +27,64 @@ RiskFlag = str
 FreshnessMap = dict[str, Freshness | str]
 
 
+class PriceRange(BaseModel):
+    low: float
+    high: float
+
+
+class ExternalTechnicalVerdict(BaseModel):
+    """One decision.v1 horizon object, as produced by an external technical engine.
+
+    Field names follow decision.v1 (camelCase); the snake_case aliases are
+    accepted too, so the same payload can be posted from either side.
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "contractVersion": "decision.v1",
+                "producer": "vincent-stock-decision-dashboard",
+                "action": "buy",
+                "confidence": 70,
+                "priceState": "IN_OPPORTUNITY_ZONE",
+                "opportunityRange": {"low": 100.0, "high": 110.0},
+                "reduceRange": {"low": 140.0, "high": 150.0},
+                "invalidation": 95.0,
+                "reasons": ["Weekly trend intact", "Pullback into demand"],
+                "dataQuality": 88,
+            }
+        },
+    )
+
+    contract_version: str = Field(default="decision.v1", alias="contractVersion")
+    producer: str
+    action: DecisionAction
+    # decision.v1 reports confidence on 0-100, unlike Recommendation.confidence.
+    confidence: float = Field(ge=0.0, le=100.0)
+    price_state: PriceState | None = Field(default=None, alias="priceState")
+    opportunity_range: PriceRange | None = Field(default=None, alias="opportunityRange")
+    reduce_range: PriceRange | None = Field(default=None, alias="reduceRange")
+    invalidation: float | None = None
+    reasons: list[str] = Field(default_factory=list)
+    data_quality: int | None = Field(default=None, ge=0, le=100, alias="dataQuality")
+
+
+class TechnicalVerdict(BaseModel):
+    """A technical opinion normalized for the aggregator, whoever produced it."""
+
+    direction: Direction
+    confidence: float = Field(ge=0.0, le=1.0)
+    source: TechnicalSource
+    producer: str | None = None
+    price_state: PriceState | None = None
+    opportunity_range: PriceRange | None = None
+    reduce_range: PriceRange | None = None
+    invalidation: float | None = None
+    reasons: list[str] = Field(default_factory=list)
+    data_quality: int | None = None
+
+
 class PortfolioContext(BaseModel):
     held: bool = False
     quantity: float | None = None
@@ -54,6 +112,10 @@ class AnalyzeRequest(BaseModel):
     portfolio_context: PortfolioContext | None = None
     include_narrative: bool = True
     include_entry: bool = True
+    # An external technical engine's decision.v1 verdict. When supplied it
+    # replaces the local technical block; the local technicals are still
+    # computed and reported for comparison.
+    technical: ExternalTechnicalVerdict | None = None
 
     @field_validator("symbol")
     @classmethod
@@ -195,64 +257,6 @@ class Signal(BaseModel):
     signal: Direction
     weight: float
     note: str
-
-
-class PriceRange(BaseModel):
-    low: float
-    high: float
-
-
-class ExternalTechnicalVerdict(BaseModel):
-    """One decision.v1 horizon object, as produced by an external technical engine.
-
-    Field names follow decision.v1 (camelCase); the snake_case aliases are accepted
-    too so the same payload can be posted from either side.
-    """
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_schema_extra={
-            "example": {
-                "contractVersion": "decision.v1",
-                "producer": "vincent-stock-decision-dashboard",
-                "action": "buy",
-                "confidence": 70,
-                "priceState": "IN_OPPORTUNITY_ZONE",
-                "opportunityRange": {"low": 100.0, "high": 110.0},
-                "reduceRange": {"low": 140.0, "high": 150.0},
-                "invalidation": 95.0,
-                "reasons": ["Weekly trend intact", "Pullback into demand"],
-                "dataQuality": 88,
-            }
-        },
-    )
-
-    contract_version: str = Field(default="decision.v1", alias="contractVersion")
-    producer: str
-    action: DecisionAction
-    # decision.v1 reports confidence on a 0-100 scale, unlike Recommendation.confidence.
-    confidence: float = Field(ge=0.0, le=100.0)
-    price_state: PriceState | None = Field(default=None, alias="priceState")
-    opportunity_range: PriceRange | None = Field(default=None, alias="opportunityRange")
-    reduce_range: PriceRange | None = Field(default=None, alias="reduceRange")
-    invalidation: float | None = None
-    reasons: list[str] = Field(default_factory=list)
-    data_quality: int | None = Field(default=None, ge=0, le=100, alias="dataQuality")
-
-
-class TechnicalVerdict(BaseModel):
-    """A technical opinion normalized for the aggregator, whoever produced it."""
-
-    direction: Direction
-    confidence: float = Field(ge=0.0, le=1.0)
-    source: TechnicalSource
-    producer: str | None = None
-    price_state: PriceState | None = None
-    opportunity_range: PriceRange | None = None
-    reduce_range: PriceRange | None = None
-    invalidation: float | None = None
-    reasons: list[str] = Field(default_factory=list)
-    data_quality: int | None = None
 
 
 class EntryBlock(BaseModel):

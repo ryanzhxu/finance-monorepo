@@ -24,6 +24,7 @@ from analyst_service.core.persistence import persist_analysis
 from analyst_service.core.sentiment import normalize_sentiment
 from analyst_service.core.settings import load_service_config
 from analyst_service.core.signals import generate_signals
+from analyst_service.core.technical_provider import resolve_technical_verdict
 from analyst_service.core.technicals import compute_technicals
 from backtesting.store import append_recommendation
 
@@ -68,6 +69,10 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     }
     data_quality_score = compute_analysis_data_quality(technicals, fundamentals, sentiment, macro)
     signals = generate_signals(technicals, fundamentals, sentiment, macro, config["weights"], config["thresholds"])
+    # Vincent's engine owns the technical layer when it supplies a verdict; a
+    # verdict that violates decision.v1 degrades to the local technicals and
+    # says so through a risk flag rather than failing the analysis.
+    technical_verdict, technical_risk_flags = resolve_technical_verdict(request.technical)
     provisional = aggregate_recommendation(
         signals,
         request.horizon,
@@ -77,6 +82,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         freshness,
         macro=macro,
         apply_overrides=False,
+        technical_verdict=technical_verdict,
     )
     entry: EntryBlock | None = None
     if request.include_entry and current_price is not None:
@@ -99,7 +105,11 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         freshness,
         macro=macro,
         apply_overrides=True,
+        technical_verdict=technical_verdict,
     )
+    for flag in technical_risk_flags:
+        if flag not in recommendation.risk_flags:
+            recommendation.risk_flags.append(flag)
     response = AnalyzeResponse(
         symbol=request.symbol,
         company_name=company_name,

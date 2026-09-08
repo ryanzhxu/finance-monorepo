@@ -199,6 +199,24 @@ def synthesize_technical_signal(verdict: TechnicalVerdict, weight: float | None 
     )
 
 
+def resolve_technical_verdict(
+    supplied: ExternalTechnicalVerdict | dict[str, Any] | None,
+) -> tuple[TechnicalVerdict | None, list[str]]:
+    """Normalize a supplied verdict, or degrade to local technicals visibly.
+
+    A payload that violates the contract must not take the analysis down, and it
+    must not quietly pass either. Rejection returns no verdict plus a risk flag,
+    so the caller can tell "Vincent's engine was used" from "it was ignored".
+    """
+    if supplied is None:
+        return None, []
+    try:
+        return verdict_from_external(supplied), []
+    except TechnicalVerdictError as exc:
+        logger.warning("Rejected external technical verdict, using local technicals: %s", exc)
+        return None, ["external_technical_rejected"]
+
+
 def substitute_technical_signals(
     signals: list[Signal], verdict: TechnicalVerdict
 ) -> tuple[list[Signal], TechnicalVerdict | None]:
