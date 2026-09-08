@@ -94,6 +94,11 @@ test('data quality outside the contract range is rejected', () => {
   assert.throws(() => verdictFromExternal(payload({ dataQuality: -1 })), TechnicalVerdictError)
 })
 
+test('data quality must be a whole number', () => {
+  // data_quality is `int` in the contract, unlike confidence which is `float`.
+  assert.throws(() => verdictFromExternal(payload({ dataQuality: 88.5 })), TechnicalVerdictError)
+})
+
 test('the legality table matches the decision.v1 contract exactly', () => {
   assert.deepEqual(LEGAL_ACTIONS.IN_OPPORTUNITY_ZONE, ['strong_buy', 'buy', 'accumulate'])
   assert.deepEqual(LEGAL_ACTIONS.IN_REDUCE_ZONE, ['trim', 'sell'])

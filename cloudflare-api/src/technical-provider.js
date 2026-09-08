@@ -136,8 +136,11 @@ export function verdictFromExternal(payload) {
   let dataQuality = null
   if (dataQualityRaw != null) {
     dataQuality = Number(dataQualityRaw)
-    if (!Number.isFinite(dataQuality) || dataQuality < 0 || dataQuality > 100) {
-      throw new TechnicalVerdictError('dataQuality must be a number between 0 and 100')
+    // The contract's dataQuality is an integer, unlike confidence which is a
+    // float: a fractional value like 88.5 is a producer bug, not a rounding
+    // choice for this seam to make silently.
+    if (!Number.isInteger(dataQuality) || dataQuality < 0 || dataQuality > 100) {
+      throw new TechnicalVerdictError('dataQuality must be a whole number between 0 and 100')
     }
   }
 
