@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import worker, { __testOnly, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
 import { __researchTestOnly } from '../src/research.js'
+import { verdictFromExternal } from '../src/technical-provider.js'
 
 test.beforeEach(() => {
   __testOnly.clearCaches()
@@ -458,6 +459,69 @@ test('without his verdict the blended behaviour is unchanged', async () => {
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+// Mirrors test_conflict_detected_when_supporting_context_disagrees_with_his_action
+// and test_conflict_not_detected_when_supporting_context_agrees_with_his_action in
+// analyst_service/tests/test_pure_technical_verdict.py. buildRecommendation used
+// to hardcode conflict_detected: false / conflict_summary: null unconditionally,
+// so his BUY against fundamentals that lean SELL never surfaced as a conflict on
+// the Worker even though supporting_context already carried the disagreement.
+test('conflict is detected when supporting context disagrees with his action', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'buy',
+    confidence: 80,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'oversold' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'histogram positive' },
+    { dimension: 'EPS_Surprise', signal: 'SELL', weight: 2.0, note: 'miss' },
+    { dimension: 'PE_Percentile', signal: 'SELL', weight: 1.0, note: 'rich' },
+    { dimension: 'News_Sentiment', signal: 'SELL', weight: 0.5, note: 'negative' },
+    { dimension: 'FOMC_Proximity', signal: 'SELL', weight: 1.0, note: 'event risk' },
+  ]
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    {},
+    'risk_on',
+    verdict,
+  )
+
+  assert.equal(recommendation.direction, 'BUY')
+  assert.equal(recommendation.conflict_detected, true)
+  assert.ok(recommendation.conflict_summary)
+  assert.ok(recommendation.conflict_summary.toLowerCase().includes('buy'))
+  assert.ok(recommendation.conflict_summary.toLowerCase().includes('sell'))
+})
+
+test('conflict is not detected when supporting context agrees with his action', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'buy',
+    confidence: 80,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'oversold' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'histogram positive' },
+    { dimension: 'EPS_Surprise', signal: 'BUY', weight: 2.0, note: 'beat' },
+  ]
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    {},
+    'risk_on',
+    verdict,
+  )
+
+  assert.equal(recommendation.supporting_context.agrees_with_action, true)
+  assert.equal(recommendation.conflict_detected, false)
+  assert.equal(recommendation.conflict_summary, null)
 })
 
 test('worker never reports price/volume proxies as Reddit data', async () => {

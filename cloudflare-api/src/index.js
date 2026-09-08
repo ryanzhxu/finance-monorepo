@@ -993,6 +993,17 @@ function buildRecommendation(
     ? round(technicalVerdict.confidence, 2)
     : round(clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98), 2)
   const supportingContext = external ? buildSupportingContext(votingSignals, direction) : null
+  // Mirrors aggregate_recommendation's external branch in aggregator.py: the
+  // technical-vs-fundamental signal-count heuristic below needs >=2 signals per
+  // category, but substitution collapses "technical" to his one verdict
+  // signal, so it never fires once an external verdict is present. Reuse
+  // supportingContext instead so the narrative still gets told to name the
+  // tension - his BUY against fundamentals that lean the opposite way -
+  // rather than going silent about it.
+  const conflictDetected = external && supportingContext != null && !supportingContext.agrees_with_action
+  const conflictSummary = conflictDetected
+    ? `Vincent's technical engine calls ${direction}, but Ryan's fundamental, sentiment and macro context leans ${supportingContext.direction}.`
+    : null
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
   const reviewAction =
     direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
@@ -1005,8 +1016,8 @@ function buildRecommendation(
     fundamental_vote: categoryVotes.fundamental,
     sentiment_vote: categoryVotes.sentiment,
     macro_vote: categoryVotes.macro,
-    conflict_detected: false,
-    conflict_summary: null,
+    conflict_detected: conflictDetected,
+    conflict_summary: conflictSummary,
     weighted_score: round(score, 3),
     technical_target_high: round((snapshot.resistanceLevels[0] ?? snapshot.currentPrice ?? 0) * 1.05, 2),
     technical_target_low: round((snapshot.supportLevels[0] ?? snapshot.currentPrice ?? 0) * 0.97, 2),
@@ -2121,6 +2132,7 @@ export const __testOnly = {
     requestCache.clear()
     healthCache.clear()
   },
+  buildRecommendation,
 }
 
 export default {
