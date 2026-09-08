@@ -1,0 +1,5 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "symbols": ["XYZ"],
+  "quantity": 100
+}

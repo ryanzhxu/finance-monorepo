@@ -1,0 +1,5 @@
+{
+  "contractVersion": "portfolio-research.v2",
+  "symbols": ["XYZ"],
+  "reasonCodes": ["CONCENTRATION"]
+}

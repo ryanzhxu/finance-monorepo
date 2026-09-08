@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "COST_LIMIT_REACHED",
+    "message": "The configured research cost limit has been reached.",
+    "retryable": false
+  }
+}
