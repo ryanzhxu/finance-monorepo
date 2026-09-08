@@ -136,6 +136,22 @@ def test_pulled_payload_that_violates_the_contract_is_rejected(monkeypatch: pyte
     assert flags == ["external_technical_rejected"]
 
 
+def test_a_decimal_retries_value_falls_back_to_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(BASE_URL_ENV, "https://engine.example")
+    # int("3.0") raises ValueError in Python, unlike JS's Number("3.0"), so this
+    # must fall back to the default (1 retry) rather than silently using 3.
+    monkeypatch.setenv("TECHNICAL_ENGINE_RETRIES", "3.0")
+    calls = {"n": 0}
+
+    def failing_get(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        raise httpx.HTTPError("boom")
+
+    monkeypatch.setattr(technical_engine.httpx, "get", failing_get)
+    assert technical_engine.fetch_external_technical_verdict("NVDA") is None
+    assert calls["n"] == 2
+
+
 def test_fetch_verdicts_by_horizon_makes_one_call_per_horizon(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(BASE_URL_ENV, "https://engine.example")
     requested: list[str | None] = []

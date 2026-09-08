@@ -33,11 +33,16 @@ function envTimeoutMs(env) {
   return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_TIMEOUT_MS
 }
 
+// Mirrors Python's int(raw): a decimal string like "3.0" is not a valid int
+// literal there and raises ValueError, falling back to the default. Number()
+// would parse it to a whole number and silently accept a different retry
+// count than the Python service for the same env var.
 function envRetries(env) {
   const raw = env.TECHNICAL_ENGINE_RETRIES
   if (raw == null) return DEFAULT_RETRIES
+  if (!/^\s*[+-]?\d+\s*$/.test(String(raw))) return DEFAULT_RETRIES
   const value = Number(raw)
-  return Number.isInteger(value) && value >= 0 ? value : DEFAULT_RETRIES
+  return value >= 0 ? value : DEFAULT_RETRIES
 }
 
 // Fetch a decision.v1 verdict for `symbol`, or null when off/unavailable.
