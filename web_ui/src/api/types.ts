@@ -120,6 +120,10 @@ export interface Recommendation {
   confidence: number
   signal_vote: Partial<Record<Direction, number>>
   weighted_score: number
+  // True when the technical action and Ryan's other layers point different
+  // ways — computed whether or not an external verdict is present.
+  conflict_detected?: boolean
+  conflict_summary?: string | null
   technical_target_high: number | null
   technical_target_low: number | null
   stop_loss_suggestion: number | null
