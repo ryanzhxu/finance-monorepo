@@ -1,0 +1,11 @@
+# Weight carried by an external technical verdict when it replaces the local
+# technical block.
+#
+# It equals the sum of the technical entries in signal_weights.yaml:
+#   RSI_14 1.0 + MACD 1.0 + Bollinger_Bands 0.8 + Volume 1.0
+#   + MA_50_200 1.5 + RSI_Weekly 1.5 + Support_Resistance 0.8 = 7.6
+#
+# Keeping the total identical means swapping the technical producer does not
+# also change the technical-to-fundamental balance. signal_weights.yaml is final
+# pending a Phase 4 backtest, so this is a new key rather than an edit to it.
+external_technical_weight: 7.6

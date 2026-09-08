@@ -91,3 +91,33 @@ class Horizon(str, Enum):
     ONE_WEEK = "1W"
     TWO_TO_FOUR_WEEKS = "2-4W"
     THREE_TO_SIX_MONTHS = "3-6M"
+
+
+class TechnicalSource(str, Enum):
+    LOCAL = "local"
+    EXTERNAL = "external"
+
+
+class DecisionAction(str, Enum):
+    """Action vocabulary of the decision.v1 contract."""
+
+    STRONG_BUY = "strong_buy"
+    BUY = "buy"
+    ACCUMULATE = "accumulate"
+    HOLD = "hold"
+    TRIM = "trim"
+    SELL = "sell"
+    AVOID = "avoid"
+
+
+class PriceState(str, Enum):
+    """Price landscape states of the decision.v1 contract."""
+
+    IN_OPPORTUNITY_ZONE = "IN_OPPORTUNITY_ZONE"
+    NEAR_OPPORTUNITY_ZONE = "NEAR_OPPORTUNITY_ZONE"
+    NEUTRAL_ZONE = "NEUTRAL_ZONE"
+    NEAR_REDUCE_ZONE = "NEAR_REDUCE_ZONE"
+    IN_REDUCE_ZONE = "IN_REDUCE_ZONE"
+    BEYOND_REDUCE_ZONE = "BEYOND_REDUCE_ZONE"
+    BREAKDOWN_ZONE = "BREAKDOWN_ZONE"
+    INVALID_LANDSCAPE = "INVALID_LANDSCAPE"

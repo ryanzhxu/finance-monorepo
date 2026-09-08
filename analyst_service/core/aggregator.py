@@ -6,10 +6,20 @@ from typing import Any
 import pandas as pd
 
 from shared.data_quality import FreshValue
-from shared.enums import Direction, Freshness
-from shared.models import EntryBlock, Fundamentals, Horizon, Macro, Recommendation, Sentiment, Signal
+from shared.enums import Direction, Freshness, TechnicalSource
+from shared.models import (
+    EntryBlock,
+    Fundamentals,
+    Horizon,
+    Macro,
+    Recommendation,
+    Sentiment,
+    Signal,
+    TechnicalVerdict,
+)
 
 from analyst_service.core.data_fetcher import fetch_fundamentals, fetch_macro, fetch_sentiment
+from analyst_service.core.technical_provider import substitute_technical_signals
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 SCORES = {Direction.BUY: 1.0, Direction.HOLD: 0.0, Direction.SELL: -1.0}
 CATEGORY_PREFIXES = {
-    "technical": ("rsi", "macd", "ma", "bollinger", "volume", "support", "breakout"),
+    # "technical" matches the synthesized signal an external engine's verdict
+    # becomes; the rest match the locally computed indicators.
+    "technical": ("rsi", "macd", "ma", "bollinger", "volume", "support", "breakout", "technical"),
     "fundamental": ("eps", "pe", "analyst", "fcf", "revenue", "gross", "valuation"),
     "sentiment": ("put", "iv", "institutional", "short", "news"),
     "macro": ("macro", "fomc"),
@@ -109,7 +121,14 @@ def aggregate_recommendation(
     freshness: dict[str, Freshness | str],
     macro: Macro | None = None,
     apply_overrides: bool = True,
+    technical_verdict: TechnicalVerdict | None = None,
 ) -> Recommendation:
+    # An external verdict replaces the local technical block rather than blending
+    # with it: Ryan and Vincent agreed Vincent's engine owns the technical layer.
+    displaced_local: TechnicalVerdict | None = None
+    if technical_verdict is not None and technical_verdict.source is TechnicalSource.EXTERNAL:
+        signals, displaced_local = substitute_technical_signals(signals, technical_verdict)
+
     if not signals:
         weighted_score = 0.0
         vote_direction = Direction.HOLD
@@ -195,4 +214,15 @@ def aggregate_recommendation(
         horizon=horizon,
         review_action=review_action,
         risk_flags=risk_flags,
+        technical_source=(
+            technical_verdict.source if technical_verdict is not None else TechnicalSource.LOCAL
+        ),
+        technical_producer=technical_verdict.producer if technical_verdict is not None else None,
+        technical_price_state=technical_verdict.price_state if technical_verdict is not None else None,
+        local_technical_direction=displaced_local.direction if displaced_local is not None else None,
+        technical_agreement=(
+            None
+            if technical_verdict is None or displaced_local is None
+            else technical_verdict.direction == displaced_local.direction
+        ),
     )
