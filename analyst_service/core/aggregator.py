@@ -91,6 +91,13 @@ def _conflict_summary(
     )
 
 
+def _external_conflict_summary(direction: Direction, supporting_context: SupportingContext) -> str:
+    return (
+        f"Vincent's technical engine calls {direction.value}, but Ryan's fundamental, sentiment and macro "
+        f"context leans {supporting_context.direction.value}."
+    )
+
+
 def fetch_analysis_context(
     symbol: str,
     price_history: pd.DataFrame | None,
@@ -249,6 +256,17 @@ def aggregate_recommendation(
         direction = technical_verdict.direction
         confidence = technical_verdict.confidence
         supporting_context = _build_supporting_context(signals, thresholds, direction)
+        # The signal-count heuristic above needs >=2 signals per category, but
+        # substitution collapses "technical" to his one verdict signal, so it
+        # never fires here. Supporting context already carries the comparison
+        # Ryan's layers vs. his action; reuse it so the narrative still gets
+        # told to name the tension instead of going silent about it.
+        if supporting_context is not None and not supporting_context.agrees_with_action:
+            conflict_detected = True
+            conflict_summary = _external_conflict_summary(direction, supporting_context)
+        else:
+            conflict_detected = False
+            conflict_summary = None
 
     if direction == Direction.BUY:
         review_action = "add_watch"

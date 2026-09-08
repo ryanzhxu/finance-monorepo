@@ -173,6 +173,41 @@ def test_no_averaging_across_the_two_engines() -> None:
     assert recommendation.supporting_context.direction is Direction.SELL
 
 
+def test_conflict_detected_when_supporting_context_disagrees_with_his_action() -> None:
+    # The old technical-vs-fundamental heuristic needs >=2 signals per side, but
+    # substitution collapses the technical category to his one verdict signal,
+    # so it never fires once an external verdict is present. The narrative
+    # prompt only names a tension when conflict_detected is True, so a silent
+    # False here would hide the exact disagreement supporting_context exists to
+    # surface: his BUY against fundamentals that lean the opposite way.
+    verdict = _external(action="buy")
+    signals = _bullish_technicals() + _bearish_fundamentals()
+
+    recommendation = aggregate_recommendation(
+        signals, Horizon.THREE_TO_SIX_MONTHS, THRESHOLDS, 100, None, {}, technical_verdict=verdict
+    )
+
+    assert recommendation.conflict_detected is True
+    assert recommendation.conflict_summary is not None
+    assert "buy" in recommendation.conflict_summary.lower()
+    assert "sell" in recommendation.conflict_summary.lower()
+
+
+def test_conflict_not_detected_when_supporting_context_agrees_with_his_action() -> None:
+    verdict = _external(action="buy")
+    signals = _bullish_technicals() + [
+        Signal(dimension="EPS Surprise", signal=Direction.BUY, weight=2.0, note="beat"),
+    ]
+
+    recommendation = aggregate_recommendation(
+        signals, Horizon.THREE_TO_SIX_MONTHS, THRESHOLDS, 100, None, {}, technical_verdict=verdict
+    )
+
+    assert recommendation.supporting_context.agrees_with_action is True
+    assert recommendation.conflict_detected is False
+    assert recommendation.conflict_summary is None
+
+
 def test_fomc_override_cannot_overrule_his_action() -> None:
     # The FOMC hold is Ryan's event-risk policy. It is context, not his call,
     # so it must surface as a risk flag rather than rewrite the action.
