@@ -1,5 +1,10 @@
 import { ENTRY_RULES, SCORING_WEIGHTS, SCREENER_THRESHOLDS, SIGNAL_WEIGHTS, UNIVERSES } from './data.js'
 import {
+  EXTERNAL_TECHNICAL_DIMENSION,
+  resolveTechnicalVerdict,
+  substituteTechnicalSignals,
+} from './technical-provider.js'
+import {
   atr,
   clamp,
   ema,
@@ -889,21 +894,71 @@ function computeWeightedScore(signals) {
   return weighted / totalWeight
 }
 
-function buildRecommendation(snapshot, signals, entry, regime) {
-  const score = computeWeightedScore(signals)
+// Which category each Worker signal dimension belongs to. Mirrors
+// aggregator.CATEGORY_PREFIXES on the Python side. These votes used to be
+// hardcoded zeros, which made the technical layer invisible in production.
+const SIGNAL_CATEGORIES = {
+  RSI_14: 'technical',
+  MACD: 'technical',
+  Bollinger_Bands: 'technical',
+  Volume: 'technical',
+  MA_50_200: 'technical',
+  RSI_Weekly: 'technical',
+  Support_Resistance: 'technical',
+  [EXTERNAL_TECHNICAL_DIMENSION]: 'technical',
+  EPS_Surprise: 'fundamental',
+  Analyst_Ratings: 'fundamental',
+  PE_Percentile: 'fundamental',
+  Institutional_13F: 'sentiment',
+  Put_Call_Ratio: 'sentiment',
+  IV_Rank: 'sentiment',
+  Short_Interest: 'sentiment',
+  News_Sentiment: 'sentiment',
+  Reddit_Sentiment: 'sentiment',
+  FOMC_Proximity: 'macro',
+}
+
+function computeCategoryVotes(signals) {
+  const votes = {
+    technical: { BUY: 0, HOLD: 0, SELL: 0 },
+    fundamental: { BUY: 0, HOLD: 0, SELL: 0 },
+    sentiment: { BUY: 0, HOLD: 0, SELL: 0 },
+    macro: { BUY: 0, HOLD: 0, SELL: 0 },
+  }
+  for (const signal of signals) {
+    const category = SIGNAL_CATEGORIES[signal.dimension]
+    if (category == null) continue
+    votes[category][signal.signal] = round(votes[category][signal.signal] + signal.weight, 4)
+  }
+  return votes
+}
+
+function buildRecommendation(snapshot, signals, entry, regime, technicalVerdict = null) {
+  // An external verdict replaces the local technical block rather than blending
+  // with it: Vincent's engine owns the technical layer when it speaks.
+  let displaced = null
+  let votingSignals = signals
+  if (technicalVerdict != null && technicalVerdict.source === 'external') {
+    const substituted = substituteTechnicalSignals(signals, technicalVerdict)
+    votingSignals = substituted.signals
+    displaced = substituted.displaced
+  }
+
+  const score = computeWeightedScore(votingSignals)
   const direction = score > 0.15 ? 'BUY' : score < -0.15 ? 'SELL' : 'HOLD'
   const confidence = clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98)
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
   const reviewAction =
     direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
+  const categoryVotes = computeCategoryVotes(votingSignals)
   return {
     direction,
     confidence: round(confidence, 2),
-    signal_vote: computeSignalVote(signals),
-    technical_vote: { BUY: 0, HOLD: 0, SELL: 0 },
-    fundamental_vote: { BUY: 0, HOLD: 0, SELL: 0 },
-    sentiment_vote: { BUY: 0, HOLD: 0, SELL: 0 },
-    macro_vote: { BUY: 0, HOLD: 0, SELL: 0 },
+    signal_vote: computeSignalVote(votingSignals),
+    technical_vote: categoryVotes.technical,
+    fundamental_vote: categoryVotes.fundamental,
+    sentiment_vote: categoryVotes.sentiment,
+    macro_vote: categoryVotes.macro,
     conflict_detected: false,
     conflict_summary: null,
     weighted_score: round(score, 3),
@@ -913,6 +968,12 @@ function buildRecommendation(snapshot, signals, entry, regime) {
     horizon: '2-4W',
     review_action: reviewAction,
     risk_flags: riskFlags,
+    technical_source: technicalVerdict != null ? technicalVerdict.source : 'local',
+    technical_producer: technicalVerdict != null ? technicalVerdict.producer : null,
+    technical_price_state: technicalVerdict != null ? (technicalVerdict.price_state ?? null) : null,
+    local_technical_direction: displaced != null ? displaced.direction : null,
+    technical_agreement:
+      technicalVerdict == null || displaced == null ? null : technicalVerdict.direction === displaced.direction,
   }
 }
 
@@ -1026,7 +1087,7 @@ async function resolvePutCallRatio(symbol, env = {}) {
   return ratio
 }
 
-async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = true, lookbackDays = 90, env = {} } = {}) {
+async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = true, lookbackDays = 90, technical = null, env = {} } = {}) {
   const normalized = normalizeSymbol(symbol)
   const regime = await getRegimeSnapshot()
   const [snapshot, quote] = await Promise.all([getSnapshot(normalized), getQuote(normalized).catch(() => null)])
@@ -1051,7 +1112,14 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   const fibonacci = buildFibonacci(snapshot, lookbackDays)
   const confluence = buildConfluence(snapshot, entry, fibonacci)
   const signals = buildSignals(snapshot, entry, fundamentals, sentiment, macro)
-  const recommendation = buildRecommendation(snapshot, signals, entry, regime.market_regime)
+  // Vincent's engine owns the technical layer when it supplies a verdict. A
+  // verdict that violates decision.v1 degrades to the local technicals and says
+  // so through a risk flag rather than failing the analysis.
+  const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technical)
+  const recommendation = buildRecommendation(snapshot, signals, entry, regime.market_regime, technicalVerdict)
+  for (const flag of technicalRiskFlags) {
+    if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
+  }
   return buildAnalysisResponse({
     symbol: normalized,
     snapshot,
@@ -1500,6 +1568,7 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
       includeNarrative: body.include_narrative !== false,
       includeEntry: body.include_entry !== false,
       lookbackDays: body.lookback_days ?? 90,
+      technical: body.technical ?? null,
       env,
     })
     return jsonCors(response)

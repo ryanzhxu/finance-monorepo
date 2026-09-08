@@ -53,6 +53,16 @@
           "symbol": {
             "title": "Symbol",
             "type": "string"
+          },
+          "technical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExternalTechnicalVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -297,6 +307,20 @@
         ],
         "title": "ConfluenceZone",
         "type": "object"
+      },
+      "DecisionAction": {
+        "description": "Action vocabulary of the decision.v1 contract.",
+        "enum": [
+          "strong_buy",
+          "buy",
+          "accumulate",
+          "hold",
+          "trim",
+          "sell",
+          "avoid"
+        ],
+        "title": "DecisionAction",
+        "type": "string"
       },
       "Direction": {
         "enum": [
@@ -765,6 +789,118 @@
           "data_quality_score"
         ],
         "title": "EntryResponse",
+        "type": "object"
+      },
+      "ExternalTechnicalVerdict": {
+        "description": "One decision.v1 horizon object, as produced by an external technical engine.\n\nField names follow decision.v1 (camelCase); the snake_case aliases are\naccepted too, so the same payload can be posted from either side.",
+        "example": {
+          "action": "buy",
+          "confidence": 70,
+          "contractVersion": "decision.v1",
+          "dataQuality": 88,
+          "invalidation": 95.0,
+          "opportunityRange": {
+            "high": 110.0,
+            "low": 100.0
+          },
+          "priceState": "IN_OPPORTUNITY_ZONE",
+          "producer": "vincent-stock-decision-dashboard",
+          "reasons": [
+            "Weekly trend intact",
+            "Pullback into demand"
+          ],
+          "reduceRange": {
+            "high": 150.0,
+            "low": 140.0
+          }
+        },
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/DecisionAction"
+          },
+          "confidence": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "contractVersion": {
+            "default": "decision.v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "dataQuality": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataquality"
+          },
+          "invalidation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation"
+          },
+          "opportunityRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "producer": {
+            "title": "Producer",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "reduceRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "producer",
+          "action",
+          "confidence"
+        ],
+        "title": "ExternalTechnicalVerdict",
         "type": "object"
       },
       "FibonacciLevels": {
@@ -1261,6 +1397,39 @@
         "title": "PortfolioContext",
         "type": "object"
       },
+      "PriceRange": {
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          }
+        },
+        "required": [
+          "low",
+          "high"
+        ],
+        "title": "PriceRange",
+        "type": "object"
+      },
+      "PriceState": {
+        "description": "Price landscape states of the decision.v1 contract.",
+        "enum": [
+          "IN_OPPORTUNITY_ZONE",
+          "NEAR_OPPORTUNITY_ZONE",
+          "NEUTRAL_ZONE",
+          "NEAR_REDUCE_ZONE",
+          "IN_REDUCE_ZONE",
+          "BEYOND_REDUCE_ZONE",
+          "BREAKDOWN_ZONE",
+          "INVALID_LANDSCAPE"
+        ],
+        "title": "PriceState",
+        "type": "string"
+      },
       "Recommendation": {
         "properties": {
           "confidence": {
@@ -1300,6 +1469,16 @@
           },
           "horizon": {
             "$ref": "#/components/schemas/Horizon"
+          },
+          "local_technical_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "macro_vote": {
             "additionalProperties": {
@@ -1352,6 +1531,42 @@
               }
             ],
             "title": "Stop Loss Suggestion"
+          },
+          "technical_agreement": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical Agreement"
+          },
+          "technical_price_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "technical_producer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical Producer"
+          },
+          "technical_source": {
+            "$ref": "#/components/schemas/TechnicalSource",
+            "default": "local"
           },
           "technical_target_high": {
             "anyOf": [
@@ -1581,6 +1796,14 @@
         ],
         "title": "Signal",
         "type": "object"
+      },
+      "TechnicalSource": {
+        "enum": [
+          "local",
+          "external"
+        ],
+        "title": "TechnicalSource",
+        "type": "string"
       },
       "Technicals": {
         "properties": {
