@@ -86,7 +86,7 @@ def compute_entry(
     risk_flags: list[str] | None = None,
     regime: str | None = None,
 ) -> EntryBlock:
-    atr = float(technicals.atr_14 or max(current_price * 0.02, 0.01))
+    atr = float(technicals.atr_14) if technicals.atr_14 is not None else max(current_price * 0.02, 0.01)
     support_levels = technicals.support_levels or [round(current_price - atr, 2), round(current_price - (2 * atr), 2)]
     resistance_levels = technicals.resistance_levels or [round(current_price + atr, 2), round(current_price + (2 * atr), 2)]
     support1 = _first_or(support_levels, current_price - atr)
