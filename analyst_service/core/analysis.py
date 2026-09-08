@@ -18,6 +18,7 @@ from shared.models import (
 from analyst_service.core.aggregator import aggregate_recommendation, fetch_analysis_context
 from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
+from analyst_service.core.provider_clients.technical_engine import fetch_external_technical_verdict
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.narrator import synthesize_narrative
 from analyst_service.core.persistence import persist_analysis
@@ -77,7 +78,15 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     # Vincent's engine owns the technical layer when it supplies a verdict; a
     # verdict that violates decision.v1 degrades to the local technicals and
     # says so through a risk flag rather than failing the analysis.
-    technical_verdict, technical_risk_flags = resolve_technical_verdict(request.technical)
+    # When no verdict was pushed on the request, pull one from Vincent's
+    # engine if a base URL is configured. The pull is off by default and
+    # returns None on any failure, so the analysis still degrades to local
+    # technicals. The pulled payload is validated by the same seam as a
+    # pushed one, so it is trusted no more than a pushed verdict.
+    supplied_technical = request.technical
+    if supplied_technical is None:
+        supplied_technical = fetch_external_technical_verdict(request.symbol, request.horizon)
+    technical_verdict, technical_risk_flags = resolve_technical_verdict(supplied_technical)
     # Substitute once here so the response reports the signals actually voted on.
     # The displaced local technicals survive as local_technical_direction rather
     # than sitting in the list uncounted.
