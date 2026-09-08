@@ -203,6 +203,36 @@ def test_ideal_buy_zone_does_not_extend_to_far_ma20() -> None:
     assert entry.ideal_buy_zone == (99.5, 102.0)
 
 
+def test_compute_entry_preserves_a_genuinely_zero_atr() -> None:
+    # A halted/pegged instrument can have a real ATR of exactly 0.0 (no true
+    # range over the whole 14-period window) — technicals.py's atr() does not
+    # mask this, unlike rsi(). `atr_14 or max(current_price * 0.02, 0.01)`
+    # treats that 0.0 as falsy and fabricates a synthetic 2%-of-price ATR,
+    # which silently changes the stop-loss and zone levels for a value that
+    # was never missing in the first place.
+    technicals = Technicals(
+        rsi_14=45,
+        macd=MacdBlock(),
+        ma_20=100,
+        ma_50=98,
+        ma_200=90,
+        support_levels=[95, 90],
+        resistance_levels=[105, 110],
+        atr_14=0.0,
+        bb_upper=105,
+        bb_lower=95,
+        bb_mid=100,
+        volume_ratio_90d=1.0,
+        dist_from_ma20_pct=0.0,
+        dist_from_ma200_pct=12.0,
+    )
+    fundamentals = Fundamentals(revenue_growth_yoy_pct=20, pe_percentile_5y=50)
+
+    entry = compute_entry(100, technicals, fundamentals, Direction.BUY, Horizon.TWO_TO_FOUR_WEEKS, RULES)
+
+    assert entry.stop_loss_suggestion == 95.0
+
+
 def test_inside_zone_never_waits_for_pullback() -> None:
     technicals = Technicals(
         rsi_14=42,
