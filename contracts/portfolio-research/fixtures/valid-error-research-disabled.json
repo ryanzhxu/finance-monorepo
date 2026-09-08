@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "RESEARCH_DISABLED",
+    "message": "Research is disabled.",
+    "retryable": false
+  }
+}

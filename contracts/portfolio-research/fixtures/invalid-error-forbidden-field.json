@@ -1,0 +1,10 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An internal error occurred.",
+    "retryable": true
+  },
+  "debugStackTrace": "Error: connection refused\n    at ProviderClient.fetch (provider.ts:142)"
+}

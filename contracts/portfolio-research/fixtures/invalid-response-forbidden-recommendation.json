@@ -1,0 +1,29 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "generatedAt": "2026-08-06T18:00:30Z",
+  "status": "complete",
+  "providerStatus": "available",
+  "research": [
+    {
+      "symbol": "NVDA",
+      "summary": "Data-center accelerator demand remains the primary revenue driver.",
+      "thesis": "Sustained hyperscaler capex on AI accelerators supports multi-year demand.",
+      "counterThesis": "Customer concentration among a handful of hyperscalers could compress demand.",
+      "risks": ["Export-control changes could restrict addressable market."],
+      "unknowns": ["Next-generation platform yield rates have not been publicly disclosed."],
+      "falsifiers": ["A sustained multi-quarter sequential decline in data-center segment revenue."],
+      "sources": [
+        {
+          "url": "https://example.invalid/investor-relations/latest-10q",
+          "title": "Quarterly report (10-Q)",
+          "publishedAt": "2026-08-05T00:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:10Z",
+          "sourceType": "primary"
+        }
+      ],
+      "freshness": { "state": "fresh", "asOf": "2026-08-06T18:00:10Z" },
+      "recommendation": "BUY"
+    }
+  ]
+}

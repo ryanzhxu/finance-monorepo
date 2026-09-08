@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-monorepo.internal/contracts/portfolio-research/v1/response.schema.json",
+  "title": "portfolio-research.v1 response envelope",
+  "description": "Response envelope for POST /api/portfolio-research. Describes evidence, uncertainty, risks, scenarios, and falsifiers only. Must never return BUY/HOLD/SELL, position sizes, order types, allocations, price guarantees, or personalized instructions. Every material research claim should be source-linked; uncited claims belong in 'unknowns', not conclusions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "requestId", "generatedAt", "status", "providerStatus", "research"],
+  "properties": {
+    "contractVersion": {
+      "const": "portfolio-research.v1"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Echoes the opaque requestId from the request envelope."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "ISO 8601 UTC timestamp, Z-suffixed."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "partial", "unavailable"],
+      "description": "A stale cached response is never silently relabelled fresh; a partial provider result is labelled partial and retains per-source dates."
+    },
+    "providerStatus": {
+      "type": "string",
+      "enum": ["available", "degraded", "disabled", "unavailable"]
+    },
+    "research": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/$defs/researchItem" },
+      "description": "One entry per successfully researched symbol. Empty when status is unavailable and no research could be produced."
+    }
+  },
+  "$defs": {
+    "researchItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "summary",
+        "thesis",
+        "counterThesis",
+        "risks",
+        "unknowns",
+        "falsifiers",
+        "sources",
+        "freshness"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z]{1,10}([.-][A-Z]{1,4})?$"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Bounded evidence-based summary."
+        },
+        "thesis": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A falsifiable public-market thesis."
+        },
+        "counterThesis": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The strongest evidence-based challenge."
+        },
+        "risks": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Public-company risks."
+        },
+        "unknowns": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Unresolved public facts; where a claim could not be sourced, it belongs here rather than in thesis/summary."
+        },
+        "falsifiers": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Observable conditions that would invalidate the thesis."
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "freshness": { "$ref": "#/$defs/freshness" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "title", "publishedAt", "retrievedAt", "sourceType"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "retrievedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "sourceType": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Not a closed enum in the source spec at this time (only the example value 'primary' is given); left as a non-empty string pending an explicit closed enum from the architecture doc."
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "asOf"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["fresh", "stale", "unknown"]
+        },
+        "asOf": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        }
+      }
+    }
+  }
+}

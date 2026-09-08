@@ -1454,26 +1454,40 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     }
                   />
                   <DetailRow
-                    label={t('redditMentions')}
+                    label={t('volumeSpike')}
                     value={
-                      analysis.sentiment.reddit_mention_spike_24h_pct == null
+                      analysis.sentiment.volume_spike_vs_90d_avg_pct == null
                         ? '— missing'
-                        : formatPercent(analysis.sentiment.reddit_mention_spike_24h_pct)
+                        : formatPercent(analysis.sentiment.volume_spike_vs_90d_avg_pct)
                     }
                     valueClassName="text-slate-600 dark:text-slate-300"
                   />
+                  {analysis.sentiment.reddit_mention_spike_24h_pct == null ? null : (
+                    <DetailRow
+                      label={t('redditMentions')}
+                      value={formatPercent(analysis.sentiment.reddit_mention_spike_24h_pct)}
+                      valueClassName="text-slate-600 dark:text-slate-300"
+                    />
+                  )}
                 </div>
 
                 <div>
                   <DetailRow
-                    label={t('redditSentiment')}
+                    label={t('priceVolumeMomentum')}
                     value={
-                      analysis.sentiment.reddit_positive_pct == null
+                      analysis.sentiment.price_volume_momentum_pct == null
                         ? '— missing'
-                        : `${analysis.sentiment.reddit_positive_pct.toFixed(1)}% positive`
+                        : formatPercent(analysis.sentiment.price_volume_momentum_pct)
                     }
                     valueClassName="text-slate-600 dark:text-slate-300"
                   />
+                  {analysis.sentiment.reddit_positive_pct == null ? null : (
+                    <DetailRow
+                      label={t('redditSentiment')}
+                      value={`${analysis.sentiment.reddit_positive_pct.toFixed(1)}% positive`}
+                      valueClassName="text-slate-600 dark:text-slate-300"
+                    />
+                  )}
                   <DetailRow
                     label={t('institutional13f')}
                     value={

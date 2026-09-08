@@ -1,0 +1,9 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "error": {
+    "code": "AUTH_REQUIRED",
+    "message": "A service credential is required for this endpoint.",
+    "retryable": false
+  }
+}

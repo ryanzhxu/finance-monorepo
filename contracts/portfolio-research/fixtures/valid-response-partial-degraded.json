@@ -1,0 +1,37 @@
+{
+  "contractVersion": "portfolio-research.v1",
+  "requestId": "req-8f3a1c2e",
+  "generatedAt": "2026-08-06T18:00:30Z",
+  "status": "partial",
+  "providerStatus": "degraded",
+  "research": [
+    {
+      "symbol": "NVDA",
+      "summary": "Provider returned a bounded result during a degraded window; freshness of underlying evidence could not be confirmed.",
+      "thesis": "Sustained hyperscaler capex supports multi-year demand for the company's data-center GPU platform, per the most recent verifiable public disclosures.",
+      "counterThesis": "Customer concentration could compress long-run demand and pricing power.",
+      "risks": [
+        "Provider degradation limited source coverage for this response; treat conclusions as bounded."
+      ],
+      "unknowns": [
+        "Whether more recent public disclosures exist could not be confirmed during the degraded window."
+      ],
+      "falsifiers": [
+        "A sustained multi-quarter sequential decline in data-center segment revenue."
+      ],
+      "sources": [
+        {
+          "url": "https://example.invalid/investor-relations/latest-10q",
+          "title": "Quarterly report (10-Q)",
+          "publishedAt": "2026-08-05T00:00:00Z",
+          "retrievedAt": "2026-08-06T18:00:10Z",
+          "sourceType": "primary"
+        }
+      ],
+      "freshness": {
+        "state": "unknown",
+        "asOf": "2026-08-06T18:00:10Z"
+      }
+    }
+  ]
+}

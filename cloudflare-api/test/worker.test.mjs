@@ -400,6 +400,33 @@ test('analyze endpoint returns a shaped response', async () => {
   }
 })
 
+test('worker never reports price/volume proxies as Reddit data', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: 'NVDA', include_narrative: false }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    assert.equal(response.status, 200)
+    const sentiment = (await response.json()).sentiment
+
+    // The Worker has no Reddit credentials and makes no Reddit call, so it must
+    // not populate the social fields with a volume ratio.
+    assert.equal(sentiment.reddit_mention_spike_24h_pct, null)
+    assert.equal(sentiment.reddit_positive_pct, null)
+    // The proxies still ship, under names that say what they are.
+    assert.ok('volume_spike_vs_90d_avg_pct' in sentiment)
+    assert.ok('price_volume_momentum_pct' in sentiment)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('analyze endpoint substitutes an external technical verdict end to end', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch

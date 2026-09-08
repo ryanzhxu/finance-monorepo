@@ -232,8 +232,16 @@ class Sentiment(BaseModel):
     news_sentiment_score: float | None = None
     news_headline_count: int | None = None
     news_sentiment_source: str | None = None
+    # Real Reddit data from the Reddit API. Null without REDDIT_CLIENT_ID /
+    # REDDIT_CLIENT_SECRET, and always null from the Worker, which has no
+    # Reddit access at all.
     reddit_mention_spike_24h_pct: float | None = None
     reddit_positive_pct: float | None = None
+    # Price and volume proxies. These are NOT social data. They used to ride in
+    # the reddit_* fields on the Worker path, which made a volume ratio render
+    # as "Reddit positive 62%" in the UI.
+    volume_spike_vs_90d_avg_pct: float | None = None
+    price_volume_momentum_pct: float | None = None
     short_interest_pct: float | None = None
     institutional_net_shares_last_13f: float | None = None
     institutional_13f_as_of: str | None = None

@@ -684,15 +684,17 @@ function buildSignals(snapshot, entry, fundamentals, sentiment, macro) {
 
   pushSignal(
     'News_Sentiment',
-    sentiment.reddit_positive_pct != null
-      ? sentiment.reddit_positive_pct >= 60
+    sentiment.price_volume_momentum_pct != null
+      ? sentiment.price_volume_momentum_pct >= 60
         ? 'BUY'
-        : sentiment.reddit_positive_pct <= 40
+        : sentiment.price_volume_momentum_pct <= 40
           ? 'SELL'
           : 'HOLD'
       : 'HOLD',
     SIGNAL_WEIGHTS.News_Sentiment,
-    sentiment.reddit_positive_pct == null ? 'No social sentiment signal' : `Reddit positive ${round(sentiment.reddit_positive_pct, 1)}%`,
+    sentiment.price_volume_momentum_pct == null
+      ? 'No price/volume momentum signal'
+      : `Price/volume momentum ${round(sentiment.price_volume_momentum_pct, 1)}%`,
   )
 
   return signals
@@ -735,7 +737,9 @@ function buildSentiment(quote, snapshot, putCallRatio = null) {
   const ivApprox =
     quote?.impliedVolatility != null ? clamp(round(Number(quote.impliedVolatility) * 100, 1), 0, 100) : null
   const shortInterest = quote?.shortPercentOfFloat != null ? clamp(round(Number(quote.shortPercentOfFloat) * 100, 1), 0, 100) : null
-  const positiveProxy =
+  // Derived from price and volume technicals. This is NOT Reddit or social
+  // data, so it must not be reported in the reddit_* fields.
+  const momentumProxy =
     snapshot.volumeRatio90d == null
       ? null
       : clamp(round(50 + (snapshot.volumeRatio90d - 1) * 20 + (snapshot.priceVsMa20Pct ?? 0) / 2, 1), 0, 100)
@@ -748,8 +752,12 @@ function buildSentiment(quote, snapshot, putCallRatio = null) {
     news_sentiment_score: null,
     news_headline_count: null,
     news_sentiment_source: null,
-    reddit_mention_spike_24h_pct: snapshot.volumeRatio90d == null ? null : round((snapshot.volumeRatio90d - 1) * 100, 1),
-    reddit_positive_pct: positiveProxy,
+    // The Worker has no Reddit credentials and makes no Reddit call, so these
+    // stay null rather than carrying a volume ratio under a social name.
+    reddit_mention_spike_24h_pct: null,
+    reddit_positive_pct: null,
+    volume_spike_vs_90d_avg_pct: snapshot.volumeRatio90d == null ? null : round((snapshot.volumeRatio90d - 1) * 100, 1),
+    price_volume_momentum_pct: momentumProxy,
     short_interest_pct: shortInterest,
     institutional_net_shares_last_13f: null,
     institutional_13f_as_of: null,
@@ -803,7 +811,7 @@ function buildBuyability(snapshot, entry, fundamentals, sentiment, regime) {
     100,
   )
   const sentimentScore = clamp(
-    ((sentiment.reddit_positive_pct ?? 50) - 50) / 50 +
+    ((sentiment.price_volume_momentum_pct ?? 50) - 50) / 50 +
       ((sentiment.short_interest_pct ?? 5) < 5 ? 0.2 : 0) +
       ((sentiment.short_interest_pct ?? 5) > 15 ? -0.2 : 0),
     -1,

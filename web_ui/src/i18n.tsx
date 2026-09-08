@@ -59,7 +59,7 @@ const messages = {
     epsSurprise: 'EPS surprise', peRatio: 'P/E ratio', pePercentile: 'P/E percentile (5y)', fcfTrend: 'FCF trend',
     analystUpgrades: 'Analyst upgrades (30d)', analystDowngrades: 'Analyst downgrades (30d)', revenueGrowth: 'Revenue growth YoY',
     grossMargin: 'Gross margin', pbRatio: 'P/B ratio', psRatio: 'P/S ratio', evEbitda: 'EV/EBITDA', asOfDate: 'As-of date',
-    putCallRatio: 'Put/call ratio', ivRank: 'IV rank (approx)', shortInterest: 'Short interest', redditMentions: 'Reddit mentions',
+    putCallRatio: 'Put/call ratio', ivRank: 'IV rank (approx)', shortInterest: 'Short interest', redditMentions: 'Reddit mentions', volumeSpike: 'Volume vs 90d avg', priceVolumeMomentum: 'Price/volume momentum',
     redditSentiment: 'Reddit sentiment', institutional13f: 'Institutional 13F', freshness: 'Freshness',
   },
   'zh-HK': {
@@ -84,7 +84,7 @@ const messages = {
     stop: '停止', added: '已加 ✓', addToWatchlist: '加入自選清單', analysisStopped: '已停止分析', requestCancelled: '請求已取消', runAgain: '再試', enterSymbol: '喺上面輸入股票代號開始。',
     signals: '訊號', showSignals: '顯示訊號', hideSignals: '收埋訊號', dimension: '範疇', note: '說明', fundamentals: '基本因素', sentiment: '市場情緒', currentPrice: '現價', idealBuyZone: '理想買入區', fibGoldenPocket: '費波那契黃金區', conservativeEntry: '保守入場價', stopLoss: '止蝕價', invalidation: '失效位', highConvictionZone: '高信心區', signalVote: '訊號票數', nextFomc: '下次 FOMC', rateCutProbability: '減息機率', resistance: '阻力位', support: '支持位', breakoutBuyLevel: '突破買入位', weight: '權重',
     fetchPriceData: '攞價格資料', computeTechnicals: '計技術指標', loadFundamentals: '載入基本因素', assembleSignals: '整合訊號', buildConfluence: '建立共識', loadingAnalysis: '載入緊分析', analyzing: '分析緊', entryStructureUnavailable: '呢個回應冇可用嘅入場結構。',
-    epsSurprise: '每股盈利驚喜', peRatio: '市盈率', pePercentile: '市盈率百分位（5 年）', fcfTrend: '自由現金流趨勢', analystUpgrades: '分析師調升（30 日）', analystDowngrades: '分析師調降（30 日）', revenueGrowth: '收入按年增長', grossMargin: '毛利率', pbRatio: '市賬率', psRatio: '市銷率', evEbitda: '企業價值／EBITDA', asOfDate: '資料截止日', putCallRatio: '認沽／認購比率', ivRank: '隱含波動率排名（約）', shortInterest: '沽空比率', redditMentions: 'Reddit 提及次數', redditSentiment: 'Reddit 情緒', institutional13f: '機構 13F', freshness: '資料新鮮度',
+    epsSurprise: '每股盈利驚喜', peRatio: '市盈率', pePercentile: '市盈率百分位（5 年）', fcfTrend: '自由現金流趨勢', analystUpgrades: '分析師調升（30 日）', analystDowngrades: '分析師調降（30 日）', revenueGrowth: '收入按年增長', grossMargin: '毛利率', pbRatio: '市賬率', psRatio: '市銷率', evEbitda: '企業價值／EBITDA', asOfDate: '資料截止日', putCallRatio: '認沽／認購比率', ivRank: '隱含波動率排名（約）', shortInterest: '沽空比率', redditMentions: 'Reddit 提及次數', redditSentiment: 'Reddit 情緒', volumeSpike: '成交量對比 90 日平均', priceVolumeMomentum: '價量動能', institutional13f: '機構 13F', freshness: '資料新鮮度',
   },
 } as const
 

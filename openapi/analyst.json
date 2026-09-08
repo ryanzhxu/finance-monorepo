@@ -1722,6 +1722,17 @@
             ],
             "title": "News Sentiment Source"
           },
+          "price_volume_momentum_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Volume Momentum Pct"
+          },
           "put_call_ratio": {
             "anyOf": [
               {
@@ -1765,6 +1776,17 @@
               }
             ],
             "title": "Short Interest Pct"
+          },
+          "volume_spike_vs_90d_avg_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Spike Vs 90D Avg Pct"
           }
         },
         "title": "Sentiment",
