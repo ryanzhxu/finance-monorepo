@@ -68,19 +68,49 @@ class AnalysisStore:
                 ),
             )
 
-    def list(self) -> list[PersistedAnalysis]:
+    def list(
+        self,
+        *,
+        symbol: str | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[PersistedAnalysis]:
+        """Stored analyses, oldest first.
+
+        Filtering happens in SQL, which the existing (symbol, generated_at)
+        index already serves. `limit` keeps the MOST RECENT rows - a timeline
+        truncated to its oldest entries would be useless - but the returned
+        list is still oldest-first, so callers can reverse it themselves.
+        """
         if not self.path.exists():
             return []
+        clauses: list[str] = []
+        params: list[object] = []
+        if symbol:
+            clauses.append("UPPER(symbol) = ?")
+            params.append(symbol.strip().upper())
+        if since is not None:
+            clauses.append("generated_at >= ?")
+            params.append(since.isoformat())
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        # Take the newest `limit` rows, then restore ascending order.
+        order = "DESC" if limit is not None else "ASC"
+        tail = f"LIMIT {int(limit)}" if limit is not None else ""
         with self._connection() as connection:
             self._create_schema(connection)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, symbol, generated_at, horizon, direction, confidence, weighted_score,
                        data_quality_score, entry_assessment, current_price, payload_json
                 FROM analysis_records
-                ORDER BY generated_at, id
-                """
+                {where}
+                ORDER BY generated_at {order}, id {order}
+                {tail}
+                """,
+                params,
             ).fetchall()
+        if limit is not None:
+            rows = list(reversed(rows))
         return [
             PersistedAnalysis(
                 id=int(row["id"]),
@@ -139,5 +169,11 @@ def persist_analysis(response: AnalyzeResponse, path: Path | None = None) -> boo
     return True
 
 
-def load_persisted_analyses(path: Path | None = None) -> list[PersistedAnalysis]:
-    return AnalysisStore(path).list()
+def load_persisted_analyses(
+    path: Path | None = None,
+    *,
+    symbol: str | None = None,
+    since: datetime | None = None,
+    limit: int | None = None,
+) -> list[PersistedAnalysis]:
+    return AnalysisStore(path).list(symbol=symbol, since=since, limit=limit)

@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from analyst_service.api.routers.analysis import router
+from analyst_service.api.routers.history import router as history_router
 from analyst_service.core.settings import load_service_config
 
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Analyst Service", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
+app.include_router(history_router)
 
 app.add_middleware(
     CORSMiddleware,

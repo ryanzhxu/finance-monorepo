@@ -430,6 +430,59 @@ class AnalyzeResponse(BaseModel):
     narrative: str | None = None
 
 
+class TrackRecordEntryModel(BaseModel):
+    """One past call, and what the market did after it."""
+
+    symbol: str
+    generated_at: datetime
+    direction: str
+    confidence: float
+    entry_assessment: str | None = None
+    price_at_call: float | None = None
+    target_window: str
+    forward_returns: dict[str, float] = Field(default_factory=dict)
+    benchmark_relative_returns: dict[str, float] = Field(default_factory=dict)
+    max_drawdown: float | None = None
+    hit: bool | None = None
+    # Set when the call could not be scored. Such a record is excluded from
+    # every rate, so a thin sample reads as thin rather than as a verdict.
+    skipped_reason: str | None = None
+
+
+class TrackRecordTimelineResponse(BaseModel):
+    symbol: str
+    generated_at: datetime
+    entries: list[TrackRecordEntryModel] = Field(default_factory=list)
+
+
+class PerformanceBucketModel(BaseModel):
+    label: str
+    evaluated_count: int
+    decision_count: int
+    hit_rate: float | None = None
+    average_forward_return: float | None = None
+
+
+class TrackRecordPerformanceResponse(BaseModel):
+    generated_at: datetime
+    evaluated_count: int
+    decision_count: int
+    hit_rate: float | None = None
+    average_forward_return: float | None = None
+    average_benchmark_relative_return: float | None = None
+    by_direction: list[PerformanceBucketModel] = Field(default_factory=list)
+    by_confidence: list[PerformanceBucketModel] = Field(default_factory=list)
+    by_entry_assessment: list[PerformanceBucketModel] = Field(default_factory=list)
+    advisory: list[str] = Field(default_factory=list)
+
+
+class TrackRecordCoverageResponse(BaseModel):
+    record_count: int
+    distinct_symbols: int
+    earliest: datetime | None = None
+    latest: datetime | None = None
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str
