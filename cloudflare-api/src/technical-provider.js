@@ -127,10 +127,13 @@ export function verdictFromExternal(payload) {
     throw new TechnicalVerdictError('opportunityRange.high must be below reduceRange.low')
   }
 
-  const producer = typeof payload.producer === 'string' && payload.producer ? payload.producer : null
-  if (producer == null) {
+  // Python's `producer: str` has no length constraint, so an empty string is a
+  // valid (if useless) value there. Rejecting it here would treat a payload as
+  // malformed when analyst_service would have accepted it.
+  if (typeof payload.producer !== 'string') {
     throw new TechnicalVerdictError('producer is required')
   }
+  const producer = payload.producer
 
   const dataQualityRaw = payload.dataQuality ?? payload.data_quality
   let dataQuality = null
@@ -209,7 +212,10 @@ export function verdictFromLocal(signals) {
 }
 
 export function synthesizeTechnicalSignal(verdict) {
-  const producer = verdict.producer ?? 'external engine'
+  // `||`, not `??`: an empty-string producer is falsy in Python's
+  // `verdict.producer or "external engine"` too, so both sides fall back the
+  // same way instead of labeling a signal with an empty producer name.
+  const producer = verdict.producer || 'external engine'
   const note = verdict.price_state
     ? `${producer}: ${verdict.direction} in ${verdict.price_state}`
     : `${producer}: ${verdict.direction}`

@@ -141,6 +141,30 @@ def test_data_quality_must_be_a_whole_number() -> None:
         verdict_from_external(_external_payload(dataQuality=88.5))
 
 
+def test_missing_producer_is_rejected() -> None:
+    payload = _external_payload()
+    del payload["producer"]
+
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(payload)
+
+
+def test_empty_producer_is_accepted_matching_the_unconstrained_contract_field() -> None:
+    # `producer: str` has no length constraint, so an empty string is a valid
+    # (if useless) value. The Worker mirror must accept it too, or the same
+    # payload would be treated as malformed by one engine and not the other.
+    verdict = verdict_from_external(_landscape_free_payload(producer=""))
+
+    assert verdict.producer == ""
+
+
+def test_empty_producer_falls_back_to_a_default_label_when_synthesized() -> None:
+    verdict = verdict_from_external(_landscape_free_payload(producer=""))
+    signal = synthesize_technical_signal(verdict)
+
+    assert signal.note == "external engine: BUY"
+
+
 # --- structural fields ------------------------------------------------------
 
 
