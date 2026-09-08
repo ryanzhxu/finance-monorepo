@@ -47,6 +47,33 @@ def test_decision_table_buy_now_inside_zone() -> None:
     assert assessment == EntryAssessment.BUY_NOW
 
 
+def test_decision_table_buy_now_on_breakdown_with_zero_rsi() -> None:
+    # RSI is masked to exactly 0.0 (technicals.py) when a 14-period window has
+    # zero up-days — a real straight-down slide, not a hypothetical. `rsi_14 or
+    # 50` treats that 0.0 as falsy and substitutes 50, which silently defeats
+    # the deep-oversold breakdown-buy branch at the single most extreme RSI
+    # reading it exists to catch.
+    assessment = decide_entry_assessment(
+        current_price=90,
+        support1=95,
+        resistance1=100,
+        direction=Direction.BUY,
+        is_overextended=False,
+        trend_strong=False,
+        rsi_14=0.0,
+        inside_ideal_zone=False,
+        consolidating_under_resistance=False,
+        invalidation_breached=False,
+        meme_behavior=False,
+        fundamentals_strong=False,
+        fundamentals_weak=False,
+        valuation_reasonable=True,
+        horizon=Horizon.TWO_TO_FOUR_WEEKS,
+    )
+
+    assert assessment == EntryAssessment.BUY_NOW
+
+
 def test_decision_table_wait_for_pullback_when_overextended() -> None:
     assessment = decide_entry_assessment(
         current_price=125,

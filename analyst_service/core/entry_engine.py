@@ -44,7 +44,7 @@ def decide_entry_assessment(
         return EntryAssessment.WAIT_FOR_BREAKOUT
     if is_overextended and trend_strong:
         return EntryAssessment.WAIT_FOR_PULLBACK
-    if current_price < support1 and (rsi_14 or 50) < 30 and direction != Direction.SELL:
+    if current_price < support1 and (rsi_14 if rsi_14 is not None else 50) < 30 and direction != Direction.SELL:
         return EntryAssessment.BUY_NOW
     if inside_ideal_zone and not is_overextended and (risk_reward_ratio is None or risk_reward_ratio >= rr_min):
         return EntryAssessment.BUY_NOW
@@ -195,7 +195,8 @@ def _reason(
     pullback_target: float,
 ) -> str:
     if assessment == EntryAssessment.BUY_NOW:
-        return f"Price near ${support1:.2f} support; RSI {(rsi_14 or 50):.0f}; R/R {risk_reward:.2f}." if risk_reward else f"Price near ${support1:.2f} support; RSI {(rsi_14 or 50):.0f}."
+        display_rsi = rsi_14 if rsi_14 is not None else 50
+        return f"Price near ${support1:.2f} support; RSI {display_rsi:.0f}; R/R {risk_reward:.2f}." if risk_reward else f"Price near ${support1:.2f} support; RSI {display_rsi:.0f}."
     if assessment == EntryAssessment.WAIT_FOR_BREAKOUT:
         return f"Price is consolidating below ${resistance1:.2f}; wait for confirmed breakout volume."
     if assessment == EntryAssessment.AVOID:
