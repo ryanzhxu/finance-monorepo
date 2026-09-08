@@ -4,6 +4,7 @@ import { TechnicalSourceBadge } from '../components/TechnicalSourceBadge'
 import { SupportingContextPanel } from '../components/SupportingContextPanel'
 import { ConflictBanner } from '../components/ConflictBanner'
 import { TechnicalByHorizonPanel } from '../components/TechnicalByHorizonPanel'
+import { CategoryVotesPanel } from '../components/CategoryVotesPanel'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -1182,6 +1183,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               <ConflictBanner recommendation={analysis!.recommendation} />
               <SupportingContextPanel recommendation={analysis!.recommendation} />
               <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
+              <CategoryVotesPanel recommendation={analysis!.recommendation} />
 
               <div className="flex flex-wrap gap-2">
                 {freshnessItems.map((item) => {

@@ -119,6 +119,12 @@ export interface Recommendation {
   direction: Direction
   confidence: number
   signal_vote: Partial<Record<Direction, number>>
+  // Weighted BUY/HOLD/SELL sum behind signal_vote, one dict per category.
+  // Computed on every recommendation, blended or external.
+  technical_vote: Partial<Record<Direction, number>>
+  fundamental_vote: Partial<Record<Direction, number>>
+  sentiment_vote: Partial<Record<Direction, number>>
+  macro_vote: Partial<Record<Direction, number>>
   weighted_score: number
   // True when the technical action and Ryan's other layers point different
   // ways — computed whether or not an external verdict is present.
