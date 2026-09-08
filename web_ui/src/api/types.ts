@@ -78,6 +78,31 @@ export interface EntryBlock {
 
 export type TechnicalSource = 'local' | 'external'
 
+export interface PriceRange {
+  low: number
+  high: number
+}
+
+/** A technical opinion normalized for the aggregator, whoever produced it. */
+export interface TechnicalVerdict {
+  direction: Direction
+  confidence: number
+  source: TechnicalSource
+  producer: string | null
+  price_state?: string | null
+  opportunity_range?: PriceRange | null
+  reduce_range?: PriceRange | null
+  invalidation?: number | null
+  reasons: string[]
+  data_quality?: number | null
+}
+
+/** One horizon's independent verdict, exactly as Vincent's engine produced it. */
+export interface HorizonTechnicalVerdict {
+  horizon: string
+  verdict: TechnicalVerdict
+}
+
 /** Ryan's non-technical layers, reported beside an external technical action. */
 export interface SupportingContext {
   direction: Direction
@@ -109,6 +134,9 @@ export interface Recommendation {
   local_technical_direction?: Direction | null
   technical_agreement?: boolean | null
   supporting_context?: SupportingContext | null
+  // His engine's independent short/mid/long verdicts, unaveraged. Empty when no
+  // pull is configured or every horizon failed decision.v1 validation.
+  technical_by_horizon?: HorizonTechnicalVerdict[]
 }
 
 export interface AnalysisResponse {
