@@ -129,6 +129,29 @@ test('missing optional landscape stays null rather than zero', () => {
   assert.equal(verdict.data_quality, null)
 })
 
+test('an explicit null invalidation stays null rather than becoming zero', () => {
+  // Number(null) is 0: a naive cast would fabricate an invalidation level
+  // where the payload said there was none.
+  const verdict = verdictFromExternal(landscapeFree({ invalidation: null }))
+  assert.equal(verdict.invalidation, null)
+})
+
+test('a non-numeric invalidation is rejected, not silently dropped', () => {
+  assert.throws(() => verdictFromExternal(landscapeFree({ invalidation: 'not-a-number' })), TechnicalVerdictError)
+})
+
+test('reasons that is not an array is rejected, not silently emptied', () => {
+  assert.throws(() => verdictFromExternal(landscapeFree({ reasons: 'not an array' })), TechnicalVerdictError)
+})
+
+test('an explicit null reasons is rejected, matching the non-optional contract field', () => {
+  assert.throws(() => verdictFromExternal(landscapeFree({ reasons: null })), TechnicalVerdictError)
+})
+
+test('a reasons entry that is not a string is rejected, not silently filtered out', () => {
+  assert.throws(() => verdictFromExternal(landscapeFree({ reasons: ['fine', 123] })), TechnicalVerdictError)
+})
+
 test('local verdict summarizes the local technical signals', () => {
   const verdict = verdictFromLocal(localTechnicals())
   assert.equal(verdict.direction, 'BUY')

@@ -166,6 +166,32 @@ def test_missing_optional_landscape_stays_none_rather_than_zero() -> None:
     assert verdict.data_quality is None
 
 
+def test_explicit_null_invalidation_stays_none_rather_than_becoming_zero() -> None:
+    verdict = verdict_from_external(_landscape_free_payload(invalidation=None))
+
+    assert verdict.invalidation is None
+
+
+def test_non_numeric_invalidation_is_rejected_not_silently_dropped() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(invalidation="not-a-number"))
+
+
+def test_reasons_that_is_not_a_list_is_rejected_not_silently_emptied() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(reasons="not a list"))
+
+
+def test_explicit_null_reasons_is_rejected_matching_the_non_optional_contract_field() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(reasons=None))
+
+
+def test_reasons_entry_that_is_not_a_string_is_rejected_not_silently_filtered_out() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(reasons=["fine", 123]))
+
+
 def test_overlapping_zones_are_rejected() -> None:
     payload = _external_payload(
         opportunityRange={"low": 100.0, "high": 150.0},
