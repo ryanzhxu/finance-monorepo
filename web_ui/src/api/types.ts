@@ -78,6 +78,18 @@ export interface EntryBlock {
 
 export type TechnicalSource = 'local' | 'external'
 
+/** Ryan's non-technical layers, reported beside an external technical action. */
+export interface SupportingContext {
+  direction: Direction
+  confidence: number
+  agrees_with_action: boolean
+  weighted_score: number
+  fundamental_vote: Partial<Record<Direction, number>>
+  sentiment_vote: Partial<Record<Direction, number>>
+  macro_vote: Partial<Record<Direction, number>>
+  signals: Signal[]
+}
+
 export interface Recommendation {
   direction: Direction
   confidence: number
@@ -96,6 +108,7 @@ export interface Recommendation {
   technical_price_state?: string | null
   local_technical_direction?: Direction | null
   technical_agreement?: boolean | null
+  supporting_context?: SupportingContext | null
 }
 
 export interface AnalysisResponse {

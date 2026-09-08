@@ -400,6 +400,66 @@ test('analyze endpoint returns a shaped response', async () => {
   }
 })
 
+test('his verdict is the action; Ryan layers ride beside it, not inside it', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'NVDA',
+          include_narrative: false,
+          technical: {
+            producer: 'vincent-stock-decision-dashboard',
+            action: 'sell',
+            confidence: 80,
+            priceState: 'BREAKDOWN_ZONE',
+          },
+        }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    assert.equal(response.status, 200)
+    const recommendation = (await response.json()).recommendation
+
+    // His action and his confidence survive verbatim.
+    assert.equal(recommendation.direction, 'SELL')
+    assert.equal(recommendation.confidence, 0.8)
+
+    // Ryan's layers are reported, and say whether they agree.
+    assert.ok(recommendation.supporting_context, 'supporting_context must be present')
+    assert.equal(typeof recommendation.supporting_context.agrees_with_action, 'boolean')
+    // Never technical - those belong to him.
+    const dims = recommendation.supporting_context.signals.map((s) => s.dimension)
+    assert.ok(!dims.includes('RSI_14'))
+    assert.ok(!dims.includes('Technical_External'))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('without his verdict the blended behaviour is unchanged', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: 'NVDA', include_narrative: false }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    const recommendation = (await response.json()).recommendation
+    assert.equal(recommendation.supporting_context, null)
+    assert.equal(recommendation.technical_source, 'local')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('worker never reports price/volume proxies as Reddit data', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch

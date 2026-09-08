@@ -15,6 +15,7 @@ from shared.models import (
     Recommendation,
     Sentiment,
     Signal,
+    SupportingContext,
     TechnicalVerdict,
 )
 
@@ -115,6 +116,43 @@ def fetch_analysis_context(
     return fundamentals, sentiment, macro
 
 
+def _build_supporting_context(
+    signals: list[Signal],
+    thresholds: dict[str, Any],
+    action: Direction,
+) -> SupportingContext | None:
+    """Summarize Ryan's non-technical layers without letting them move the action.
+
+    Returns None when there is nothing to say. "No non-technical evidence" is
+    not the same claim as "the non-technical evidence says HOLD".
+    """
+    non_technical = [signal for signal in signals if _match_category(signal.dimension) != "technical"]
+    total_weight = sum(signal.weight for signal in non_technical)
+    if not non_technical or total_weight <= 0:
+        return None
+
+    weighted_score = sum(SCORES[signal.signal] * signal.weight for signal in non_technical) / total_weight
+    if weighted_score > thresholds["vote"]["buy_above"]:
+        direction = Direction.BUY
+    elif weighted_score < thresholds["vote"]["sell_below"]:
+        direction = Direction.SELL
+    else:
+        direction = Direction.HOLD
+
+    majority_weight = sum(signal.weight for signal in non_technical if signal.signal == direction)
+    category_votes, _ = _weighted_votes_by_category(non_technical)
+    return SupportingContext(
+        direction=direction,
+        confidence=round(majority_weight / total_weight, 4),
+        agrees_with_action=direction == action,
+        weighted_score=round(weighted_score, 4),
+        fundamental_vote=category_votes["fundamental"],
+        sentiment_vote=category_votes["sentiment"],
+        macro_vote=category_votes["macro"],
+        signals=non_technical,
+    )
+
+
 def aggregate_recommendation(
     signals: list[Signal],
     horizon: Horizon,
@@ -132,7 +170,8 @@ def aggregate_recommendation(
     # Callers that already substituted (so their response can report the signals
     # actually voted on) pass the displaced local verdict in instead.
     displaced_local = displaced_local_verdict
-    if technical_verdict is not None and technical_verdict.source is TechnicalSource.EXTERNAL:
+    external = technical_verdict is not None and technical_verdict.source is TechnicalSource.EXTERNAL
+    if external:
         already_substituted = any(
             signal.dimension == EXTERNAL_TECHNICAL_DIMENSION for signal in signals
         )
@@ -196,9 +235,20 @@ def aggregate_recommendation(
     ):
         # Keep the weighted score and confidence tied to the underlying vote, but emit HOLD
         # near an FOMC event because the override reflects event-risk policy rather than signal math.
-        direction = Direction.HOLD
+        if not external:
+            direction = Direction.HOLD
         if "fomc_proximity_override" not in risk_flags:
             risk_flags.append("fomc_proximity_override")
+
+    supporting_context: SupportingContext | None = None
+    if external:
+        # Vincent's engine forbids fundamental, valuation, options and news data
+        # from entering a recommendation, and says there is no overall action.
+        # So his verdict IS the action and his confidence IS the confidence.
+        # Ryan's layers are computed and reported, but cannot move either.
+        direction = technical_verdict.direction
+        confidence = technical_verdict.confidence
+        supporting_context = _build_supporting_context(signals, thresholds, direction)
 
     if direction == Direction.BUY:
         review_action = "add_watch"
@@ -235,4 +285,5 @@ def aggregate_recommendation(
             if technical_verdict is None or displaced_local is None
             else technical_verdict.direction == displaced_local.direction
         ),
+        supporting_context=supporting_context,
     )

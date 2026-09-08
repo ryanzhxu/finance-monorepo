@@ -1532,6 +1532,16 @@
             ],
             "title": "Stop Loss Suggestion"
           },
+          "supporting_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportingContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "technical_agreement": {
             "anyOf": [
               {
@@ -1817,6 +1827,73 @@
           "note"
         ],
         "title": "Signal",
+        "type": "object"
+      },
+      "SupportingContext": {
+        "description": "Ryan's non-technical layers, reported beside an external technical action.\n\nVincent's engine forbids fundamental, valuation, options and news data from\nentering a recommendation. So when his verdict is present these layers are\ncomputed and shown, but they never move his action. `agrees_with_action`\nis the honest summary: does the rest of the evidence point the same way?",
+        "properties": {
+          "agrees_with_action": {
+            "title": "Agrees With Action",
+            "type": "boolean"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/Direction"
+          },
+          "fundamental_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Fundamental Vote",
+            "type": "object"
+          },
+          "macro_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Macro Vote",
+            "type": "object"
+          },
+          "sentiment_vote": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Direction"
+            },
+            "title": "Sentiment Vote",
+            "type": "object"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/Signal"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "weighted_score": {
+            "title": "Weighted Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "direction",
+          "confidence",
+          "agrees_with_action",
+          "weighted_score"
+        ],
+        "title": "SupportingContext",
         "type": "object"
       },
       "TechnicalSource": {

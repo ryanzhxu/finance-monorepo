@@ -844,7 +844,7 @@ function buildBuyability(snapshot, entry, fundamentals, sentiment, regime) {
     ideal_buy_zone: entry.ideal_buy_zone,
     current_price: snapshot.currentPrice,
     data_quality_score: computeDataQuality(snapshot, quoteQuality(fundamentals, sentiment, snapshot)),
-    confidence: round(confidence, 2),
+    confidence,
     reason: regime === 'risk_off' ? 'Market regime is cautious, so entries need more confirmation.' : entry.reason,
     risk_flags: buildRiskFlags(snapshot, entry, regime),
   }
@@ -941,10 +941,47 @@ function computeCategoryVotes(signals) {
   return votes
 }
 
+// Ryan's non-technical layers, summarized beside an external technical action.
+// Mirrors _build_supporting_context in analyst_service/core/aggregator.py.
+// Returns null when there is nothing to say - "no non-technical evidence" is
+// not the same claim as "the non-technical evidence says HOLD".
+function buildSupportingContext(signals, action) {
+  const nonTechnical = signals.filter((signal) => SIGNAL_CATEGORIES[signal.dimension] !== 'technical')
+  const totalWeight = nonTechnical.reduce((sum, signal) => sum + signal.weight, 0)
+  if (nonTechnical.length === 0 || totalWeight <= 0) return null
+
+  const weightedScore = nonTechnical.reduce((sum, s) => sum + scoreSignal(s.signal) * s.weight, 0) / totalWeight
+  const direction = weightedScore > 0.15 ? 'BUY' : weightedScore < -0.15 ? 'SELL' : 'HOLD'
+  const majorityWeight = nonTechnical
+    .filter((signal) => signal.signal === direction)
+    .reduce((sum, signal) => sum + signal.weight, 0)
+  const votes = computeCategoryVotes(nonTechnical)
+  return {
+    direction,
+    confidence: round(majorityWeight / totalWeight, 4),
+    agrees_with_action: direction === action,
+    weighted_score: round(weightedScore, 3),
+    fundamental_vote: votes.fundamental,
+    sentiment_vote: votes.sentiment,
+    macro_vote: votes.macro,
+    signals: nonTechnical,
+  }
+}
+
 function buildRecommendation(snapshot, votingSignals, entry, regime, technicalVerdict = null, displaced = null) {
   const score = computeWeightedScore(votingSignals)
-  const direction = score > 0.15 ? 'BUY' : score < -0.15 ? 'SELL' : 'HOLD'
-  const confidence = clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98)
+  const external = technicalVerdict != null && technicalVerdict.source === 'external'
+  // His engine forbids fundamental, valuation, options and news data from
+  // entering a recommendation, and says there is no overall action. So when he
+  // speaks, his action IS the action and his confidence IS the confidence;
+  // Ryan's layers are reported beside it and cannot move either.
+  const direction = external
+    ? technicalVerdict.direction
+    : score > 0.15 ? 'BUY' : score < -0.15 ? 'SELL' : 'HOLD'
+  const confidence = external
+    ? round(technicalVerdict.confidence, 2)
+    : round(clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98), 2)
+  const supportingContext = external ? buildSupportingContext(votingSignals, direction) : null
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
   const reviewAction =
     direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
@@ -972,6 +1009,7 @@ function buildRecommendation(snapshot, votingSignals, entry, regime, technicalVe
     local_technical_direction: displaced != null ? displaced.direction : null,
     technical_agreement:
       technicalVerdict == null || displaced == null ? null : technicalVerdict.direction === displaced.direction,
+    supporting_context: supportingContext,
   }
 }
 

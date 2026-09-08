@@ -326,6 +326,31 @@ class EntryConfluenceResponse(BaseModel):
     data_quality_score: float
 
 
+class SupportingContext(BaseModel):
+    """Ryan's non-technical layers, reported beside an external technical action.
+
+    Vincent's engine forbids fundamental, valuation, options and news data from
+    entering a recommendation. So when his verdict is present these layers are
+    computed and shown, but they never move his action. `agrees_with_action`
+    is the honest summary: does the rest of the evidence point the same way?
+    """
+
+    direction: Direction
+    confidence: float = Field(ge=0.0, le=1.0)
+    agrees_with_action: bool
+    weighted_score: float
+    fundamental_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    sentiment_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    macro_vote: dict[Direction, float] = Field(
+        default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
+    )
+    signals: list[Signal] = Field(default_factory=list)
+
+
 class Recommendation(BaseModel):
     direction: Direction
     confidence: float = Field(ge=0.0, le=1.0)
@@ -362,6 +387,10 @@ class Recommendation(BaseModel):
     # True when both engines independently reached the same technical direction.
     # None when there is nothing to compare.
     technical_agreement: bool | None = None
+    # Ryan's non-technical layers, reported beside an external technical action
+    # rather than blended into it. None when no external verdict is present, or
+    # when there are no non-technical signals to report.
+    supporting_context: SupportingContext | None = None
 
 
 class AnalyzeResponse(BaseModel):
