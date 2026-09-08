@@ -85,6 +85,18 @@ class TechnicalVerdict(BaseModel):
     data_quality: int | None = None
 
 
+class HorizonTechnicalVerdict(BaseModel):
+    """One horizon's independent verdict, exactly as Vincent's engine produced it.
+
+    His engine emits short/mid/long verdicts independently, with no overall
+    action. This carries each one through untouched so nothing here averages
+    them together.
+    """
+
+    horizon: Horizon
+    verdict: TechnicalVerdict
+
+
 class PortfolioContext(BaseModel):
     held: bool = False
     quantity: float | None = None
@@ -391,6 +403,12 @@ class Recommendation(BaseModel):
     # rather than blended into it. None when no external verdict is present, or
     # when there are no non-technical signals to report.
     supporting_context: SupportingContext | None = None
+    # Vincent's engine's short/mid/long verdicts, each independent and never
+    # averaged into `direction`/`technical_vote` above (which reflect only
+    # `horizon`). Populated only when a verdict was pulled from the external
+    # engine; empty when one was pushed on the request, since a push supplies
+    # just the one horizon.
+    technical_by_horizon: list[HorizonTechnicalVerdict] = Field(default_factory=list)
 
 
 class AnalyzeResponse(BaseModel):

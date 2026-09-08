@@ -14,7 +14,7 @@ from analyst_service.core import data_fetcher
 from analyst_service.core.provider_clients import finance_query as finance_query_client
 from analyst_service.core.provider_clients import stockdata as stockdata_client
 from shared.data_quality import FreshValue
-from shared.enums import Direction, Freshness, MarketRegime
+from shared.enums import Direction, Freshness, Horizon, MarketRegime
 from shared.models import AnalyzeRequest, Fundamentals, Macro, Recommendation, Sentiment
 
 
@@ -180,6 +180,105 @@ def test_analyze_symbol_returns_without_raising_when_price_history_is_missing(mo
     assert response.entry is None
     assert response.fundamentals.pe_ratio == 32.26
     assert response.data_freshness["price"] == Freshness.MISSING
+
+
+_PRICE_STATE_FOR_ACTION = {
+    "buy": "IN_OPPORTUNITY_ZONE",
+    "hold": "NEUTRAL_ZONE",
+    "sell": "BREAKDOWN_ZONE",
+}
+
+
+def _decision_payload(action: str) -> dict[str, object]:
+    return {
+        "contractVersion": "decision.v1",
+        "producer": "vincent-stock-decision-dashboard",
+        "action": action,
+        "confidence": 65,
+        "priceState": _PRICE_STATE_FOR_ACTION[action],
+        "reasons": [],
+    }
+
+
+def test_analyze_symbol_pulls_all_three_horizons_and_reuses_the_requested_one(monkeypatch) -> None:
+    monkeypatch.setattr(
+        analysis_module,
+        "load_service_config",
+        lambda: {
+            "entry_rules": {"support_window": 20},
+            "weights": {},
+            "thresholds": {
+                "vote": {"buy_above": 0.25, "sell_below": -0.25},
+                "signals": {"fomc_force_hold_days": 2},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_ohlcv",
+        lambda symbol, current_price: FreshValue(_empty_ohlcv(), Freshness.MISSING, None),
+    )
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_analysis_context",
+        lambda symbol, price_history: (
+            FreshValue(Fundamentals(pe_ratio=32.26), Freshness.QUARTERLY, datetime(2026, 6, 1, tzinfo=timezone.utc)),
+            FreshValue(Sentiment(), Freshness.MISSING, None),
+            FreshValue(Macro(market_regime=MarketRegime.NEUTRAL), Freshness.MISSING, None),
+        ),
+    )
+    monkeypatch.setattr(analysis_module, "generate_signals", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        analysis_module,
+        "aggregate_recommendation",
+        lambda signals, horizon, thresholds, data_quality_score, entry, freshness, **kwargs: Recommendation(
+            direction=Direction.HOLD,
+            confidence=0.0,
+            signal_vote={Direction.HOLD: 0},
+            weighted_score=0.0,
+            horizon=horizon,
+            review_action="hold_monitor",
+        ),
+    )
+    monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
+    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: "https://engine.example")
+
+    calls: list[str] = []
+
+    def fake_batch(symbol: str, horizons: object) -> dict[Horizon, dict[str, object]]:
+        calls.append("batch")
+        assert set(horizons) == {Horizon.ONE_WEEK, Horizon.TWO_TO_FOUR_WEEKS, Horizon.THREE_TO_SIX_MONTHS}
+        return {
+            Horizon.ONE_WEEK: _decision_payload("hold"),
+            Horizon.TWO_TO_FOUR_WEEKS: _decision_payload("buy"),
+            Horizon.THREE_TO_SIX_MONTHS: _decision_payload("sell"),
+        }
+
+    def forbidden_single(symbol: str, horizon: object = None) -> None:
+        raise AssertionError("the requested horizon is already in the batch; no duplicate fetch should happen")
+
+    monkeypatch.setattr(analysis_module, "fetch_external_technical_verdicts", fake_batch)
+    monkeypatch.setattr(analysis_module, "fetch_external_technical_verdict", forbidden_single)
+
+    response = asyncio.run(
+        analysis_module.analyze_symbol(
+            AnalyzeRequest(
+                symbol="NVDA",
+                asset_type="STOCK",
+                horizon="2-4W",
+                include_narrative=False,
+                include_entry=True,
+            )
+        )
+    )
+
+    assert calls == ["batch"]
+    by_horizon = {entry.horizon: entry.verdict.direction for entry in response.recommendation.technical_by_horizon}
+    assert by_horizon == {
+        Horizon.ONE_WEEK: Direction.HOLD,
+        Horizon.TWO_TO_FOUR_WEEKS: Direction.BUY,
+        Horizon.THREE_TO_SIX_MONTHS: Direction.SELL,
+    }
 
 
 def test_entry_confluence_route_returns_degraded_payload_without_market_price(monkeypatch) -> None:
