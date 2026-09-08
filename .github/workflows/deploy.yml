@@ -1,0 +1,62 @@
+name: Deploy
+
+# Merging to main deploys. The tests run again here against the merged tree,
+# because a pull request is green against its own head and can still break the
+# branch when it lands beside another one.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  # Queue deploys rather than cancelling. A cancelled deploy can strand an
+  # older build as the live one.
+  cancel-in-progress: false
+
+jobs:
+  deploy-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Python tests
+        run: uv run pytest -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Worker tests
+        working-directory: cloudflare-api
+        run: npm test
+
+      - name: Deploy Worker
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: cloudflare-api
+        run: npx --yes wrangler@4 deploy
+
+      - name: Skip deploy (no token configured)
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: |
+          echo "::warning title=Worker deploy skipped::CLOUDFLARE_API_TOKEN is not set in repository secrets."
