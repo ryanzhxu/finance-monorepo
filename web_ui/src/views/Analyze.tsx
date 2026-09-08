@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { fetchAnalyzeBundle, fetchSymbolSearch } from '../api/client'
+import { TechnicalSourceBadge } from '../components/TechnicalSourceBadge'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -1127,6 +1128,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     >
                       {formatDirection(analysis!.recommendation.direction, locale)}
                     </span>
+                    <TechnicalSourceBadge recommendation={analysis!.recommendation} />
                     <button
                       type="button"
                       disabled={isInWatchlist}

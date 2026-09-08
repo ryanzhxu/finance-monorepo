@@ -29,8 +29,18 @@ cd web_ui && npm run dev
 
 ## Tests
 ```bash
-UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -v
-# Expected: 68 passed
+# Python. The ignore flag is needed because test_stock_research.py is tracked
+# while the module it imports is still untracked WIP on codex/prod-cutover.
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -q \
+  --ignore=analyst_service/tests/test_stock_research.py
+# Expected: 176 passed
+
+# Worker
+cd cloudflare-api && npm test
+# Expected: 31 passing
+
+# Frontend
+cd web_ui && npm run build
 ```
 
 ## After any API/model change
@@ -47,9 +57,39 @@ git add openapi/ postman/
 - fcf_trend values: "improving" | "flat" | "deteriorating" (never "rising")
 - After any API/model change: run make postman and commit openapi/ + postman/
 - No unsolicited refactors, no extra tests unless tasked, no new dependencies without approval
+- The system must not place trades (spec §2 constraint 1). Vincent's Questrade
+  auto-trade request is an open decision, not a backlog item — see docs/OPEN-DECISIONS.md
+- **Technical layer ownership (decided 2026-08-28):** Vincent's engine supplies
+  technicals; every other layer stays here. An external decision.v1 verdict
+  *replaces* the local technical vote — never average the two
+- cloudflare-api/src/technical-provider.js mirrors
+  analyst_service/core/technical_provider.py. Change one, change both: the action
+  map, legality table and confidence rescale must stay identical
+- decision.v1 confidence is 0-100; Recommendation.confidence is 0.0-1.0. Always rescale
 
-## Current state (as of 2026-06-20)
+## Known divergence — Worker vs Python
+`cloudflare-api/` is a **re-implementation** of the analysis, not a proxy to
+`analyst_service`. They can disagree about the same symbol:
+
+| | Python | Worker |
+|---|---|---|
+| Vote thresholds | `signal_thresholds.yaml` | hardcoded ±0.15 |
+| Confidence | `majority_fraction × data_quality/100` | `0.5 + abs(score)×0.45` |
+| `review_action` | `add_watch`/`trim_review`/`hold_monitor` | `BUY`/`AVOID`/`WATCH`/`HOLD` |
+
+Production serves the Worker. Treat any Python-only change as not shipped until
+the Worker matches.
+
+## Current state (as of 2026-09-08)
 Completed:
+- Composite engine Phase 1: external technical provider seam. `/analyze` accepts an
+  optional `technical` block (decision.v1); it replaces the local technical vote and
+  reports `technical_agreement` — whether both engines reached the same direction.
+  Implemented on both the Python and Worker sides, with parity tests.
+- Worker category votes: `technical_vote`/`fundamental_vote`/`sentiment_vote`/
+  `macro_vote` were hardcoded zeros in production; now derived from real signals.
+
+Earlier (as of 2026-06-20):
 - Stage 0: market-calendar-aware freshness
 - Stage 0.5: entry engine fixes
 - Stage F: fundamentals + sentiment + macro data layers (yfinance + SEC EDGAR + Alpha Vantage fallback)

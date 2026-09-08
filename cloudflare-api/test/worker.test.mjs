@@ -400,6 +400,85 @@ test('analyze endpoint returns a shaped response', async () => {
   }
 })
 
+test('analyze endpoint substitutes an external technical verdict end to end', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'NVDA',
+          include_narrative: false,
+          technical: {
+            contractVersion: 'decision.v1',
+            producer: 'vincent-stock-decision-dashboard',
+            action: 'sell',
+            confidence: 80,
+            priceState: 'BREAKDOWN_ZONE',
+          },
+        }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    const recommendation = payload.recommendation
+
+    assert.equal(recommendation.technical_source, 'external')
+    assert.equal(recommendation.technical_producer, 'vincent-stock-decision-dashboard')
+    assert.equal(recommendation.technical_price_state, 'BREAKDOWN_ZONE')
+    // Vincent said SELL, so the whole technical weight sits on SELL and nowhere else.
+    assert.equal(recommendation.technical_vote.SELL, 7.6)
+    assert.equal(recommendation.technical_vote.BUY, 0)
+    // Category votes are no longer hardcoded zeros.
+    const categoryTotal = ['technical', 'fundamental', 'sentiment', 'macro'].reduce(
+      (sum, key) => sum + Object.values(recommendation[`${key}_vote`]).reduce((a, b) => a + b, 0),
+      0,
+    )
+    assert.ok(categoryTotal > 0, 'category votes must be derived, not zeroed')
+    // No local technical dimension should remain in the signal set.
+    assert.equal(payload.signals.filter((signal) => signal.dimension === 'RSI_14').length, 0)
+    assert.equal(payload.signals.filter((signal) => signal.dimension === 'Technical_External').length, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('analyze endpoint falls back to local technicals when the verdict is illegal', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'NVDA',
+          include_narrative: false,
+          technical: {
+            producer: 'vincent-stock-decision-dashboard',
+            action: 'buy',
+            confidence: 70,
+            priceState: 'IN_REDUCE_ZONE',
+          },
+        }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+
+    assert.equal(payload.recommendation.technical_source, 'local')
+    assert.ok(payload.recommendation.risk_flags.includes('external_technical_rejected'))
+    // The local technicals must still be doing the work.
+    assert.ok(payload.signals.some((signal) => signal.dimension === 'RSI_14'))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('batch response envelopes preserve order and report symbol errors', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockBatchFailureFetch

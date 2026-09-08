@@ -13,6 +13,60 @@ Market opportunity monorepo with FastAPI analyst/screener service code, a Cloudf
 
 `execution_engine/` and `portfolio_dashboard/` are still placeholders.
 
+## Composite engine — whose analysis is whose
+
+Decided by Ryan and Vincent on 2026-08-28: **Vincent's technical analysis system
+supplies the technical layer; every other layer stays here.**
+
+| Layer | Owner |
+|---|---|
+| Technical | Vincent's engine, via `decision.v1` |
+| Fundamental, sentiment, macro, valuation, entry/confluence, data quality | this repo |
+
+Post a `technical` block on `/analyze` and it replaces the local technical vote:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8001/analyze \
+  -H 'content-type: application/json' \
+  -d '{
+        "symbol": "NVDA",
+        "horizon": "3-6M",
+        "technical": {
+          "contractVersion": "decision.v1",
+          "producer": "vincent-stock-decision-dashboard",
+          "action": "buy",
+          "confidence": 70,
+          "priceState": "IN_OPPORTUNITY_ZONE",
+          "opportunityRange": {"low": 100.0, "high": 110.0},
+          "reduceRange": {"low": 140.0, "high": 150.0},
+          "invalidation": 95.0,
+          "reasons": ["Weekly trend intact"],
+          "dataQuality": 88
+        }
+      }'
+```
+
+Notes for the producer side:
+
+- `confidence` is **0-100** in `decision.v1`, rescaled to 0.0-1.0 internally.
+- `action` must be legal for `priceState`. `buy` inside `IN_REDUCE_ZONE` is refused.
+- A refused verdict does not fail the request. The analysis falls back to the local
+  technicals, reports `technical_source: "local"`, and adds the
+  `external_technical_rejected` risk flag, so a bad payload is visible, never silent.
+- The response reports **`technical_agreement`**: whether Vincent's engine and the
+  local technicals independently reached the same direction. It is `null` when there
+  is nothing to compare.
+
+Substitution is not averaging. When Vincent's verdict is present it *is* the
+technical vote, and the local technicals are computed only for that comparison.
+
+The same contract is implemented in the Worker
+(`cloudflare-api/src/technical-provider.js`), which serves production. Keep the two
+in step.
+
+Open decisions that need both of them are in
+[`docs/OPEN-DECISIONS.md`](docs/OPEN-DECISIONS.md).
+
 ## Local Run
 
 ```bash
