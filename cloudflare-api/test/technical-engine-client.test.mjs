@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fetchExternalTechnicalVerdict } from '../src/technical-engine-client.js'
+import { fetchExternalTechnicalVerdict, fetchExternalTechnicalVerdicts } from '../src/technical-engine-client.js'
 import { resolveTechnicalVerdict } from '../src/technical-provider.js'
 
 // These tests mirror analyst_service/tests/test_technical_engine_pull.py. The
@@ -145,6 +145,47 @@ test('pulled payload that violates the contract is rejected', async () => {
     const { verdict, riskFlags } = resolveTechnicalVerdict(pulled)
     assert.equal(verdict, null)
     assert.deepEqual(riskFlags, ['external_technical_rejected'])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('fetchExternalTechnicalVerdicts makes one call per horizon', async () => {
+  const originalFetch = globalThis.fetch
+  const requested = []
+  globalThis.fetch = (url) => {
+    const parsed = url instanceof URL ? url : new URL(String(url))
+    requested.push(parsed.searchParams.get('horizon'))
+    return Promise.resolve(jsonResponse(payload()))
+  }
+  try {
+    const horizons = ['1W', '2-4W', '3-6M']
+    const result = await fetchExternalTechnicalVerdicts('NVDA', horizons, {
+      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+    })
+    assert.deepEqual(requested, ['1W', '2-4W', '3-6M'])
+    assert.deepEqual(Object.keys(result).sort(), horizons.slice().sort())
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('fetchExternalTechnicalVerdicts omits horizons that fail', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = (url) => {
+    const parsed = url instanceof URL ? url : new URL(String(url))
+    if (parsed.searchParams.get('horizon') === '3-6M') {
+      return Promise.reject(new Error('boom'))
+    }
+    return Promise.resolve(jsonResponse(payload()))
+  }
+  try {
+    const horizons = ['1W', '2-4W', '3-6M']
+    const result = await fetchExternalTechnicalVerdicts('NVDA', horizons, {
+      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+      TECHNICAL_ENGINE_RETRIES: '0',
+    })
+    assert.deepEqual(Object.keys(result).sort(), ['1W', '2-4W'])
   } finally {
     globalThis.fetch = originalFetch
   }

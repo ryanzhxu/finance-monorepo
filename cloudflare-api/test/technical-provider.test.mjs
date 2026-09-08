@@ -4,8 +4,10 @@ import {
   ACTION_TO_DIRECTION,
   EXTERNAL_TECHNICAL_WEIGHT,
   LEGAL_ACTIONS,
+  SHORT_MID_LONG_HORIZONS,
   TechnicalVerdictError,
   resolveTechnicalVerdict,
+  resolveTechnicalVerdictsByHorizon,
   substituteTechnicalSignals,
   verdictFromExternal,
   verdictFromLocal,
@@ -162,4 +164,51 @@ test('resolve returns nothing and no flags when no verdict is supplied', () => {
   const { verdict, riskFlags } = resolveTechnicalVerdict(null)
   assert.equal(verdict, null)
   assert.deepEqual(riskFlags, [])
+})
+
+// --- per-horizon verdicts ----------------------------------------------------
+
+test('resolve by horizon carries each horizon independently', () => {
+  const payloads = {
+    '1W': payload({ action: 'buy', confidence: 60 }),
+    '2-4W': payload({ action: 'hold', priceState: 'NEUTRAL_ZONE', confidence: 50 }),
+    '3-6M': payload({ action: 'sell', priceState: 'BREAKDOWN_ZONE', confidence: 80 }),
+  }
+
+  const resolved = resolveTechnicalVerdictsByHorizon(payloads)
+
+  const byHorizon = Object.fromEntries(resolved.map((entry) => [entry.horizon, entry.verdict]))
+  assert.deepEqual(Object.keys(byHorizon).sort(), Object.keys(payloads).sort())
+  assert.equal(byHorizon['1W'].direction, 'BUY')
+  assert.equal(byHorizon['2-4W'].direction, 'HOLD')
+  assert.equal(byHorizon['3-6M'].direction, 'SELL')
+  // None of the three moves toward a shared average.
+  assert.equal(byHorizon['1W'].confidence, 0.6)
+  assert.equal(byHorizon['3-6M'].confidence, 0.8)
+})
+
+test('resolve by horizon omits a horizon missing from the batch', () => {
+  const payloads = { '1W': payload() }
+
+  const resolved = resolveTechnicalVerdictsByHorizon(payloads)
+
+  assert.deepEqual(resolved.map((entry) => entry.horizon), ['1W'])
+})
+
+test('resolve by horizon drops an invalid payload rather than failing the batch', () => {
+  const payloads = {
+    '1W': payload({ action: 'buy' }),
+    // SELL is illegal in an opportunity zone: this horizon must be dropped,
+    // not defaulted, and must not take the other horizons down with it.
+    '2-4W': payload({ action: 'sell' }),
+    '3-6M': payload({ action: 'sell', priceState: 'BREAKDOWN_ZONE' }),
+  }
+
+  const resolved = resolveTechnicalVerdictsByHorizon(payloads)
+
+  assert.deepEqual(new Set(resolved.map((entry) => entry.horizon)), new Set(['1W', '3-6M']))
+})
+
+test('SHORT_MID_LONG_HORIZONS excludes 1D, Ryan\'s day-trade horizon', () => {
+  assert.deepEqual(SHORT_MID_LONG_HORIZONS, ['1W', '2-4W', '3-6M'])
 })

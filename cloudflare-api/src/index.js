@@ -1,10 +1,12 @@
 import { ENTRY_RULES, SCORING_WEIGHTS, SCREENER_THRESHOLDS, SIGNAL_WEIGHTS, UNIVERSES } from './data.js'
 import {
   EXTERNAL_TECHNICAL_DIMENSION,
+  SHORT_MID_LONG_HORIZONS,
   resolveTechnicalVerdict,
+  resolveTechnicalVerdictsByHorizon,
   substituteTechnicalSignals,
 } from './technical-provider.js'
-import { fetchExternalTechnicalVerdict } from './technical-engine-client.js'
+import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
 import {
   atr,
   clamp,
@@ -969,7 +971,15 @@ function buildSupportingContext(signals, action) {
   }
 }
 
-function buildRecommendation(snapshot, votingSignals, entry, regime, technicalVerdict = null, displaced = null) {
+function buildRecommendation(
+  snapshot,
+  votingSignals,
+  entry,
+  regime,
+  technicalVerdict = null,
+  displaced = null,
+  technicalByHorizon = [],
+) {
   const score = computeWeightedScore(votingSignals)
   const external = technicalVerdict != null && technicalVerdict.source === 'external'
   // His engine forbids fundamental, valuation, options and news data from
@@ -1011,6 +1021,7 @@ function buildRecommendation(snapshot, votingSignals, entry, regime, technicalVe
     technical_agreement:
       technicalVerdict == null || displaced == null ? null : technicalVerdict.direction === displaced.direction,
     supporting_context: supportingContext,
+    technical_by_horizon: technicalByHorizon,
   }
 }
 
@@ -1152,13 +1163,22 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   // Vincent's engine owns the technical layer when it supplies a verdict. A
   // verdict that violates decision.v1 degrades to the local technicals and says
   // so through a risk flag rather than failing the analysis.
-  // When no verdict was pushed on the request, pull one from Vincent's engine
-  // if TECHNICAL_ENGINE_BASE_URL is configured. The pull is off by default
-  // and resolves to null on any failure, so the analysis still degrades to
-  // local technicals. The pulled payload goes through the same seam as a
-  // pushed one, so it is trusted no more than a pushed verdict.
-  const technicalPayload = technical ?? (await fetchExternalTechnicalVerdict(normalized, '2-4W', env))
+  // When no verdict was pushed on the request, pull from Vincent's engine if
+  // TECHNICAL_ENGINE_BASE_URL is configured. His engine emits independent
+  // short/mid/long verdicts, so the pull fetches all three: '2-4W' drives this
+  // analysis (the only horizon the Worker's own recommendation covers today),
+  // the rest are carried through unaveraged as technical_by_horizon. The pull
+  // is off by default and resolves to nothing on any failure, so the analysis
+  // still degrades to local technicals. Every pulled payload goes through the
+  // same seam as a pushed one, so it is trusted no more than a pushed verdict.
+  let byHorizonPayloads = {}
+  let technicalPayload = technical
+  if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
+    byHorizonPayloads = await fetchExternalTechnicalVerdicts(normalized, SHORT_MID_LONG_HORIZONS, env)
+    technicalPayload = byHorizonPayloads['2-4W'] ?? null
+  }
   const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technicalPayload)
+  const technicalByHorizon = resolveTechnicalVerdictsByHorizon(byHorizonPayloads)
   // The response reports the signals actually voted on, so summing them
   // reproduces the vote. The displaced local technicals survive as
   // local_technical_direction rather than sitting in the list uncounted.
@@ -1176,6 +1196,7 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     regime.market_regime,
     technicalVerdict,
     displaced,
+    technicalByHorizon,
   )
   for (const flag of technicalRiskFlags) {
     if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
