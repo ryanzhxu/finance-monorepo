@@ -150,6 +150,27 @@ test('pulled payload that violates the contract is rejected', async () => {
   }
 })
 
+test('a decimal retries value falls back to the default', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = () => {
+    calls += 1
+    return Promise.reject(new Error('boom'))
+  }
+  try {
+    // Python's int("3.0") raises ValueError, unlike JS's Number("3.0"), so this
+    // must fall back to the default (1 retry) rather than silently using 3.
+    const result = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
+      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+      TECHNICAL_ENGINE_RETRIES: '3.0',
+    })
+    assert.equal(result, null)
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('fetchExternalTechnicalVerdicts makes one call per horizon', async () => {
   const originalFetch = globalThis.fetch
   const requested = []
