@@ -176,6 +176,7 @@ export function resolveTechnicalVerdictsByHorizon(payloadsByHorizon) {
       resolved.push({ horizon, verdict: verdictFromExternal(payload) })
     } catch (error) {
       if (!(error instanceof TechnicalVerdictError)) throw error
+      console.warn(`Rejected external technical verdict for ${horizon}, omitting: ${error.message}`)
     }
   }
   return resolved
@@ -243,6 +244,7 @@ export function resolveTechnicalVerdict(supplied) {
     return { verdict: verdictFromExternal(supplied), riskFlags: [] }
   } catch (error) {
     if (error instanceof TechnicalVerdictError) {
+      console.warn(`Rejected external technical verdict, using local technicals: ${error.message}`)
       return { verdict: null, riskFlags: ['external_technical_rejected'] }
     }
     throw error
