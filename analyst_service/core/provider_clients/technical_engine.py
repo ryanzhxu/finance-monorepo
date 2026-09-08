@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Iterable
 
 import httpx
 
@@ -108,3 +108,18 @@ def fetch_external_technical_verdict(
         logger.warning("technical engine returned a non-object payload for %s; ignoring", normalized_symbol)
         return None
     return None
+
+
+def fetch_external_technical_verdicts(symbol: str, horizons: Iterable[Any]) -> dict[Any, dict[str, Any]]:
+    """Fetch a decision.v1 verdict per horizon, keyed by the horizon requested.
+
+    Each horizon is an independent call through ``fetch_external_technical_verdict``,
+    so one horizon's failure does not affect the others. A horizon is absent from
+    the result when the pull is off or that horizon's fetch failed.
+    """
+    results: dict[Any, dict[str, Any]] = {}
+    for horizon in horizons:
+        payload = fetch_external_technical_verdict(symbol, horizon)
+        if payload is not None:
+            results[horizon] = payload
+    return results

@@ -9,6 +9,7 @@ from analyst_service.core.aggregator import aggregate_recommendation
 from analyst_service.core.technical_provider import (
     TechnicalVerdictError,
     external_technical_weight,
+    resolve_technical_verdicts_by_horizon,
     substitute_technical_signals,
     synthesize_technical_signal,
     verdict_from_external,
@@ -369,3 +370,47 @@ def test_agreement_is_unknown_when_there_are_no_local_technicals() -> None:
     )
 
     assert recommendation.technical_agreement is None
+
+
+# --- per-horizon verdicts ----------------------------------------------------
+
+
+def test_resolve_by_horizon_carries_each_horizon_independently() -> None:
+    payloads = {
+        Horizon.ONE_WEEK: _external_payload(action="buy", confidence=60),
+        Horizon.TWO_TO_FOUR_WEEKS: _external_payload(action="hold", priceState="NEUTRAL_ZONE", confidence=50),
+        Horizon.THREE_TO_SIX_MONTHS: _external_payload(action="sell", priceState="BREAKDOWN_ZONE", confidence=80),
+    }
+
+    resolved = resolve_technical_verdicts_by_horizon(payloads)
+
+    by_horizon = {entry.horizon: entry.verdict for entry in resolved}
+    assert set(by_horizon) == set(payloads)
+    assert by_horizon[Horizon.ONE_WEEK].direction is Direction.BUY
+    assert by_horizon[Horizon.TWO_TO_FOUR_WEEKS].direction is Direction.HOLD
+    assert by_horizon[Horizon.THREE_TO_SIX_MONTHS].direction is Direction.SELL
+    # None of the three moves toward a shared average.
+    assert by_horizon[Horizon.ONE_WEEK].confidence == pytest.approx(0.60)
+    assert by_horizon[Horizon.THREE_TO_SIX_MONTHS].confidence == pytest.approx(0.80)
+
+
+def test_resolve_by_horizon_omits_a_horizon_missing_from_the_batch() -> None:
+    payloads = {Horizon.ONE_WEEK: _external_payload()}
+
+    resolved = resolve_technical_verdicts_by_horizon(payloads)
+
+    assert [entry.horizon for entry in resolved] == [Horizon.ONE_WEEK]
+
+
+def test_resolve_by_horizon_drops_an_invalid_payload_rather_than_failing_the_batch() -> None:
+    payloads = {
+        Horizon.ONE_WEEK: _external_payload(action="buy"),
+        # SELL is illegal in an opportunity zone: this horizon must be dropped,
+        # not defaulted, and must not take the other horizons down with it.
+        Horizon.TWO_TO_FOUR_WEEKS: _external_payload(action="sell"),
+        Horizon.THREE_TO_SIX_MONTHS: _external_payload(action="sell", priceState="BREAKDOWN_ZONE"),
+    }
+
+    resolved = resolve_technical_verdicts_by_horizon(payloads)
+
+    assert {entry.horizon for entry in resolved} == {Horizon.ONE_WEEK, Horizon.THREE_TO_SIX_MONTHS}

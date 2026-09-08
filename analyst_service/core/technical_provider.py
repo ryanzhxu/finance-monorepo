@@ -16,8 +16,8 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from shared.enums import DecisionAction, Direction, PriceState, TechnicalSource
-from shared.models import ExternalTechnicalVerdict, Signal, TechnicalVerdict
+from shared.enums import DecisionAction, Direction, Horizon, PriceState, TechnicalSource
+from shared.models import ExternalTechnicalVerdict, HorizonTechnicalVerdict, Signal, TechnicalVerdict
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,15 @@ EXTERNAL_TECHNICAL_DIMENSION = "Technical (external)"
 # Sum of the technical entries in signal_weights.yaml. Those values are final
 # pending a Phase 4 backtest, so they are read for the total rather than edited.
 DEFAULT_EXTERNAL_TECHNICAL_WEIGHT = 7.6
+
+# Vincent's engine emits independent short/mid/long verdicts. These three
+# Horizon values are what "short/mid/long" mean here; 1D is Ryan's day-trade
+# horizon and has no decision.v1 counterpart, so it is excluded.
+SHORT_MID_LONG_HORIZONS: tuple[Horizon, ...] = (
+    Horizon.ONE_WEEK,
+    Horizon.TWO_TO_FOUR_WEEKS,
+    Horizon.THREE_TO_SIX_MONTHS,
+)
 
 _SCORES = {Direction.BUY: 1.0, Direction.HOLD: 0.0, Direction.SELL: -1.0}
 
@@ -215,6 +224,27 @@ def resolve_technical_verdict(
     except TechnicalVerdictError as exc:
         logger.warning("Rejected external technical verdict, using local technicals: %s", exc)
         return None, ["external_technical_rejected"]
+
+
+def resolve_technical_verdicts_by_horizon(
+    payloads: dict[Horizon, ExternalTechnicalVerdict | dict[str, Any]],
+) -> list[HorizonTechnicalVerdict]:
+    """Normalize a batch of per-horizon payloads for side-by-side reporting.
+
+    Each horizon stands alone: a payload that fails decision.v1 validation is
+    dropped rather than defaulted, so a partial engine outage yields fewer
+    horizons rather than a fabricated one. Nothing here ranks or blends them.
+    """
+    resolved: list[HorizonTechnicalVerdict] = []
+    for horizon in SHORT_MID_LONG_HORIZONS:
+        payload = payloads.get(horizon)
+        if payload is None:
+            continue
+        try:
+            resolved.append(HorizonTechnicalVerdict(horizon=horizon, verdict=verdict_from_external(payload)))
+        except TechnicalVerdictError as exc:
+            logger.warning("Rejected external technical verdict for %s, omitting: %s", horizon.value, exc)
+    return resolved
 
 
 def substitute_technical_signals(

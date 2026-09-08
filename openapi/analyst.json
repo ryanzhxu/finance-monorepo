@@ -1218,6 +1218,23 @@
         "title": "Horizon",
         "type": "string"
       },
+      "HorizonTechnicalVerdict": {
+        "description": "One horizon's independent verdict, exactly as Vincent's engine produced it.\n\nHis engine emits short/mid/long verdicts independently, with no overall\naction. This carries each one through untouched so nothing here averages\nthem together.",
+        "properties": {
+          "horizon": {
+            "$ref": "#/components/schemas/Horizon"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/TechnicalVerdict"
+          }
+        },
+        "required": [
+          "horizon",
+          "verdict"
+        ],
+        "title": "HorizonTechnicalVerdict",
+        "type": "object"
+      },
       "MacdBlock": {
         "properties": {
           "histogram": {
@@ -1552,6 +1569,13 @@
               }
             ],
             "title": "Technical Agreement"
+          },
+          "technical_by_horizon": {
+            "items": {
+              "$ref": "#/components/schemas/HorizonTechnicalVerdict"
+            },
+            "title": "Technical By Horizon",
+            "type": "array"
           },
           "technical_price_state": {
             "anyOf": [
@@ -1903,6 +1927,100 @@
         ],
         "title": "TechnicalSource",
         "type": "string"
+      },
+      "TechnicalVerdict": {
+        "description": "A technical opinion normalized for the aggregator, whoever produced it.",
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "data_quality": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Quality"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/Direction"
+          },
+          "invalidation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation"
+          },
+          "opportunity_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "reduce_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/TechnicalSource"
+          }
+        },
+        "required": [
+          "direction",
+          "confidence",
+          "source"
+        ],
+        "title": "TechnicalVerdict",
+        "type": "object"
       },
       "Technicals": {
         "properties": {

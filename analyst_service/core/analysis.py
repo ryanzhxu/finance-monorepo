@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from shared.data_quality import FreshValue, compute_analysis_data_quality, freshness_label
 from shared.enums import Freshness
@@ -18,7 +19,11 @@ from shared.models import (
 from analyst_service.core.aggregator import aggregate_recommendation, fetch_analysis_context
 from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
-from analyst_service.core.provider_clients.technical_engine import fetch_external_technical_verdict
+from analyst_service.core.provider_clients.technical_engine import (
+    fetch_external_technical_verdict,
+    fetch_external_technical_verdicts,
+    technical_engine_base_url,
+)
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.narrator import synthesize_narrative
 from analyst_service.core.persistence import persist_analysis
@@ -26,7 +31,9 @@ from analyst_service.core.sentiment import normalize_sentiment
 from analyst_service.core.settings import load_service_config
 from analyst_service.core.signals import generate_signals
 from analyst_service.core.technical_provider import (
+    SHORT_MID_LONG_HORIZONS,
     resolve_technical_verdict,
+    resolve_technical_verdicts_by_horizon,
     substitute_technical_signals,
 )
 from analyst_service.core.technicals import compute_technicals
@@ -78,15 +85,23 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     # Vincent's engine owns the technical layer when it supplies a verdict; a
     # verdict that violates decision.v1 degrades to the local technicals and
     # says so through a risk flag rather than failing the analysis.
-    # When no verdict was pushed on the request, pull one from Vincent's
-    # engine if a base URL is configured. The pull is off by default and
-    # returns None on any failure, so the analysis still degrades to local
-    # technicals. The pulled payload is validated by the same seam as a
+    # When no verdict was pushed on the request, pull from Vincent's engine if
+    # a base URL is configured. His engine emits independent short/mid/long
+    # verdicts, so the pull fetches all three: one drives this analysis (the
+    # one matching the requested horizon), the rest are carried through
+    # unaveraged as technical_by_horizon. The pull is off by default and
+    # returns nothing on any failure, so the analysis still degrades to local
+    # technicals. Every pulled payload is validated by the same seam as a
     # pushed one, so it is trusted no more than a pushed verdict.
     supplied_technical = request.technical
-    if supplied_technical is None:
-        supplied_technical = fetch_external_technical_verdict(request.symbol, request.horizon)
+    by_horizon_payloads: dict[Any, dict[str, Any]] = {}
+    if supplied_technical is None and technical_engine_base_url() is not None:
+        by_horizon_payloads = fetch_external_technical_verdicts(request.symbol, SHORT_MID_LONG_HORIZONS)
+        supplied_technical = by_horizon_payloads.get(request.horizon)
+        if supplied_technical is None and request.horizon not in SHORT_MID_LONG_HORIZONS:
+            supplied_technical = fetch_external_technical_verdict(request.symbol, request.horizon)
     technical_verdict, technical_risk_flags = resolve_technical_verdict(supplied_technical)
+    technical_by_horizon = resolve_technical_verdicts_by_horizon(by_horizon_payloads)
     # Substitute once here so the response reports the signals actually voted on.
     # The displaced local technicals survive as local_technical_direction rather
     # than sitting in the list uncounted.
@@ -133,6 +148,7 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     for flag in technical_risk_flags:
         if flag not in recommendation.risk_flags:
             recommendation.risk_flags.append(flag)
+    recommendation.technical_by_horizon = technical_by_horizon
     response = AnalyzeResponse(
         symbol=request.symbol,
         company_name=company_name,

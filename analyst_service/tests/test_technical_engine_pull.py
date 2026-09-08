@@ -134,3 +134,36 @@ def test_pulled_payload_that_violates_the_contract_is_rejected(monkeypatch: pyte
     verdict, flags = resolve_technical_verdict(technical_engine.fetch_external_technical_verdict("NVDA"))
     assert verdict is None
     assert flags == ["external_technical_rejected"]
+
+
+def test_fetch_verdicts_by_horizon_makes_one_call_per_horizon(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(BASE_URL_ENV, "https://engine.example")
+    requested: list[str | None] = []
+
+    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+        requested.append(params.get("horizon"))
+        return _FakeResponse(_payload())
+
+    monkeypatch.setattr(technical_engine.httpx, "get", fake_get)
+    horizons = [Horizon.ONE_WEEK, Horizon.TWO_TO_FOUR_WEEKS, Horizon.THREE_TO_SIX_MONTHS]
+
+    result = technical_engine.fetch_external_technical_verdicts("NVDA", horizons)
+
+    assert requested == ["1W", "2-4W", "3-6M"]
+    assert set(result.keys()) == set(horizons)
+
+
+def test_fetch_verdicts_by_horizon_omits_horizons_that_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(BASE_URL_ENV, "https://engine.example")
+
+    def flaky_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+        if params.get("horizon") == "3-6M":
+            raise httpx.HTTPError("boom")
+        return _FakeResponse(_payload())
+
+    monkeypatch.setattr(technical_engine.httpx, "get", flaky_get)
+    horizons = [Horizon.ONE_WEEK, Horizon.TWO_TO_FOUR_WEEKS, Horizon.THREE_TO_SIX_MONTHS]
+
+    result = technical_engine.fetch_external_technical_verdicts("NVDA", horizons)
+
+    assert set(result.keys()) == {Horizon.ONE_WEEK, Horizon.TWO_TO_FOUR_WEEKS}
