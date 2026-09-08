@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { fetchAnalyzeBundle, fetchSymbolSearch } from '../api/client'
 import { TechnicalSourceBadge } from '../components/TechnicalSourceBadge'
 import { SupportingContextPanel } from '../components/SupportingContextPanel'
+import { TechnicalByHorizonPanel } from '../components/TechnicalByHorizonPanel'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -1178,6 +1179,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               </div>
 
               <SupportingContextPanel recommendation={analysis!.recommendation} />
+              <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
 
               <div className="flex flex-wrap gap-2">
                 {freshnessItems.map((item) => {
