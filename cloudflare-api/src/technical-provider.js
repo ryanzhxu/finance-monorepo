@@ -110,6 +110,15 @@ export function verdictFromExternal(payload) {
     throw new TechnicalVerdictError('producer is required')
   }
 
+  const dataQualityRaw = payload.dataQuality ?? payload.data_quality
+  let dataQuality = null
+  if (dataQualityRaw != null) {
+    dataQuality = Number(dataQualityRaw)
+    if (!Number.isFinite(dataQuality) || dataQuality < 0 || dataQuality > 100) {
+      throw new TechnicalVerdictError('dataQuality must be a number between 0 and 100')
+    }
+  }
+
   return {
     direction: ACTION_TO_DIRECTION[action],
     // decision.v1 is 0-100 and recommendation.confidence is 0.0-1.0. Skipping
@@ -122,9 +131,7 @@ export function verdictFromExternal(payload) {
     reduce_range: reduceRange,
     invalidation: Number.isFinite(Number(payload.invalidation)) ? Number(payload.invalidation) : null,
     reasons: Array.isArray(payload.reasons) ? payload.reasons.filter((item) => typeof item === 'string') : [],
-    data_quality: Number.isFinite(Number(payload.dataQuality ?? payload.data_quality))
-      ? Number(payload.dataQuality ?? payload.data_quality)
-      : null,
+    data_quality: dataQuality,
   }
 }
 

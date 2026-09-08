@@ -128,6 +128,13 @@ def test_confidence_outside_the_contract_range_is_rejected() -> None:
         verdict_from_external(_external_payload(confidence=101))
 
 
+def test_data_quality_outside_the_contract_range_is_rejected() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_external_payload(dataQuality=101))
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_external_payload(dataQuality=-1))
+
+
 # --- structural fields ------------------------------------------------------
 
 
