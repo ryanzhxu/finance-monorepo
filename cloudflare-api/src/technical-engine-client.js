@@ -80,3 +80,17 @@ export async function fetchExternalTechnicalVerdict(symbol, horizon, env = {}) {
   }
   return null
 }
+
+// Fetch a decision.v1 verdict per horizon, keyed by the horizon requested.
+// Mirrors analyst_service...fetch_external_technical_verdicts. Each horizon is
+// an independent call through fetchExternalTechnicalVerdict, so one horizon's
+// failure does not affect the others. A horizon is absent from the result
+// when the pull is off or that horizon's fetch failed.
+export async function fetchExternalTechnicalVerdicts(symbol, horizons, env = {}) {
+  const results = {}
+  for (const horizon of horizons) {
+    const payload = await fetchExternalTechnicalVerdict(symbol, horizon, env)
+    if (payload != null) results[horizon] = payload
+  }
+  return results
+}

@@ -43,6 +43,11 @@ export const LOCAL_TECHNICAL_DIMENSIONS = [
 
 export const EXTERNAL_TECHNICAL_DIMENSION = 'Technical_External'
 
+// Vincent's engine emits independent short/mid/long verdicts. These three
+// Horizon values are what "short/mid/long" mean here; 1D is Ryan's day-trade
+// horizon and has no decision.v1 counterpart, so it is excluded.
+export const SHORT_MID_LONG_HORIZONS = ['1W', '2-4W', '3-6M']
+
 // Sum of the technical entries in signal_weights.yaml. Keeping the total
 // identical means swapping the technical producer does not also change the
 // technical-to-fundamental balance.
@@ -121,6 +126,24 @@ export function verdictFromExternal(payload) {
       ? Number(payload.dataQuality ?? payload.data_quality)
       : null,
   }
+}
+
+// Normalize a batch of per-horizon payloads for side-by-side reporting. Each
+// horizon stands alone: a payload that fails decision.v1 validation is
+// dropped rather than defaulted, so a partial engine outage yields fewer
+// horizons rather than a fabricated one. Nothing here ranks or blends them.
+export function resolveTechnicalVerdictsByHorizon(payloadsByHorizon) {
+  const resolved = []
+  for (const horizon of SHORT_MID_LONG_HORIZONS) {
+    const payload = payloadsByHorizon[horizon]
+    if (payload == null) continue
+    try {
+      resolved.push({ horizon, verdict: verdictFromExternal(payload) })
+    } catch (error) {
+      if (!(error instanceof TechnicalVerdictError)) throw error
+    }
+  }
+  return resolved
 }
 
 export function isLocalTechnical(signal) {

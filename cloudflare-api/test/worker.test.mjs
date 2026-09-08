@@ -566,6 +566,63 @@ test('analyze endpoint falls back to local technicals when the verdict is illega
   }
 })
 
+test('analyze endpoint pulls all three horizons and reports them beside the driving verdict', async () => {
+  const originalFetch = globalThis.fetch
+  const engineRequests = []
+  globalThis.fetch = (input) => {
+    const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url ?? String(input)
+    const url = new URL(rawUrl)
+    if (url.pathname.startsWith('/decision/')) {
+      const horizon = url.searchParams.get('horizon')
+      engineRequests.push(horizon)
+      const byHorizon = {
+        '1W': { action: 'buy', confidence: 60, priceState: 'IN_OPPORTUNITY_ZONE' },
+        '2-4W': { action: 'sell', confidence: 80, priceState: 'BREAKDOWN_ZONE' },
+        '3-6M': { action: 'hold', confidence: 50, priceState: 'NEUTRAL_ZONE' },
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            contractVersion: 'decision.v1',
+            producer: 'vincent-stock-decision-dashboard',
+            ...byHorizon[horizon],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+    }
+    return mockFinanceQueryFetch(input)
+  }
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: 'NVDA', include_narrative: false }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key', TECHNICAL_ENGINE_BASE_URL: 'https://engine.example' },
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+
+    // One pull per horizon, not more, and not a fourth call for '2-4W' again.
+    assert.deepEqual(engineRequests.sort(), ['1W', '2-4W', '3-6M'])
+    // '2-4W' is what the Worker's own recommendation covers, so it drives the vote.
+    assert.equal(payload.recommendation.technical_source, 'external')
+    assert.equal(payload.recommendation.technical_price_state, 'BREAKDOWN_ZONE')
+
+    const byHorizon = Object.fromEntries(
+      payload.recommendation.technical_by_horizon.map((entry) => [entry.horizon, entry.verdict]),
+    )
+    assert.deepEqual(Object.keys(byHorizon).sort(), ['1W', '2-4W', '3-6M'])
+    assert.equal(byHorizon['1W'].direction, 'BUY')
+    assert.equal(byHorizon['2-4W'].direction, 'SELL')
+    assert.equal(byHorizon['3-6M'].direction, 'HOLD')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('batch response envelopes preserve order and report symbol errors', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockBatchFailureFetch
