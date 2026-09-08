@@ -9,6 +9,7 @@ import {
   resolveTechnicalVerdict,
   resolveTechnicalVerdictsByHorizon,
   substituteTechnicalSignals,
+  synthesizeTechnicalSignal,
   verdictFromExternal,
   verdictFromLocal,
 } from '../src/technical-provider.js'
@@ -97,6 +98,25 @@ test('data quality outside the contract range is rejected', () => {
 test('data quality must be a whole number', () => {
   // data_quality is `int` in the contract, unlike confidence which is `float`.
   assert.throws(() => verdictFromExternal(payload({ dataQuality: 88.5 })), TechnicalVerdictError)
+})
+
+test('a missing producer is rejected', () => {
+  const body = payload()
+  delete body.producer
+  assert.throws(() => verdictFromExternal(body), TechnicalVerdictError)
+})
+
+test('an empty producer is accepted, matching the unconstrained contract field', () => {
+  // Python's `producer: str` has no length constraint: analyst_service accepts
+  // an empty string, so rejecting it here would diverge on the same payload.
+  const verdict = verdictFromExternal(landscapeFree({ producer: '' }))
+  assert.equal(verdict.producer, '')
+})
+
+test('an empty producer falls back to a default label when synthesized', () => {
+  const verdict = verdictFromExternal(landscapeFree({ producer: '' }))
+  const signal = synthesizeTechnicalSignal(verdict)
+  assert.equal(signal.note, 'external engine: BUY')
 })
 
 test('the legality table matches the decision.v1 contract exactly', () => {
