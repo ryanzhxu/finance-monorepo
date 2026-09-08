@@ -4,6 +4,7 @@ import {
   resolveTechnicalVerdict,
   substituteTechnicalSignals,
 } from './technical-provider.js'
+import { fetchExternalTechnicalVerdict } from './technical-engine-client.js'
 import {
   atr,
   clamp,
@@ -1151,7 +1152,13 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   // Vincent's engine owns the technical layer when it supplies a verdict. A
   // verdict that violates decision.v1 degrades to the local technicals and says
   // so through a risk flag rather than failing the analysis.
-  const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technical)
+  // When no verdict was pushed on the request, pull one from Vincent's engine
+  // if TECHNICAL_ENGINE_BASE_URL is configured. The pull is off by default
+  // and resolves to null on any failure, so the analysis still degrades to
+  // local technicals. The pulled payload goes through the same seam as a
+  // pushed one, so it is trusted no more than a pushed verdict.
+  const technicalPayload = technical ?? (await fetchExternalTechnicalVerdict(normalized, '2-4W', env))
+  const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technicalPayload)
   // The response reports the signals actually voted on, so summing them
   // reproduces the vote. The displaced local technicals survive as
   // local_technical_direction rather than sitting in the list uncounted.
