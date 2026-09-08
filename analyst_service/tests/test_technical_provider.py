@@ -9,6 +9,7 @@ from analyst_service.core.aggregator import aggregate_recommendation
 from analyst_service.core.technical_provider import (
     TechnicalVerdictError,
     external_technical_weight,
+    substitute_technical_signals,
     synthesize_technical_signal,
     verdict_from_external,
     verdict_from_local,
@@ -305,6 +306,53 @@ def test_agreement_is_false_when_the_engines_disagree() -> None:
     )
 
     assert recommendation.technical_agreement is False
+
+
+def test_pre_substituted_signals_are_not_substituted_twice() -> None:
+    # analyze_symbol substitutes up front so the response can report the signals
+    # actually voted on. The aggregator must not then add a second external signal.
+    verdict = verdict_from_external(_external_payload(action="sell", priceState="BREAKDOWN_ZONE"))
+    signals = _local_technical_signals() + _non_technical_signals()
+    voting, displaced = substitute_technical_signals(signals, verdict)
+
+    recommendation = aggregate_recommendation(
+        voting,
+        Horizon.THREE_TO_SIX_MONTHS,
+        THRESHOLDS,
+        100,
+        None,
+        {},
+        technical_verdict=verdict,
+        displaced_local_verdict=displaced,
+    )
+
+    assert recommendation.technical_vote[Direction.SELL] == pytest.approx(7.6)
+    assert recommendation.technical_agreement is False
+    assert recommendation.local_technical_direction is Direction.BUY
+
+
+def test_pre_substituted_path_matches_the_inline_path() -> None:
+    verdict = verdict_from_external(_external_payload(action="sell", priceState="BREAKDOWN_ZONE"))
+    signals = _local_technical_signals() + _non_technical_signals()
+    voting, displaced = substitute_technical_signals(signals, verdict)
+
+    inline = aggregate_recommendation(
+        signals, Horizon.THREE_TO_SIX_MONTHS, THRESHOLDS, 100, None, {}, technical_verdict=verdict
+    )
+    pre = aggregate_recommendation(
+        voting,
+        Horizon.THREE_TO_SIX_MONTHS,
+        THRESHOLDS,
+        100,
+        None,
+        {},
+        technical_verdict=verdict,
+        displaced_local_verdict=displaced,
+    )
+
+    assert inline.weighted_score == pre.weighted_score
+    assert inline.technical_vote == pre.technical_vote
+    assert inline.technical_agreement == pre.technical_agreement
 
 
 def test_agreement_is_unknown_when_there_are_no_local_technicals() -> None:

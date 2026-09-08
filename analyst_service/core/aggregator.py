@@ -19,7 +19,10 @@ from shared.models import (
 )
 
 from analyst_service.core.data_fetcher import fetch_fundamentals, fetch_macro, fetch_sentiment
-from analyst_service.core.technical_provider import substitute_technical_signals
+from analyst_service.core.technical_provider import (
+    EXTERNAL_TECHNICAL_DIMENSION,
+    substitute_technical_signals,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -122,12 +125,19 @@ def aggregate_recommendation(
     macro: Macro | None = None,
     apply_overrides: bool = True,
     technical_verdict: TechnicalVerdict | None = None,
+    displaced_local_verdict: TechnicalVerdict | None = None,
 ) -> Recommendation:
     # An external verdict replaces the local technical block rather than blending
     # with it: Ryan and Vincent agreed Vincent's engine owns the technical layer.
-    displaced_local: TechnicalVerdict | None = None
+    # Callers that already substituted (so their response can report the signals
+    # actually voted on) pass the displaced local verdict in instead.
+    displaced_local = displaced_local_verdict
     if technical_verdict is not None and technical_verdict.source is TechnicalSource.EXTERNAL:
-        signals, displaced_local = substitute_technical_signals(signals, technical_verdict)
+        already_substituted = any(
+            signal.dimension == EXTERNAL_TECHNICAL_DIMENSION for signal in signals
+        )
+        if not already_substituted:
+            signals, displaced_local = substitute_technical_signals(signals, technical_verdict)
 
     if not signals:
         weighted_score = 0.0

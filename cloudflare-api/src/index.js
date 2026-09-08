@@ -933,17 +933,7 @@ function computeCategoryVotes(signals) {
   return votes
 }
 
-function buildRecommendation(snapshot, signals, entry, regime, technicalVerdict = null) {
-  // An external verdict replaces the local technical block rather than blending
-  // with it: Vincent's engine owns the technical layer when it speaks.
-  let displaced = null
-  let votingSignals = signals
-  if (technicalVerdict != null && technicalVerdict.source === 'external') {
-    const substituted = substituteTechnicalSignals(signals, technicalVerdict)
-    votingSignals = substituted.signals
-    displaced = substituted.displaced
-  }
-
+function buildRecommendation(snapshot, votingSignals, entry, regime, technicalVerdict = null, displaced = null) {
   const score = computeWeightedScore(votingSignals)
   const direction = score > 0.15 ? 'BUY' : score < -0.15 ? 'SELL' : 'HOLD'
   const confidence = clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98)
@@ -1111,12 +1101,29 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   const entry = buildEntry(snapshot, regime.market_regime)
   const fibonacci = buildFibonacci(snapshot, lookbackDays)
   const confluence = buildConfluence(snapshot, entry, fibonacci)
-  const signals = buildSignals(snapshot, entry, fundamentals, sentiment, macro)
+  const localSignals = buildSignals(snapshot, entry, fundamentals, sentiment, macro)
   // Vincent's engine owns the technical layer when it supplies a verdict. A
   // verdict that violates decision.v1 degrades to the local technicals and says
   // so through a risk flag rather than failing the analysis.
   const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technical)
-  const recommendation = buildRecommendation(snapshot, signals, entry, regime.market_regime, technicalVerdict)
+  // The response reports the signals actually voted on, so summing them
+  // reproduces the vote. The displaced local technicals survive as
+  // local_technical_direction rather than sitting in the list uncounted.
+  let signals = localSignals
+  let displaced = null
+  if (technicalVerdict != null && technicalVerdict.source === 'external') {
+    const substituted = substituteTechnicalSignals(localSignals, technicalVerdict)
+    signals = substituted.signals
+    displaced = substituted.displaced
+  }
+  const recommendation = buildRecommendation(
+    snapshot,
+    signals,
+    entry,
+    regime.market_regime,
+    technicalVerdict,
+    displaced,
+  )
   for (const flag of technicalRiskFlags) {
     if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
   }

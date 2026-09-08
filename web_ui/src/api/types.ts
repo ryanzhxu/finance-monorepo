@@ -72,6 +72,8 @@ export interface EntryBlock {
   data_quality_score?: number
 }
 
+export type TechnicalSource = 'local' | 'external'
+
 export interface Recommendation {
   direction: Direction
   confidence: number
@@ -83,6 +85,13 @@ export interface Recommendation {
   horizon: string
   review_action: string
   risk_flags: string[]
+  // Which engine produced the technical vote. Optional because responses from
+  // before the composite engine shipped do not carry these.
+  technical_source?: TechnicalSource
+  technical_producer?: string | null
+  technical_price_state?: string | null
+  local_technical_direction?: Direction | null
+  technical_agreement?: boolean | null
 }
 
 export interface AnalysisResponse {

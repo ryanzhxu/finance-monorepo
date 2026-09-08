@@ -153,7 +153,8 @@ def test_analyze_symbol_returns_without_raising_when_price_history_is_missing(mo
     monkeypatch.setattr(
         analysis_module,
         "aggregate_recommendation",
-        lambda signals, horizon, thresholds, data_quality_score, entry, freshness, macro=None, apply_overrides=True, technical_verdict=None: Recommendation(
+        # **kwargs so extending aggregate_recommendation does not break this stub.
+        lambda signals, horizon, thresholds, data_quality_score, entry, freshness, **kwargs: Recommendation(
             direction=Direction.HOLD,
             confidence=0.0,
             signal_vote={Direction.HOLD: 0},
