@@ -68,6 +68,28 @@ function readRange(raw, label) {
   return { low, high }
 }
 
+// `null`/undefined means "no invalidation level", matching Python's
+// `invalidation: float | None`. Number(null) is 0, so that case must be
+// checked explicitly or a real level gets fabricated where none was given.
+function readInvalidation(raw) {
+  if (raw === null || raw === undefined) return null
+  const value = Number(raw)
+  if (!Number.isFinite(value)) {
+    throw new TechnicalVerdictError('invalidation must be a number')
+  }
+  return value
+}
+
+// Python's `reasons: list[str]` rejects a non-list or a list with a non-string
+// item outright; it does not quietly drop what does not fit.
+function readReasons(raw) {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.some((item) => typeof item !== 'string')) {
+    throw new TechnicalVerdictError('reasons must be an array of strings')
+  }
+  return raw
+}
+
 // Normalize a decision.v1 payload, or refuse it. Refusing matters more than
 // accepting: a malformed payload that silently became a confident HOLD would be
 // indistinguishable from a real opinion.
@@ -129,8 +151,8 @@ export function verdictFromExternal(payload) {
     price_state: priceState,
     opportunity_range: opportunityRange,
     reduce_range: reduceRange,
-    invalidation: Number.isFinite(Number(payload.invalidation)) ? Number(payload.invalidation) : null,
-    reasons: Array.isArray(payload.reasons) ? payload.reasons.filter((item) => typeof item === 'string') : [],
+    invalidation: readInvalidation(payload.invalidation),
+    reasons: readReasons(payload.reasons),
     data_quality: dataQuality,
   }
 }
