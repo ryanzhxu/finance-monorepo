@@ -281,6 +281,97 @@ def test_analyze_symbol_pulls_all_three_horizons_and_reuses_the_requested_one(mo
     }
 
 
+def test_analyze_symbol_pulls_a_dedicated_verdict_for_a_horizon_outside_the_three(monkeypatch) -> None:
+    monkeypatch.setattr(
+        analysis_module,
+        "load_service_config",
+        lambda: {
+            "entry_rules": {"support_window": 20},
+            "weights": {},
+            "thresholds": {
+                "vote": {"buy_above": 0.25, "sell_below": -0.25},
+                "signals": {"fomc_force_hold_days": 2},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_ohlcv",
+        lambda symbol, current_price: FreshValue(_empty_ohlcv(), Freshness.MISSING, None),
+    )
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_analysis_context",
+        lambda symbol, price_history: (
+            FreshValue(Fundamentals(pe_ratio=32.26), Freshness.QUARTERLY, datetime(2026, 6, 1, tzinfo=timezone.utc)),
+            FreshValue(Sentiment(), Freshness.MISSING, None),
+            FreshValue(Macro(market_regime=MarketRegime.NEUTRAL), Freshness.MISSING, None),
+        ),
+    )
+    monkeypatch.setattr(analysis_module, "generate_signals", lambda *args, **kwargs: [])
+
+    captured_verdicts: list[object] = []
+
+    def fake_aggregate(signals, horizon, thresholds, data_quality_score, entry, freshness, **kwargs):
+        captured_verdicts.append(kwargs.get("technical_verdict"))
+        return Recommendation(
+            direction=Direction.HOLD,
+            confidence=0.0,
+            signal_vote={Direction.HOLD: 0},
+            weighted_score=0.0,
+            horizon=horizon,
+            review_action="hold_monitor",
+        )
+
+    monkeypatch.setattr(analysis_module, "aggregate_recommendation", fake_aggregate)
+    monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
+    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: "https://engine.example")
+
+    calls: list[str] = []
+
+    def fake_batch(symbol: str, horizons: object) -> dict[Horizon, dict[str, object]]:
+        calls.append("batch")
+        assert set(horizons) == {Horizon.ONE_WEEK, Horizon.TWO_TO_FOUR_WEEKS, Horizon.THREE_TO_SIX_MONTHS}
+        return {
+            Horizon.ONE_WEEK: _decision_payload("hold"),
+            Horizon.TWO_TO_FOUR_WEEKS: _decision_payload("sell"),
+            Horizon.THREE_TO_SIX_MONTHS: _decision_payload("sell"),
+        }
+
+    def fake_single(symbol: str, horizon: object = None) -> dict[str, object]:
+        calls.append("single")
+        assert horizon == Horizon.ONE_DAY
+        return _decision_payload("buy")
+
+    monkeypatch.setattr(analysis_module, "fetch_external_technical_verdicts", fake_batch)
+    monkeypatch.setattr(analysis_module, "fetch_external_technical_verdict", fake_single)
+
+    response = asyncio.run(
+        analysis_module.analyze_symbol(
+            AnalyzeRequest(
+                symbol="NVDA",
+                asset_type="STOCK",
+                horizon="1D",
+                include_narrative=False,
+                include_entry=True,
+            )
+        )
+    )
+
+    # "1D" has no decision.v1 counterpart in the batch (only 1W/2-4W/3-6M), so
+    # the dedicated single fetch must run too, and its verdict — not None from
+    # a missed batch lookup — must be what drives this analysis.
+    assert calls == ["batch", "single"]
+    assert captured_verdicts[-1] is not None
+    assert captured_verdicts[-1].direction == Direction.BUY
+    by_horizon = {entry.horizon: entry.verdict.direction for entry in response.recommendation.technical_by_horizon}
+    assert by_horizon == {
+        Horizon.ONE_WEEK: Direction.HOLD,
+        Horizon.TWO_TO_FOUR_WEEKS: Direction.SELL,
+        Horizon.THREE_TO_SIX_MONTHS: Direction.SELL,
+    }
+
+
 def test_entry_confluence_route_returns_degraded_payload_without_market_price(monkeypatch) -> None:
     monkeypatch.setattr(
         analysis_router,
