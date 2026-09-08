@@ -135,6 +135,12 @@ def test_data_quality_outside_the_contract_range_is_rejected() -> None:
         verdict_from_external(_external_payload(dataQuality=-1))
 
 
+def test_data_quality_must_be_a_whole_number() -> None:
+    # data_quality is `int` in the contract, unlike confidence which is `float`.
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_external_payload(dataQuality=88.5))
+
+
 # --- structural fields ------------------------------------------------------
 
 
