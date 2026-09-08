@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { fetchAnalyzeBundle, fetchSymbolSearch } from '../api/client'
 import { TechnicalSourceBadge } from '../components/TechnicalSourceBadge'
+import { SupportingContextPanel } from '../components/SupportingContextPanel'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -1175,6 +1176,8 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                   </div>
                 </div>
               </div>
+
+              <SupportingContextPanel recommendation={analysis!.recommendation} />
 
               <div className="flex flex-wrap gap-2">
                 {freshnessItems.map((item) => {
