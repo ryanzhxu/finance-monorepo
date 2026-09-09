@@ -89,6 +89,11 @@ export interface TechnicalVerdict {
   confidence: number
   source: TechnicalSource
   producer: string | null
+  // The producer's own action and execution intent. Direction has three
+  // members and decision.v1 has seven, so `avoid` and `hold` both project to
+  // HOLD and can only be told apart here.
+  action?: string | null
+  execution_intent?: string | null
   price_state?: string | null
   opportunity_range?: PriceRange | null
   reduce_range?: PriceRange | null
