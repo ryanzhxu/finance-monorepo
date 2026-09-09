@@ -1,0 +1,9 @@
+{
+  "name": "decision-v1-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy"
+  }
+}

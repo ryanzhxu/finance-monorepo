@@ -48,4 +48,7 @@ function quoteFromItem(item) {
 
 const api = { finite, marketCore, returnPct, relativeStrength, featureInputs, quoteFromItem };
 
+// Attach to the global the way the engine modules do, so this works under a
+// Cloudflare Worker bundle where `module` does not exist.
+if (typeof globalThis !== "undefined") globalThis.DecisionFeatureInputs = api;
 if (typeof module !== "undefined" && module.exports) module.exports = api;
