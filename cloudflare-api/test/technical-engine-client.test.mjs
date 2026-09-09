@@ -211,3 +211,36 @@ test('fetchExternalTechnicalVerdicts omits horizons that fail', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('the service binding is used when present, and plain fetch when not', async () => {
+  // Regression guard for a real outage: a public *.workers.dev subrequest on the
+  // same account loops back to the calling Worker and 404s, which silently
+  // degraded the technical layer to local technicals.
+  const payload = { producer: 'p', action: 'hold', confidence: 50 }
+  let bindingCalls = 0
+  let globalCalls = 0
+
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => { globalCalls += 1; return new Response(JSON.stringify(payload)) }
+  try {
+    const env = {
+      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example.com/api',
+      TECHNICAL_ENGINE: {
+        fetch: async () => { bindingCalls += 1; return new Response(JSON.stringify(payload)) },
+      },
+    }
+    const viaBinding = await fetchExternalTechnicalVerdict('NVDA', '2-4W', env)
+    assert.deepEqual(viaBinding, payload)
+    assert.equal(bindingCalls, 1, 'binding must be used when bound')
+    assert.equal(globalCalls, 0, 'global fetch must not be used when bound')
+
+    // No binding (engine hosted elsewhere) -> plain fetch.
+    const viaFetch = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
+      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example.com/api',
+    })
+    assert.deepEqual(viaFetch, payload)
+    assert.equal(globalCalls, 1, 'plain fetch is the fallback')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

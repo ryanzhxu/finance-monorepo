@@ -18,6 +18,13 @@ CURSOR_RESEARCH_DISCOVERY_MODEL = "claude-sonnet-5"
 CURSOR_RESEARCH_VERIFICATION_MODEL = "claude-haiku-4-5"
 CURSOR_RESEARCH_REVIEW_MODEL = "claude-haiku-4-5"
 
+# Worker-to-Worker over a public *.workers.dev URL loops back to the CALLING
+# Worker on the same account, which then 404s because it has no such route.
+# A service binding routes directly to decision-v1 instead, with no public hop.
+[[services]]
+binding = "TECHNICAL_ENGINE"
+service = "decision-v1"
+
 [durable_objects]
 bindings = [
   { name = "SHARED_WATCHLIST_SPACE", class_name = "SharedWatchlistSpace" },
