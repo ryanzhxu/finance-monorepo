@@ -65,7 +65,14 @@ export async function fetchExternalTechnicalVerdict(symbol, horizon, env = {}) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const response = await fetch(url, { signal: controller.signal })
+      // Prefer the service binding. A subrequest to a *.workers.dev host on the
+      // same account is routed back to this Worker, which 404s because it has
+      // no /api/decision route — so a public-URL fetch silently degrades to
+      // local technicals. The binding routes straight to the target Worker.
+      // Plain fetch remains the path for an engine hosted elsewhere.
+      const response = env.TECHNICAL_ENGINE?.fetch
+        ? await env.TECHNICAL_ENGINE.fetch(url, { signal: controller.signal })
+        : await fetch(url, { signal: controller.signal })
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} from ${url}`)
       }
