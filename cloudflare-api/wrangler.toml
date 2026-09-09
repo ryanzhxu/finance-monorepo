@@ -4,6 +4,11 @@ compatibility_date = "2026-06-27"
 workers_dev = true
 
 [vars]
+# Vincent's decision engine owns the technical layer (decided 2026-08-28).
+# The client appends /decision/<SYMBOL>?horizon=<h>, so this points at the
+# Worker's /api prefix. Unset it to fall back to the local technicals.
+TECHNICAL_ENGINE_BASE_URL = "https://decision-v1.rxlab.workers.dev/api"
+TECHNICAL_ENGINE_TIMEOUT = "8"
 SHARED_WATCHLIST_SLUG = "drama"
 SHARED_WATCHLIST_DISPLAY_NAME = "Drama"
 RESEARCH_ENABLED = "false"
