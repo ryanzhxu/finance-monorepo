@@ -73,7 +73,9 @@ def _non_technical_signals() -> list[Signal]:
         ("hold", Direction.HOLD),
         ("trim", Direction.SELL),
         ("sell", Direction.SELL),
-        ("avoid", Direction.SELL),
+        # NOT SELL. His AGENTS.md: "Avoid is not Sell and must not produce a
+        # fake exit plan." See test_avoid_is_not_sell.py.
+        ("avoid", Direction.HOLD),
     ],
 )
 def test_every_decision_action_maps_to_a_direction(action: str, expected: Direction) -> None:

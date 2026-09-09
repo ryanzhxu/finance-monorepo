@@ -1604,6 +1604,16 @@
               }
             ]
           },
+          "technical_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "technical_agreement": {
             "anyOf": [
               {
@@ -1621,6 +1631,17 @@
             },
             "title": "Technical By Horizon",
             "type": "array"
+          },
+          "technical_execution_intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical Execution Intent"
           },
           "technical_price_state": {
             "anyOf": [
@@ -1976,6 +1997,16 @@
       "TechnicalVerdict": {
         "description": "A technical opinion normalized for the aggregator, whoever produced it.",
         "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confidence": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -1995,6 +2026,17 @@
           },
           "direction": {
             "$ref": "#/components/schemas/Direction"
+          },
+          "execution_intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Intent"
           },
           "invalidation": {
             "anyOf": [

@@ -297,6 +297,10 @@ def aggregate_recommendation(
         ),
         technical_producer=technical_verdict.producer if technical_verdict is not None else None,
         technical_price_state=technical_verdict.price_state if technical_verdict is not None else None,
+        technical_action=technical_verdict.action if technical_verdict is not None else None,
+        technical_execution_intent=(
+            technical_verdict.execution_intent if technical_verdict is not None else None
+        ),
         local_technical_direction=displaced_local.direction if displaced_local is not None else None,
         technical_agreement=(
             None

@@ -33,7 +33,22 @@ ACTION_TO_DIRECTION: dict[DecisionAction, Direction] = {
     DecisionAction.HOLD: Direction.HOLD,
     DecisionAction.TRIM: Direction.SELL,
     DecisionAction.SELL: Direction.SELL,
-    DecisionAction.AVOID: Direction.SELL,
+    # NOT SELL. His AGENTS.md: "Avoid is not Sell and must not produce a fake
+    # exit plan." Avoid means do not enter; projecting it onto SELL would tell
+    # an existing holder to exit. The distinction survives in `action` and
+    # `execution_intent`, which Direction cannot express.
+    DecisionAction.AVOID: Direction.HOLD,
+}
+
+# His executionIntent mapping, transcribed from execution-engine.js.
+ACTION_TO_EXECUTION_INTENT: dict[DecisionAction, str] = {
+    DecisionAction.STRONG_BUY: "enter",
+    DecisionAction.BUY: "enter",
+    DecisionAction.ACCUMULATE: "add",
+    DecisionAction.HOLD: "hold",
+    DecisionAction.TRIM: "reduce",
+    DecisionAction.SELL: "exit",
+    DecisionAction.AVOID: "avoid",
 }
 
 # The legality table from the decision.v1 contract. An action outside its price
@@ -129,6 +144,8 @@ def verdict_from_external(payload: ExternalTechnicalVerdict | dict[str, Any]) ->
 
     return TechnicalVerdict(
         direction=ACTION_TO_DIRECTION[parsed.action],
+        action=parsed.action,
+        execution_intent=ACTION_TO_EXECUTION_INTENT[parsed.action],
         # decision.v1 is 0-100 and Recommendation.confidence is 0.0-1.0. Skipping
         # this division yields 0.7 where 70 was meant, and looks plausible.
         confidence=round(parsed.confidence / 100.0, 6),

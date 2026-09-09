@@ -1028,6 +1028,8 @@ function buildRecommendation(
     technical_source: technicalVerdict != null ? technicalVerdict.source : 'local',
     technical_producer: technicalVerdict != null ? technicalVerdict.producer : null,
     technical_price_state: technicalVerdict != null ? (technicalVerdict.price_state ?? null) : null,
+    technical_action: technicalVerdict != null ? (technicalVerdict.action ?? null) : null,
+    technical_execution_intent: technicalVerdict != null ? (technicalVerdict.execution_intent ?? null) : null,
     local_technical_direction: displaced != null ? displaced.direction : null,
     technical_agreement:
       technicalVerdict == null || displaced == null ? null : technicalVerdict.direction === displaced.direction,
