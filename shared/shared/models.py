@@ -74,6 +74,11 @@ class TechnicalVerdict(BaseModel):
     """A technical opinion normalized for the aggregator, whoever produced it."""
 
     direction: Direction
+    # The producer's own action and execution intent. Direction has three
+    # members and decision.v1 has seven, so these carry what the projection
+    # cannot - notably that `avoid` is not a sell.
+    action: DecisionAction | None = None
+    execution_intent: str | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     source: TechnicalSource
     producer: str | None = None
@@ -393,6 +398,9 @@ class Recommendation(BaseModel):
     technical_source: TechnicalSource = TechnicalSource.LOCAL
     technical_producer: str | None = None
     technical_price_state: PriceState | None = None
+    # The producer's own action and execution intent, unprojected.
+    technical_action: DecisionAction | None = None
+    technical_execution_intent: str | None = None
     # The local technicals when they were superseded: reported for comparison,
     # excluded from weighted_score. None when no local technical signal existed.
     local_technical_direction: Direction | None = None

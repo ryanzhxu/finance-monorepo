@@ -15,7 +15,22 @@ export const ACTION_TO_DIRECTION = {
   hold: 'HOLD',
   trim: 'SELL',
   sell: 'SELL',
-  avoid: 'SELL',
+  // NOT SELL. His AGENTS.md: "Avoid is not Sell and must not produce a fake
+  // exit plan." Avoid means do not enter; projecting it onto SELL would tell an
+  // existing holder to exit. The distinction survives in `action` and
+  // `execution_intent`, which the three-way Direction cannot express.
+  avoid: 'HOLD',
+}
+
+// His executionIntent mapping, transcribed from execution-engine.js.
+export const ACTION_TO_EXECUTION_INTENT = {
+  strong_buy: 'enter',
+  buy: 'enter',
+  accumulate: 'add',
+  hold: 'hold',
+  trim: 'reduce',
+  sell: 'exit',
+  avoid: 'avoid',
 }
 
 // The legality table from the decision.v1 contract.
@@ -149,6 +164,8 @@ export function verdictFromExternal(payload) {
 
   return {
     direction: ACTION_TO_DIRECTION[action],
+    action,
+    execution_intent: ACTION_TO_EXECUTION_INTENT[action],
     // decision.v1 is 0-100 and recommendation.confidence is 0.0-1.0. Skipping
     // this division yields 0.7 where 70 was meant, and looks plausible.
     confidence: confidence / 100,

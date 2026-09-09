@@ -59,7 +59,7 @@ test('every decision.v1 action maps to a direction', () => {
     hold: 'HOLD',
     trim: 'SELL',
     sell: 'SELL',
-    avoid: 'SELL',
+    avoid: 'HOLD', // "Avoid is not Sell" — his AGENTS.md
   }
   for (const [action, direction] of Object.entries(expected)) {
     assert.equal(verdictFromExternal(landscapeFree({ action })).direction, direction)
@@ -296,4 +296,30 @@ test('resolve by horizon logs a warning for the dropped horizon, mirroring the P
 
 test('SHORT_MID_LONG_HORIZONS excludes 1D, Ryan\'s day-trade horizon', () => {
   assert.deepEqual(SHORT_MID_LONG_HORIZONS, ['1W', '2-4W', '3-6M'])
+})
+
+
+test('avoid is never a sell, and stays distinguishable from hold', () => {
+  // His AGENTS.md: "Avoid is not Sell and must not produce a fake exit plan."
+  const avoid = verdictFromExternal(landscapeFree({ action: 'avoid' }))
+  const hold = verdictFromExternal(landscapeFree({ action: 'hold' }))
+
+  assert.notEqual(ACTION_TO_DIRECTION.avoid, 'SELL')
+  assert.equal(avoid.direction, 'HOLD')
+  assert.equal(avoid.direction, hold.direction)
+  // Both project to HOLD, so the raw action must survive.
+  assert.equal(avoid.action, 'avoid')
+  assert.equal(hold.action, 'hold')
+  assert.equal(avoid.execution_intent, 'avoid')
+  assert.equal(hold.execution_intent, 'hold')
+})
+
+test('execution intent matches his engine exactly', () => {
+  const expected = {
+    strong_buy: 'enter', buy: 'enter', accumulate: 'add',
+    hold: 'hold', trim: 'reduce', sell: 'exit', avoid: 'avoid',
+  }
+  for (const [action, intent] of Object.entries(expected)) {
+    assert.equal(verdictFromExternal(landscapeFree({ action })).execution_intent, intent, action)
+  }
 })
