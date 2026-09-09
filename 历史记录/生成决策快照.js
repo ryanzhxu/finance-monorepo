@@ -10,6 +10,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const { buildTechnicalFeatures } = require(path.join(ROOT, "technical-features.js"));
+const { marketCore, returnPct, relativeStrength, featureInputs, quoteFromItem } = require(path.join(ROOT, "decision-engine", "feature-inputs.js"));
 const profiles = require(path.join(ROOT, "profile-definitions.js"));
 
 for (const file of [
@@ -26,28 +27,6 @@ const finite = (value) => value == null || value === "" ? null : Number.isFinite
 const round = (value, digits = 6) => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(digits)) : null;
 const rangeFields = (range) => ({ low: finite(range?.low), high: finite(range?.high) });
 
-function marketCore(market) {
-  return market?.market_context || market?.market_engine || market || {};
-}
-
-function returnPct(closes, lookback) {
-  const values = (closes || []).map(finite).filter((value) => value != null);
-  const latest = values.at(-1);
-  const base = values.at(-1 - lookback);
-  return Number.isFinite(latest) && Number.isFinite(base) && base !== 0 ? (latest / base - 1) * 100 : null;
-}
-
-function relativeStrength(quote, market) {
-  const core = marketCore(market);
-  const equity = core.equity_trend || { spy: core.spy_trend, qqq: core.qqq_trend };
-  return Object.fromEntries([20, 60, 120].flatMap((days) => {
-    const stock = returnPct(quote.history?.closes, days);
-    const against = (benchmark) => stock != null && finite(benchmark?.[`change_${days}d_pct`]) != null
-      ? stock - finite(benchmark[`change_${days}d_pct`]) : null;
-    return [[`stock_return_${days}d`, stock], [`stock_vs_spy_${days}d`, against(equity.spy)], [`stock_vs_qqq_${days}d`, against(equity.qqq)]];
-  }));
-}
-
 function latestDailyDate(quote) {
   const values = quote?.history?.timestamps || [];
   return values.length ? String(values.at(-1)).slice(0, 10) : null;
@@ -61,13 +40,7 @@ function availableQuote(quote, marketDate) {
 }
 
 function featureFor(quote, market) {
-  return buildTechnicalFeatures({
-    history: quote.history || {},
-    currentPrice: finite(quote.price),
-    relativeStrength: relativeStrength(quote, market),
-    fibonacciStructure: quote.technical?.fibonacci_structure || {},
-    shareBase: quote.metadata?.sharesOutstanding || null,
-  });
+  return buildTechnicalFeatures(featureInputs(quote, market));
 }
 
 function compact(value, depth = 0) {
@@ -200,10 +173,6 @@ function recordFor({ marketDate, recordedAtEt, ticker, quote, classification, fe
     material_change: value.debug?.materialChangeReasons || [],
     ...profileContext(classification, value.profile),
   };
-}
-
-function quoteFromItem(item) {
-  return item?.analysis || item?.quote || item || {};
 }
 
 function buildRecords(input) {

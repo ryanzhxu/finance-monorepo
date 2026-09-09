@@ -106,6 +106,8 @@ EOD_HISTORY_TIMEZONE = ZoneInfo("America/New_York")
 EOD_HISTORY_HOUR = 16
 EOD_HISTORY_MINUTE = 30
 EOD_HISTORY_NODE_RUNNER = os.path.join(ROOT, "历史记录", "生成决策快照.js")
+DECISION_V1_NODE_RUNNER = os.path.join(ROOT, "decision-v1", "emit-decision-v1.js")
+DECISION_V1_NODE_TIMEOUT_SECONDS = int(os.environ.get("DECISION_V1_NODE_TIMEOUT_SECONDS", "45"))
 CACHE = {}
 SEARCH_CACHE_SECONDS = 10 * 60
 SYMBOL_SEARCH_CACHE = {}
@@ -5629,6 +5631,94 @@ def api_symbol_search():
         "candidates": search_symbol_candidates(query, limit=limit),
         "updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     })
+
+
+def build_decision_v1_payload(tickers):
+    """Serialize cached quotes through the production Decision Engine.
+
+    Deliberately reads the CACHE and never forces a live refresh: this serves
+    on-demand HTTP requests, so a per-request full refresh would be both slow
+    and a way to burn provider quota from outside. The same one-shot Node
+    child-process pattern as the EOD recorder is reused, because the Decision
+    Engine is JavaScript and must not be reimplemented in Python.
+    """
+    node = eod_history_node_executable()
+    if not node:
+        raise RuntimeError("Node.js is required because the production Decision Engine is JavaScript. Set EOD_DECISION_NODE_PATH if node is not on PATH.")
+    if not os.path.isfile(DECISION_V1_NODE_RUNNER):
+        raise RuntimeError(f"decision.v1 runner is missing: {DECISION_V1_NODE_RUNNER}")
+
+    market = get_lightweight_market_context(force=False, allow_live=False) or {}
+    items = []
+    missing = []
+    for ticker in tickers:
+        quote = get_cached_quote(ticker)
+        if quote:
+            items.append({"ticker": ticker, "analysis": quote})
+        else:
+            missing.append(ticker)
+
+    temp_directory = tempfile.mkdtemp(prefix="decision-v1-")
+    try:
+        input_path = os.path.join(temp_directory, "input.json")
+        output_path = os.path.join(temp_directory, "decision-v1.json")
+        with open(input_path, "w", encoding="utf-8") as handle:
+            json.dump({"marketContext": market, "items": items}, handle, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        completed = subprocess.run(
+            [node, DECISION_V1_NODE_RUNNER, input_path, output_path],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+            timeout=DECISION_V1_NODE_TIMEOUT_SECONDS, check=False,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "unknown Node error").strip()
+            raise RuntimeError(f"decision.v1 serialization failed: {detail[:1200]}")
+        with open(output_path, "r", encoding="utf-8") as handle:
+            result = json.load(handle)
+    finally:
+        shutil.rmtree(temp_directory, ignore_errors=True)
+
+    result["missing"] = missing
+    return result
+
+
+@app.route("/api/decision/<path:ticker>")
+def api_decision_v1(ticker):
+    """One ticker's decision.v1 payload: short, mid and long, independently.
+
+    Returns 404 only when the ticker has no cached quote at all. A ticker the
+    engine could not decide on comes back 200 with its reason in `errors`, so a
+    consumer can tell "we have no data" from "the engine declined".
+    """
+    symbol = str(ticker or "").strip().upper()
+    if not symbol:
+        return jsonify({"success": False, "error": "ticker is required"}), 400
+    try:
+        result = build_decision_v1_payload([symbol])
+    except Exception as error:
+        return jsonify({"success": False, "error": str(error)[:600]}), 503
+
+    decision = (result.get("decisions") or {}).get(symbol)
+    if decision is None:
+        reason = (result.get("errors") or {}).get(symbol)
+        if symbol in (result.get("missing") or []):
+            return jsonify({"success": False, "error": f"no cached quote for {symbol}"}), 404
+        return jsonify({"success": False, "error": reason or f"no decision for {symbol}"}), 200
+    return jsonify(decision)
+
+
+@app.route("/api/decisions")
+def api_decision_v1_batch():
+    """Several tickers at once: /api/decisions?tickers=NVDA,META,MSFT"""
+    raw = request.args.get("tickers") or ""
+    symbols = [part.strip().upper() for part in raw.split(",") if part.strip()]
+    if not symbols:
+        return jsonify({"success": False, "error": "tickers is required"}), 400
+    if len(symbols) > 25:
+        return jsonify({"success": False, "error": "at most 25 tickers per request"}), 400
+    try:
+        return jsonify(build_decision_v1_payload(symbols))
+    except Exception as error:
+        return jsonify({"success": False, "error": str(error)[:600]}), 503
 
 
 @app.route("/api/health")
