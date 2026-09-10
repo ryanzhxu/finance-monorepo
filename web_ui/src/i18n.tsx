@@ -79,6 +79,14 @@ const messages = {
     grossMargin: 'Gross margin', pbRatio: 'P/B ratio', psRatio: 'P/S ratio', evEbitda: 'EV/EBITDA', asOfDate: 'As-of date',
     putCallRatio: 'Put/call ratio', ivRank: 'IV rank (approx)', shortInterest: 'Short interest', redditMentions: 'Reddit mentions', volumeSpike: 'Volume vs 90d avg', priceVolumeMomentum: 'Price/volume momentum',
     redditSentiment: 'Reddit sentiment', institutional13f: 'Institutional 13F', freshness: 'Freshness',
+    conflict: 'Conflict', categoryVotes: 'Category votes', categoryVotesHint: 'Weighted buy / hold / sell behind the recommendation, by category.',
+    technical: 'Technical', fundamental: 'Fundamental', macro: 'Macro',
+    supportingAnalysisAgrees: 'Supporting analysis agrees', supportingAnalysisDisagrees: 'Supporting analysis disagrees', percentSupport: '{percent}% support',
+    supportingContextHint: 'Fundamentals, sentiment and macro, scored separately. These never change the technical action above.',
+    technicalByHorizon: 'Technical by horizon', technicalByHorizonHint: 'Independent per horizon and never averaged — there is deliberately no overall action.',
+    noPriceLandscape: 'No usable price landscape — the engine declined to emit bands.', opportunity: 'Opportunity', reduce: 'Reduce',
+    percentConfidence: '{percent}% confidence', data: 'data',
+    horizonShort: 'Short', horizonMid: 'Mid', horizonLong: 'Long', horizonShortWindow: '1–30 days', horizonMidWindow: '1–6 months', horizonLongWindow: '> 6 months',
   },
   // Simplified Chinese, mainland vocabulary: 数据 / 质量 / 缓存 / 刷新 / 市净率 /
   // 卖空 / 斐波那契. Mainland UI writing translates technical terms rather than
@@ -106,6 +114,14 @@ const messages = {
     signals: '信号', showSignals: '显示信号', hideSignals: '隐藏信号', dimension: '维度', note: '说明', fundamentals: '基本面', sentiment: '市场情绪', currentPrice: '现价', idealBuyZone: '理想买入区间', fibGoldenPocket: '斐波那契黄金区间', conservativeEntry: '保守入场价', stopLoss: '止损价', invalidation: '失效位', highConvictionZone: '高确信区间', signalVote: '信号投票', nextFomc: '下次 FOMC', rateCutProbability: '降息概率', resistance: '阻力位', support: '支撑位', breakoutBuyLevel: '突破买入位', weight: '权重',
     fetchPriceData: '获取价格数据', computeTechnicals: '计算技术指标', loadFundamentals: '加载基本面', assembleSignals: '汇总信号', buildConfluence: '构建共振区间', loadingAnalysis: '正在加载分析', analyzing: '分析中', entryStructureUnavailable: '本次响应没有可用的入场结构。',
     epsSurprise: '每股收益超预期', peRatio: '市盈率', pePercentile: '市盈率百分位（5 年）', fcfTrend: '自由现金流趋势', analystUpgrades: '分析师上调（30 天）', analystDowngrades: '分析师下调（30 天）', revenueGrowth: '营收同比增长', grossMargin: '毛利率', pbRatio: '市净率', psRatio: '市销率', evEbitda: '企业价值／EBITDA', asOfDate: '数据截止日', putCallRatio: '看跌／看涨期权比率', ivRank: '隐含波动率分位（约）', shortInterest: '卖空比例', redditMentions: 'Reddit 提及次数', redditSentiment: 'Reddit 情绪', volumeSpike: '成交量对比 90 日均值', priceVolumeMomentum: '价量动能', institutional13f: '机构 13F', freshness: '数据新鲜度',
+    conflict: '冲突', categoryVotes: '分类投票', categoryVotesHint: '推荐结果背后按分类加权的买入／持有／卖出票数。',
+    technical: '技术面', fundamental: '基本面', macro: '宏观面',
+    supportingAnalysisAgrees: '辅助分析一致', supportingAnalysisDisagrees: '辅助分析分歧', percentSupport: '{percent}% 支持',
+    supportingContextHint: '基本面、市场情绪与宏观面分别评分，均不会改变上方的技术面操作。',
+    technicalByHorizon: '各时间跨度技术面', technicalByHorizonHint: '每个时间跨度独立给出，从不取平均——刻意不给出总体操作。',
+    noPriceLandscape: '没有可用的价格区间——引擎未给出区间。', opportunity: '机会区', reduce: '减仓区',
+    percentConfidence: '{percent}% 置信度', data: '数据',
+    horizonShort: '短线', horizonMid: '中线', horizonLong: '长线', horizonShortWindow: '1–30 天', horizonMidWindow: '1–6 个月', horizonLongWindow: '> 6 个月',
   },
   // Formal written Hong Kong Chinese (書面語): Mandarin-style grammar with Hong
   // Kong vocabulary (資料 / 質素 / 快取 / 市賬率 / 沽空 / 費波那契), and English
@@ -133,6 +149,14 @@ const messages = {
     signals: '訊號', showSignals: '顯示訊號', hideSignals: '隱藏訊號', dimension: '範疇', note: '說明', fundamentals: '基本因素', sentiment: '市場情緒', currentPrice: '現價', idealBuyZone: '理想買入區間', fibGoldenPocket: '費波那契黃金區間', conservativeEntry: '保守入場價', stopLoss: '止蝕價', invalidation: '失效位', highConvictionZone: '高信心區間', signalVote: '訊號投票', nextFomc: '下次 FOMC', rateCutProbability: '減息機率', resistance: '阻力位', support: '支持位', breakoutBuyLevel: '突破買入位', weight: '權重',
     fetchPriceData: '取得價格資料', computeTechnicals: '計算技術指標', loadFundamentals: '載入基本因素', assembleSignals: '整合訊號', buildConfluence: '建立共振區間', loadingAnalysis: '正在載入分析', analyzing: '分析中', entryStructureUnavailable: '這次回應沒有可用的入場結構。',
     epsSurprise: '每股盈利驚喜', peRatio: '市盈率', pePercentile: '市盈率百分位（5 年）', fcfTrend: '自由現金流趨勢', analystUpgrades: '分析師調升（30 日）', analystDowngrades: '分析師調降（30 日）', revenueGrowth: '收入按年增長', grossMargin: '毛利率', pbRatio: '市賬率', psRatio: '市銷率', evEbitda: '企業價值／EBITDA', asOfDate: '資料截止日', putCallRatio: '認沽／認購比率', ivRank: '隱含波動率排名（約）', shortInterest: '沽空比率', redditMentions: 'Reddit 提及次數', redditSentiment: 'Reddit 情緒', volumeSpike: '成交量對比 90 日平均', priceVolumeMomentum: '價量動能', institutional13f: '機構 13F', freshness: '資料新鮮度',
+    conflict: '衝突', categoryVotes: '分類投票', categoryVotesHint: '建議結果背後按分類加權的買入／持有／賣出票數。',
+    technical: '技術面', fundamental: '基本因素', macro: '宏觀面',
+    supportingAnalysisAgrees: '輔助分析一致', supportingAnalysisDisagrees: '輔助分析分歧', percentSupport: '{percent}% 支持',
+    supportingContextHint: '基本因素、市場情緒與宏觀面分別評分，均不會改變上方的技術面操作。',
+    technicalByHorizon: '各時間跨度技術面', technicalByHorizonHint: '每個時間跨度獨立給出，從不取平均——刻意不給出總體操作。',
+    noPriceLandscape: '沒有可用的價格區間——引擎未給出區間。', opportunity: '機會區', reduce: '減倉區',
+    percentConfidence: '{percent}% 信心度', data: '資料',
+    horizonShort: '短線', horizonMid: '中線', horizonLong: '長線', horizonShortWindow: '1–30 日', horizonMidWindow: '1–6 個月', horizonLongWindow: '> 6 個月',
   },
 } as const
 
