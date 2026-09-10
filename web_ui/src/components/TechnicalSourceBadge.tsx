@@ -1,4 +1,5 @@
 import type { Recommendation } from '../api/types'
+import { useI18n } from '../i18n'
 
 type TechnicalSourceBadgeProps = {
   recommendation: Recommendation
@@ -13,6 +14,7 @@ type TechnicalSourceBadgeProps = {
  * the response body.
  */
 export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgeProps) {
+  const { t } = useI18n()
   const source = recommendation.technical_source
   const rejected = recommendation.risk_flags.includes('external_technical_rejected')
 
@@ -24,10 +26,10 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
   if (rejected) {
     return (
       <span
-        title="The external technical verdict violated decision.v1, so the local technicals were used instead."
+        title={t('technicalRejectedTitle')}
         className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
       >
-        external technical rejected
+        {t('technicalRejected')}
       </span>
     )
   }
@@ -35,10 +37,10 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
   if (source === 'local') {
     return (
       <span
-        title="No external technical verdict was supplied, so the local technicals were used."
+        title={t('localTechnicalsTitle')}
         className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
       >
-        local technicals
+        {t('localTechnicals')}
       </span>
     )
   }
@@ -54,20 +56,23 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
         ? 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-200'
         : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
 
+  // `producer` and `direction`/`price_state` are engine-emitted vocabulary, left
+  // untranslated on the same boundary the other panels draw. Only the client
+  // chrome around them is localized.
   const agreementLabel =
     agreement === true
-      ? 'both engines agree'
+      ? t('bothEnginesAgree')
       : agreement === false
-        ? `engines disagree — local said ${recommendation.local_technical_direction ?? 'unknown'}`
-        : 'no local technical to compare'
+        ? t('enginesDisagree', { direction: recommendation.local_technical_direction ?? t('unknownDirection') })
+        : t('noLocalToCompare')
 
   return (
     <span className="flex flex-wrap items-center gap-2">
       <span
-        title={`Technical layer supplied by ${producer}`}
+        title={t('technicalSuppliedBy', { producer })}
         className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-900 dark:bg-indigo-500/20 dark:text-indigo-200"
       >
-        technicals: {producer}
+        {t('technicalsLabel')}: {producer}
         {priceState ? ` · ${priceState.toLowerCase().replace(/_/g, ' ')}` : ''}
       </span>
       <span className={`rounded-full px-3 py-1 text-sm font-semibold ${agreementTone}`}>
