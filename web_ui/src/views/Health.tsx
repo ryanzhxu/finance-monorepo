@@ -164,7 +164,7 @@ function Health() {
   const lastChecked = Math.max(analystQuery.dataUpdatedAt ?? 0, screenerQuery.dataUpdatedAt ?? 0)
   const lastCheckedLabel =
     lastChecked > 0
-      ? new Date(lastChecked).toLocaleTimeString(locale === 'zh-HK' ? 'zh-HK' : undefined, { hour: '2-digit', minute: '2-digit' })
+      ? new Date(lastChecked).toLocaleTimeString(locale === 'en' ? undefined : locale, { hour: '2-digit', minute: '2-digit' })
       : null
 
   function handleRefresh() {

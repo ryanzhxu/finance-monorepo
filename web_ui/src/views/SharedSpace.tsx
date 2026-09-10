@@ -25,7 +25,7 @@ import {
   type WatchlistEntry,
 } from '../watchlist'
 import Analyze from './Analyze'
-import { useI18n } from '../i18n'
+import { useI18n, cycleLocale } from '../i18n'
 
 type SharedSpaceProps = {
   slug: string
@@ -355,7 +355,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-4xl items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#0d0f14]">
           <div className="w-full max-w-md space-y-6">
             <div className="flex justify-end">
-              <button type="button" onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
+              <button type="button" onClick={() => setLocale(cycleLocale(locale))} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
             </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -414,7 +414,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
               </div>
             </div>
             <div className="flex items-center gap-2 self-start lg:self-end">
-              <button type="button" onClick={() => setLocale(locale === 'en' ? 'zh-HK' : 'en')} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
+              <button type="button" onClick={() => setLocale(cycleLocale(locale))} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
               <button
                 type="button"
                 onClick={handleLogout}

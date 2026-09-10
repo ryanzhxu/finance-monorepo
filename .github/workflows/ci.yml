@@ -51,6 +51,10 @@ jobs:
         working-directory: web_ui
         run: npm ci
 
+      - name: Frontend locale checks
+        working-directory: web_ui
+        run: npm test
+
       - name: Frontend build
         working-directory: web_ui
         run: npm run build
