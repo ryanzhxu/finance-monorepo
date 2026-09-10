@@ -87,6 +87,10 @@ const messages = {
     noPriceLandscape: 'No usable price landscape — the engine declined to emit bands.', opportunity: 'Opportunity', reduce: 'Reduce',
     percentConfidence: '{percent}% confidence', data: 'data',
     horizonShort: 'Short', horizonMid: 'Mid', horizonLong: 'Long', horizonShortWindow: '1–30 days', horizonMidWindow: '1–6 months', horizonLongWindow: '> 6 months',
+    technicalRejectedTitle: 'The external technical verdict violated decision.v1, so the local technicals were used instead.',
+    technicalRejected: 'external technical rejected', localTechnicalsTitle: 'No external technical verdict was supplied, so the local technicals were used.',
+    localTechnicals: 'local technicals', bothEnginesAgree: 'both engines agree', enginesDisagree: 'engines disagree — local said {direction}',
+    noLocalToCompare: 'no local technical to compare', technicalSuppliedBy: 'Technical layer supplied by {producer}', technicalsLabel: 'technicals', unknownDirection: 'unknown',
   },
   // Simplified Chinese, mainland vocabulary: 数据 / 质量 / 缓存 / 刷新 / 市净率 /
   // 卖空 / 斐波那契. Mainland UI writing translates technical terms rather than
@@ -122,6 +126,10 @@ const messages = {
     noPriceLandscape: '没有可用的价格区间——引擎未给出区间。', opportunity: '机会区', reduce: '减仓区',
     percentConfidence: '{percent}% 置信度', data: '数据',
     horizonShort: '短线', horizonMid: '中线', horizonLong: '长线', horizonShortWindow: '1–30 天', horizonMidWindow: '1–6 个月', horizonLongWindow: '> 6 个月',
+    technicalRejectedTitle: '外部技术裁决不符合 decision.v1，因此改用本地技术指标。',
+    technicalRejected: '外部技术裁决被拒', localTechnicalsTitle: '未提供外部技术裁决，因此使用本地技术指标。',
+    localTechnicals: '本地技术指标', bothEnginesAgree: '两个引擎一致', enginesDisagree: '引擎分歧——本地判定为 {direction}',
+    noLocalToCompare: '没有本地技术判定可供比较', technicalSuppliedBy: '技术层由 {producer} 提供', technicalsLabel: '技术面', unknownDirection: '未知',
   },
   // Formal written Hong Kong Chinese (書面語): Mandarin-style grammar with Hong
   // Kong vocabulary (資料 / 質素 / 快取 / 市賬率 / 沽空 / 費波那契), and English
@@ -157,6 +165,10 @@ const messages = {
     noPriceLandscape: '沒有可用的價格區間——引擎未給出區間。', opportunity: '機會區', reduce: '減倉區',
     percentConfidence: '{percent}% 信心度', data: '資料',
     horizonShort: '短線', horizonMid: '中線', horizonLong: '長線', horizonShortWindow: '1–30 日', horizonMidWindow: '1–6 個月', horizonLongWindow: '> 6 個月',
+    technicalRejectedTitle: '外部技術裁決不符合 decision.v1，因此改用本地技術指標。',
+    technicalRejected: '外部技術裁決被拒', localTechnicalsTitle: '未提供外部技術裁決，因此使用本地技術指標。',
+    localTechnicals: '本地技術指標', bothEnginesAgree: '兩個引擎一致', enginesDisagree: '引擎分歧——本地判定為 {direction}',
+    noLocalToCompare: '沒有本地技術判定可供比較', technicalSuppliedBy: '技術層由 {producer} 提供', technicalsLabel: '技術面', unknownDirection: '未知',
   },
 } as const
 
