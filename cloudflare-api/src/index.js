@@ -989,8 +989,11 @@ function buildRecommendation(
   const direction = external
     ? technicalVerdict.direction
     : score > 0.15 ? 'BUY' : score < -0.15 ? 'SELL' : 'HOLD'
+  // His confidence IS the confidence, passed through at the seam's 6 dp exactly
+  // like aggregate_recommendation's `confidence = technical_verdict.confidence`.
+  // Re-rounding it to 2 dp here would drop 66.7% to 67.0% and diverge from Python.
   const confidence = external
-    ? round(technicalVerdict.confidence, 2)
+    ? technicalVerdict.confidence
     : round(clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98), 2)
   const supportingContext = external ? buildSupportingContext(votingSignals, direction) : null
   // Mirrors aggregate_recommendation's external branch in aggregator.py: the
@@ -1010,7 +1013,9 @@ function buildRecommendation(
   const categoryVotes = computeCategoryVotes(votingSignals)
   return {
     direction,
-    confidence: round(confidence, 2),
+    // Each branch above already carries its final precision: the blended path is
+    // rounded to 2 dp, the external path preserves his 6 dp verbatim.
+    confidence,
     signal_vote: computeSignalVote(votingSignals),
     technical_vote: categoryVotes.technical,
     fundamental_vote: categoryVotes.fundamental,

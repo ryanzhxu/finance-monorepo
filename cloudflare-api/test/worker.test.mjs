@@ -441,6 +441,38 @@ test('his verdict is the action; Ryan layers ride beside it, not inside it', asy
   }
 })
 
+test('his fractional confidence survives verbatim, not down-rounded to 2 dp', async () => {
+  // Same payload, same number from either engine: analyst_service reports 0.667
+  // for confidence 66.7, so the Worker must not report 0.67. Mirrors
+  // test_confidence_is_his_at_full_precision on the Python side.
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFinanceQueryFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'NVDA',
+          include_narrative: false,
+          technical: {
+            producer: 'vincent-stock-decision-dashboard',
+            action: 'sell',
+            confidence: 66.7,
+            priceState: 'BREAKDOWN_ZONE',
+          },
+        }),
+      }),
+      { ALPHA_VANTAGE_KEY: 'test-key' },
+    )
+    assert.equal(response.status, 200)
+    const recommendation = (await response.json()).recommendation
+    assert.equal(recommendation.confidence, 0.667)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('without his verdict the blended behaviour is unchanged', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch
