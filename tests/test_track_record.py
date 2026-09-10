@@ -18,7 +18,7 @@ import pytest
 
 from analyst_service.core.persistence import AnalysisStore, PersistedAnalysis, load_persisted_analyses
 from backtesting.price_cache import BatchPriceLoader
-from backtesting.track_record import performance_report, store_coverage, symbol_timeline
+from backtesting.track_record import _advisory, performance_report, store_coverage, symbol_timeline
 
 
 def _record(symbol: str, days_ago: int, direction: str = "BUY", confidence: float = 0.8) -> PersistedAnalysis:
@@ -240,6 +240,30 @@ def test_report_on_an_empty_store_is_honest(tmp_path) -> None:
     assert report.hit_rate is None
     # A thin sample must read as thin, not as a confident number.
     assert report.advisory
+
+
+def test_advisory_thresholds_guard_against_reading_a_thin_sample_as_a_verdict() -> None:
+    # The module's whole safety claim: a hit rate over a handful of records must
+    # not read as a verdict. This pins the threshold (20, mirroring the
+    # evaluator's) so a regression that lowered it — letting a thin sample
+    # present as actionable — is caught.
+    nothing = " ".join(_advisory(0))
+    assert "measurable" in nothing
+
+    # Anywhere below the threshold: the count is named and weight tuning is
+    # explicitly forbidden.
+    for count in (1, 4, 19):
+        thin = " ".join(_advisory(count))
+        assert str(count) in thin
+        assert "provisional" in thin
+        assert "Do not tune signal weights on this sample." in _advisory(count)
+
+    # At and beyond the threshold the sample is no longer flagged as thin, so
+    # the "do not tune" warning must be gone.
+    for count in (20, 100):
+        thick = " ".join(_advisory(count))
+        assert "provisional" not in thick
+        assert "Do not tune signal weights on this sample." not in _advisory(count)
 
 
 def test_coverage_needs_no_price_provider(tmp_path) -> None:
