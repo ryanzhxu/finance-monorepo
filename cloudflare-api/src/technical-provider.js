@@ -78,11 +78,32 @@ function round6(value) {
   return Math.round(value * 1e6) / 1e6
 }
 
+// Coerce a value the way analyst_service's pydantic float/int fields do, and
+// return null when it is not a real number. A bare `Number()` is wrong here:
+// Number('') , Number('  ') , Number(null) and Number([]) are all 0, and
+// Number([5]) is 5, but pydantic rejects every one of those. Without this the
+// Worker would fabricate a value (e.g. confidence null -> 0, invalidation '' ->
+// 0) that the Python service refuses outright, so the same payload would be
+// accepted here and rejected there. Booleans pass through as 1/0 to match
+// pydantic, which treats bool as an int. Numeric strings are trimmed first,
+// matching Python's float(' 70 ') == 70.
+function toNumber(raw) {
+  if (typeof raw === 'boolean') return Number(raw)
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed === '') return null
+    const value = Number(trimmed)
+    return Number.isFinite(value) ? value : null
+  }
+  return null
+}
+
 function readRange(raw, label) {
   if (raw == null) return null
-  const low = Number(raw.low)
-  const high = Number(raw.high)
-  if (!Number.isFinite(low) || !Number.isFinite(high)) {
+  const low = toNumber(raw.low)
+  const high = toNumber(raw.high)
+  if (low === null || high === null) {
     throw new TechnicalVerdictError(`${label} needs numeric low and high`)
   }
   if (low >= high) {
@@ -92,12 +113,13 @@ function readRange(raw, label) {
 }
 
 // `null`/undefined means "no invalidation level", matching Python's
-// `invalidation: float | None`. Number(null) is 0, so that case must be
-// checked explicitly or a real level gets fabricated where none was given.
+// `invalidation: float | None`. Everything else must be a real number: an
+// empty string or `[]` is not "no level", it is a bad value pydantic rejects,
+// so it must not become a fabricated 0 here.
 function readInvalidation(raw) {
   if (raw === null || raw === undefined) return null
-  const value = Number(raw)
-  if (!Number.isFinite(value)) {
+  const value = toNumber(raw)
+  if (value === null) {
     throw new TechnicalVerdictError('invalidation must be a number')
   }
   return value
@@ -126,8 +148,8 @@ export function verdictFromExternal(payload) {
     throw new TechnicalVerdictError(`unknown decision.v1 action: ${String(action)}`)
   }
 
-  const confidence = Number(payload.confidence)
-  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
+  const confidence = toNumber(payload.confidence)
+  if (confidence === null || confidence < 0 || confidence > 100) {
     throw new TechnicalVerdictError('confidence must be a number between 0 and 100')
   }
 
@@ -161,11 +183,11 @@ export function verdictFromExternal(payload) {
   const dataQualityRaw = payload.dataQuality ?? payload.data_quality
   let dataQuality = null
   if (dataQualityRaw != null) {
-    dataQuality = Number(dataQualityRaw)
+    dataQuality = toNumber(dataQualityRaw)
     // The contract's dataQuality is an integer, unlike confidence which is a
     // float: a fractional value like 88.5 is a producer bug, not a rounding
     // choice for this seam to make silently.
-    if (!Number.isInteger(dataQuality) || dataQuality < 0 || dataQuality > 100) {
+    if (dataQuality === null || !Number.isInteger(dataQuality) || dataQuality < 0 || dataQuality > 100) {
       throw new TechnicalVerdictError('dataQuality must be a whole number between 0 and 100')
     }
   }

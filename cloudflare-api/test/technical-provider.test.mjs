@@ -171,6 +171,34 @@ test('a non-numeric invalidation is rejected, not silently dropped', () => {
   assert.throws(() => verdictFromExternal(landscapeFree({ invalidation: 'not-a-number' })), TechnicalVerdictError)
 })
 
+test('values that Number() coerces to 0 are rejected, matching pydantic', () => {
+  // JS's Number('') , Number('  ') , Number(null) and Number([]) are all 0, and
+  // Number([5]) is 5, but analyst_service's pydantic float/int fields reject
+  // every one of these. A bare Number() cast here would accept a payload the
+  // Python service refuses, fabricating a 0 confidence / invalidation / data
+  // quality out of a bad value. These must be rejected on both sides.
+  for (const bad of ['', '  ', null, [], [5]]) {
+    assert.throws(() => verdictFromExternal(landscapeFree({ confidence: bad })), TechnicalVerdictError)
+  }
+  for (const bad of ['', '  ', []]) {
+    assert.throws(() => verdictFromExternal(landscapeFree({ invalidation: bad })), TechnicalVerdictError)
+    assert.throws(() => verdictFromExternal(landscapeFree({ dataQuality: bad })), TechnicalVerdictError)
+    // payload() keeps a priceState + range; landscapeFree strips the range.
+    assert.throws(
+      () => verdictFromExternal(payload({ opportunityRange: { low: bad, high: 110 } })),
+      TechnicalVerdictError,
+    )
+  }
+})
+
+test('a null confidence is rejected as fully as the Python seam rejects it', () => {
+  // The reachable production case: a producer emits confidence as null. Python
+  // rejects the whole payload (falls back to local technicals with an
+  // external_technical_rejected flag); the Worker must not accept it as a
+  // confident 0.
+  assert.throws(() => verdictFromExternal(landscapeFree({ confidence: null })), TechnicalVerdictError)
+})
+
 test('reasons that is not an array is rejected, not silently emptied', () => {
   assert.throws(() => verdictFromExternal(landscapeFree({ reasons: 'not an array' })), TechnicalVerdictError)
 })

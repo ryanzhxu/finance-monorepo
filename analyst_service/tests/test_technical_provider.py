@@ -144,6 +144,24 @@ def test_data_quality_must_be_a_whole_number() -> None:
         verdict_from_external(_external_payload(dataQuality=88.5))
 
 
+@pytest.mark.parametrize("bad", ["", "  ", None, [], [5]])
+def test_confidence_that_is_not_a_real_number_is_rejected(bad: object) -> None:
+    # The reference behavior the Worker's technical-provider.js mirrors: pydantic
+    # rejects an empty string, whitespace, null, an array — none is a number. JS
+    # Number() would coerce every one to 0 (or 5 for [5]); this test pins that
+    # Python refuses them so the two seams reject the same payloads.
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(confidence=bad))
+
+
+@pytest.mark.parametrize("bad", ["", "  ", []])
+def test_invalidation_and_data_quality_that_are_not_numbers_are_rejected(bad: object) -> None:
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(invalidation=bad))
+    with pytest.raises(TechnicalVerdictError):
+        verdict_from_external(_landscape_free_payload(dataQuality=bad))
+
+
 def test_missing_producer_is_rejected() -> None:
     payload = _external_payload()
     del payload["producer"]
