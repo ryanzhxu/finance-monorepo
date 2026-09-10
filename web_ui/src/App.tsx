@@ -4,6 +4,7 @@ import Watchlist from './components/Watchlist'
 import type { AnalysisResponse, EntryConfluenceResponse } from './api/types'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
+import TrackRecord from './views/TrackRecord'
 import Screener from './views/Screener'
 import Research from './views/Research'
 import SharedSpace from './views/SharedSpace'
@@ -20,7 +21,7 @@ import {
   type WatchlistEntry,
 } from './watchlist'
 
-type ViewKey = 'analyze' | 'screener' | 'research' | 'health'
+type ViewKey = 'analyze' | 'screener' | 'research' | 'health' | 'history'
 
 type AnalyzeSelection = {
   value: string
@@ -124,6 +125,7 @@ function PublicApp() {
     { key: 'screener', label: t('screener') },
     { key: 'research', label: t('research') },
     { key: 'health', label: t('health') },
+    { key: 'history', label: t('trackRecord') },
   ]
 
   const processRefreshQueue = useCallback(async () => {
@@ -362,6 +364,7 @@ function PublicApp() {
             ) : null}
             {activeView === 'research' ? <Research /> : null}
             {activeView === 'health' ? <Health /> : null}
+            {activeView === 'history' ? <TrackRecord /> : null}
           </main>
         </div>
       </div>

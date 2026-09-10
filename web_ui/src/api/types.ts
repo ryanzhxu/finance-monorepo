@@ -416,3 +416,54 @@ export interface ResearchJobRequest {
   capital?: number
   risk_profile?: string
 }
+
+// Track record — past calls scored against realized prices. Mirrors the
+// TrackRecord* pydantic models in shared/shared/models.py.
+export interface TrackRecordCoverage {
+  record_count: number
+  distinct_symbols: number
+  earliest?: string | null
+  latest?: string | null
+}
+
+export interface TrackRecordEntry {
+  symbol: string
+  generated_at: string
+  direction: string
+  confidence: number
+  entry_assessment?: string | null
+  price_at_call?: number | null
+  target_window: string
+  forward_returns: Record<string, number>
+  benchmark_relative_returns: Record<string, number>
+  max_drawdown?: number | null
+  hit?: boolean | null
+  skipped_reason?: string | null
+}
+
+export interface TrackRecordTimeline {
+  symbol: string
+  generated_at: string
+  entries: TrackRecordEntry[]
+}
+
+export interface PerformanceBucket {
+  label: string
+  evaluated_count: number
+  decision_count: number
+  hit_rate?: number | null
+  average_forward_return?: number | null
+}
+
+export interface TrackRecordPerformance {
+  generated_at: string
+  evaluated_count: number
+  decision_count: number
+  hit_rate?: number | null
+  average_forward_return?: number | null
+  average_benchmark_relative_return?: number | null
+  by_direction: PerformanceBucket[]
+  by_confidence: PerformanceBucket[]
+  by_entry_assessment: PerformanceBucket[]
+  advisory: string[]
+}
