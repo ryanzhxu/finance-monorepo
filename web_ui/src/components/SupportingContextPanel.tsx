@@ -15,7 +15,7 @@ type SupportingContextPanelProps = {
  * views exist without one quietly overriding the other.
  */
 export function SupportingContextPanel({ recommendation }: SupportingContextPanelProps) {
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
   const context = recommendation.supporting_context
   if (!context) {
     return null
@@ -26,8 +26,8 @@ export function SupportingContextPanel({ recommendation }: SupportingContextPane
     ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
     : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40'
   const headline = agrees
-    ? 'Supporting analysis agrees'
-    : 'Supporting analysis disagrees'
+    ? t('supportingAnalysisAgrees')
+    : t('supportingAnalysisDisagrees')
 
   return (
     <div className={`mt-4 rounded-lg border px-4 py-3 ${tone}`}>
@@ -36,13 +36,12 @@ export function SupportingContextPanel({ recommendation }: SupportingContextPane
           {headline}
         </p>
         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          {formatDirection(context.direction, locale)} · {(context.confidence * 100).toFixed(0)}% support
+          {formatDirection(context.direction, locale)} · {t('percentSupport', { percent: (context.confidence * 100).toFixed(0) })}
         </p>
       </div>
 
       <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">
-        Fundamentals, sentiment and macro, scored separately. These never change the
-        technical action above.
+        {t('supportingContextHint')}
       </p>
 
       <ul className="mt-2 space-y-1">

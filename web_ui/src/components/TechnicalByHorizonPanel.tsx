@@ -1,15 +1,16 @@
 import type { Recommendation, TechnicalVerdict } from '../api/types'
+import { useI18n, type MessageKey } from '../i18n'
 
 type TechnicalByHorizonPanelProps = {
   recommendation: Recommendation
 }
 
 /** His horizons, in his own terms. The API keys are the consumer's enum. */
-const HORIZON_LABELS: Record<string, { title: string; window: string }> = {
-  '1D': { title: 'Short', window: '1–30 days' },
-  '1W': { title: 'Short', window: '1–30 days' },
-  '2-4W': { title: 'Mid', window: '1–6 months' },
-  '3-6M': { title: 'Long', window: '> 6 months' },
+const HORIZON_LABEL_KEYS: Record<string, { title: MessageKey; window: MessageKey }> = {
+  '1D': { title: 'horizonShort', window: 'horizonShortWindow' },
+  '1W': { title: 'horizonShort', window: 'horizonShortWindow' },
+  '2-4W': { title: 'horizonMid', window: 'horizonMidWindow' },
+  '3-6M': { title: 'horizonLong', window: 'horizonLongWindow' },
 }
 
 /**
@@ -37,6 +38,7 @@ const readable = (value: string | null | undefined): string =>
   value ? value.toLowerCase().replace(/_/g, ' ') : '—'
 
 function Landscape({ verdict }: { verdict: TechnicalVerdict }) {
+  const { t } = useI18n()
   const opportunity = verdict.opportunity_range
   const reduce = verdict.reduce_range
 
@@ -45,7 +47,7 @@ function Landscape({ verdict }: { verdict: TechnicalVerdict }) {
   if (verdict.price_state === 'INVALID_LANDSCAPE' || (!opportunity && !reduce)) {
     return (
       <p className="mt-2 text-[11px] italic text-slate-500 dark:text-slate-400">
-        No usable price landscape — the engine declined to emit bands.
+        {t('noPriceLandscape')}
       </p>
     )
   }
@@ -53,19 +55,19 @@ function Landscape({ verdict }: { verdict: TechnicalVerdict }) {
   return (
     <dl className="mt-2 space-y-1 text-[11px]">
       <div className="flex justify-between gap-2">
-        <dt className="text-emerald-700 dark:text-emerald-400">Opportunity</dt>
+        <dt className="text-emerald-700 dark:text-emerald-400">{t('opportunity')}</dt>
         <dd className="tabular-nums text-slate-700 dark:text-slate-300">
           {opportunity ? `${money(opportunity.low)}–${money(opportunity.high)}` : '—'}
         </dd>
       </div>
       <div className="flex justify-between gap-2">
-        <dt className="text-orange-700 dark:text-orange-400">Reduce</dt>
+        <dt className="text-orange-700 dark:text-orange-400">{t('reduce')}</dt>
         <dd className="tabular-nums text-slate-700 dark:text-slate-300">
           {reduce ? `${money(reduce.low)}–${money(reduce.high)}` : '—'}
         </dd>
       </div>
       <div className="flex justify-between gap-2">
-        <dt className="text-slate-500 dark:text-slate-400">Invalidation</dt>
+        <dt className="text-slate-500 dark:text-slate-400">{t('invalidation')}</dt>
         <dd className="tabular-nums text-slate-700 dark:text-slate-300">{money(verdict.invalidation)}</dd>
       </div>
     </dl>
@@ -81,6 +83,7 @@ function Landscape({ verdict }: { verdict: TechnicalVerdict }) {
  * produced them — the levels are the point of his engine, not a detail.
  */
 export function TechnicalByHorizonPanel({ recommendation }: TechnicalByHorizonPanelProps) {
+  const { t } = useI18n()
   const entries = recommendation.technical_by_horizon
   if (!entries || entries.length === 0) {
     return null
@@ -92,19 +95,20 @@ export function TechnicalByHorizonPanel({ recommendation }: TechnicalByHorizonPa
     <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">
-          Technical by horizon
+          {t('technicalByHorizon')}
         </p>
         {producer ? (
           <p className="text-[11px] text-slate-500 dark:text-slate-400">{producer}</p>
         ) : null}
       </div>
       <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">
-        Independent per horizon and never averaged — there is deliberately no overall action.
+        {t('technicalByHorizonHint')}
       </p>
 
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         {entries.map(({ horizon, verdict }) => {
-          const label = HORIZON_LABELS[horizon] ?? { title: horizon, window: '' }
+          const labelKeys = HORIZON_LABEL_KEYS[horizon]
+          const label = labelKeys ? { title: t(labelKeys.title), window: t(labelKeys.window) } : { title: horizon, window: '' }
           const action = verdict.action ?? verdict.direction.toLowerCase()
           const tone = ACTION_TONE[action] ?? 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300'
 
@@ -132,8 +136,8 @@ export function TechnicalByHorizonPanel({ recommendation }: TechnicalByHorizonPa
               </div>
 
               <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
-                {(verdict.confidence * 100).toFixed(0)}% confidence
-                {verdict.data_quality != null ? ` · data ${verdict.data_quality}` : ''}
+                {t('percentConfidence', { percent: (verdict.confidence * 100).toFixed(0) })}
+                {verdict.data_quality != null ? ` · ${t('data')} ${verdict.data_quality}` : ''}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">{readable(verdict.price_state)}</p>
 
