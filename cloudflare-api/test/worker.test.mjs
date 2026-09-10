@@ -848,3 +848,58 @@ test('shared watchlist routes support session, login, add, and remove', async ()
   assert.equal(cookieSession.status, 200)
   assert.equal((await cookieSession.json()).authenticated, true)
 })
+
+// The Worker persists no analyses, so `/history/*` must mirror analyst_service
+// against an empty store: the just-shipped Track Record view then renders its
+// honest "No calls recorded yet" empty state in production instead of erroring.
+test('/history/coverage returns an honest empty store', async () => {
+  const response = await worker.fetch(new Request('https://example.com/history/coverage'))
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.deepEqual(payload, {
+    record_count: 0,
+    distinct_symbols: 0,
+    earliest: null,
+    latest: null,
+  })
+})
+
+test('/history/performance mirrors the empty-store report shape', async () => {
+  const response = await worker.fetch(new Request('https://example.com/history/performance'))
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.evaluated_count, 0)
+  assert.equal(payload.decision_count, 0)
+  assert.equal(payload.hit_rate, null)
+  assert.equal(payload.average_forward_return, null)
+  assert.equal(payload.average_benchmark_relative_return, null)
+  assert.deepEqual(payload.by_direction, [])
+  assert.deepEqual(payload.by_entry_assessment, [])
+  // The four confidence buckets are always emitted, even empty — mirrors Python.
+  assert.deepEqual(
+    payload.by_confidence.map((bucket) => bucket.label),
+    ['0.0-0.5', '0.5-0.65', '0.65-0.8', '0.8-1.0'],
+  )
+  assert.ok(payload.by_confidence.every((bucket) => bucket.evaluated_count === 0 && bucket.hit_rate === null))
+  // Matches the Python empty-store advisory wording exactly.
+  assert.deepEqual(payload.advisory, [
+    'No recommendations have enough forward history yet; nothing here is measurable.',
+  ])
+  assert.equal(typeof payload.generated_at, 'string')
+})
+
+test('/history/{symbol} returns an empty timeline for any symbol, not a 404', async () => {
+  const response = await worker.fetch(new Request('https://example.com/history/aapl'))
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.symbol, 'AAPL')
+  assert.deepEqual(payload.entries, [])
+  assert.equal(typeof payload.generated_at, 'string')
+})
+
+test('/history rejects a non-GET method', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.com/history/coverage', { method: 'POST' }),
+  )
+  assert.equal(response.status, 405)
+})
