@@ -17,31 +17,35 @@ analysis on top.
 
 Pick ONE per pass, highest first.
 
-1. **Keep Vincent's verdict pure.** His `AGENTS.md` states: fundamental,
-   valuation, options and news data must never enter a recommendation; short/mid/
-   long are independent and never averaged; there is no overall action. The
-   current code violates all three — it blends his technical vote into one
-   weighted score with Ryan's fundamentals. Replace that blend with a
-   side-by-side model: his technical decision per horizon, unchanged and
-   authoritative, and Ryan's layers reported next to it as separate context that
-   never alters his action.
-2. **Pull-based technical provider.** Today a verdict can only be pushed in on
-   the request. Add an HTTP provider that fetches a `decision.v1` verdict from a
-   configured base URL, behind the existing provider interface, off by default,
-   with timeout, retry and a clean fall back to local technicals. Never call a
-   live external host from a test.
-3. **Per-horizon decisions.** His engine emits independent short / mid / long
-   verdicts. `AnalyzeRequest` takes a single `horizon`. Carry all three through
-   the contract without averaging them.
-4. **Close a gap in the technical seam** — a `decision.v1` field not yet mapped,
-   a legality or landscape invariant not yet enforced, a divergence between
+**Done, do not redo:** the pure-verdict split (#21), the pull provider (#23/#24),
+per-horizon decisions (#25/#26), the track record (#43), the avoid-is-not-sell
+fix (#45), the cutover through a service binding (#46/#47), the per-horizon UI
+(#48), and the Chinese locales (#49). His engine is live at
+decision-v1.rxlab.workers.dev and owns the technical layer in production.
+
+1. **Close the short-horizon gap.** His short horizon returns
+   `INVALID_LANDSCAPE` because it needs native 4h and 1h bars, and Yahoo exposes
+   1h but no native 4h. His engine refuses to synthesize one on purpose
+   (`validate_native_four_hour_history_frame`). Adding 1h fetching, and a real
+   4h source, is the single largest remaining functional gap. Never fabricate a
+   4h bar by resampling — report the horizon unavailable instead.
+2. **Consolidate the two engines further.** Anything that still duplicates
+   between Ryan's local technicals and Vincent's engine, or between
    `analyst_service/core/technical_provider.py` and
-   `cloudflare-api/src/technical-provider.js`.
-5. **Then, and only then, Ryan's other layers** — surface the fundamental,
-   sentiment, macro and valuation verdicts as their own explainable block beside
-   the technical one.
+   `cloudflare-api/src/technical-provider.js`. Divergence between those two
+   mirrors is always a bug.
+3. **Surface the track record.** `/history/{symbol}`, `/history/performance` and
+   `/history/coverage` exist and are unreachable from the UI. A Track Record
+   view answers the question Vincent asked twice, and `/history/coverage` costs
+   no provider call so the empty state is free.
+4. **Worker parity for the track record.** The history endpoints are Python-only;
+   production serves the Worker.
+5. **Locale upkeep.** Any new user-facing string needs `en`, `zh-Hans` and
+   `zh-Hant-HK`. Never machine-convert one Chinese locale into the other, and
+   never reintroduce Cantonese — `web_ui/test/locales.test.mjs` enforces both.
 6. Fix a reproducible correctness bug, with a failing test written first.
-7. Cover an untested path in the technical seam or the aggregator.
+7. Cover an untested path in the technical seam, the aggregator, or the
+   track record.
 
 ## Protected paths — NEVER modify
 
@@ -67,6 +71,10 @@ Pick ONE per pass, highest first.
   `postman/`.
 - No new dependency unless it is the only reasonable option.
 - One logical change per pass. Keep the diff small and reviewable.
+- Write a SHORT imperative PR/commit title (under ~70 chars) describing the
+  change. Put the analysis in the body. Nine PRs in the 2026-09-08 run shared
+  one pasted PROGRESS.md paragraph as their title and were indistinguishable in
+  the PR list.
 - If a change needs a decision only a human should make, skip it and write why
   in `PROGRESS.md` under `## Needs human`.
 - Never call a live market data provider (yfinance, Alpha Vantage, SEC EDGAR,
