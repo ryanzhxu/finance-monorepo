@@ -70,6 +70,14 @@ export const EXTERNAL_TECHNICAL_WEIGHT = 7.6
 
 export class TechnicalVerdictError extends Error {}
 
+// Mirror analyst_service's `round(x, 6)` on the confidence rescale. Both seams
+// must emit the same confidence for the same payload down to the digit, or the
+// Python service and the Worker report a different number (66.7 -> 0.667 here,
+// but 0.67 if left to the Worker's downstream 2 dp rounding) for one verdict.
+function round6(value) {
+  return Math.round(value * 1e6) / 1e6
+}
+
 function readRange(raw, label) {
   if (raw == null) return null
   const low = Number(raw.low)
@@ -167,8 +175,9 @@ export function verdictFromExternal(payload) {
     action,
     execution_intent: ACTION_TO_EXECUTION_INTENT[action],
     // decision.v1 is 0-100 and recommendation.confidence is 0.0-1.0. Skipping
-    // this division yields 0.7 where 70 was meant, and looks plausible.
-    confidence: confidence / 100,
+    // this division yields 0.7 where 70 was meant, and looks plausible. Round to
+    // 6 dp to match analyst_service's `round(parsed.confidence / 100.0, 6)`.
+    confidence: round6(confidence / 100),
     source: 'external',
     producer,
     price_state: priceState,
@@ -222,7 +231,7 @@ export function verdictFromLocal(signals) {
 
   return {
     direction,
-    confidence: votes[direction] / totalWeight,
+    confidence: round6(votes[direction] / totalWeight),
     source: 'local',
     producer: null,
     reasons: technical.map((signal) => signal.note),

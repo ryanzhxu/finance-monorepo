@@ -90,6 +90,12 @@ test('confidence outside the contract range is rejected', () => {
   assert.throws(() => verdictFromExternal(payload({ confidence: -1 })), TechnicalVerdictError)
 })
 
+test('a fractional confidence rounds to 6 dp, matching the Python seam', () => {
+  // analyst_service's `round(parsed.confidence / 100.0, 6)`. Without the round
+  // the Worker keeps float noise (0.667000000000...) and later drops it to 0.67.
+  assert.equal(verdictFromExternal(landscapeFree({ confidence: 66.7 })).confidence, 0.667)
+})
+
 test('data quality outside the contract range is rejected', () => {
   assert.throws(() => verdictFromExternal(payload({ dataQuality: 101 })), TechnicalVerdictError)
   assert.throws(() => verdictFromExternal(payload({ dataQuality: -1 })), TechnicalVerdictError)

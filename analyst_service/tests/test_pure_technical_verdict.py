@@ -93,6 +93,25 @@ def test_confidence_is_his_not_recomputed_from_the_blend() -> None:
     assert recommendation.confidence == pytest.approx(0.8)
 
 
+def test_confidence_is_his_at_full_precision() -> None:
+    # A fractional confidence must survive the seam intact, not collapse to 2 dp.
+    # The Worker mirror (his fractional confidence survives verbatim) asserts the
+    # same 0.667, so the two engines report one number for one payload.
+    verdict = _external(confidence=66.7)
+
+    recommendation = aggregate_recommendation(
+        _bearish_fundamentals(),
+        Horizon.THREE_TO_SIX_MONTHS,
+        THRESHOLDS,
+        100,
+        None,
+        {},
+        technical_verdict=verdict,
+    )
+
+    assert recommendation.confidence == pytest.approx(0.667)
+
+
 # --- Ryan's layers are reported, and cannot move the action -----------------
 
 
