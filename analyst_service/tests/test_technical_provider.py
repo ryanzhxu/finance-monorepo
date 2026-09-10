@@ -7,6 +7,7 @@ from shared.models import Signal
 
 from analyst_service.core.aggregator import aggregate_recommendation
 from analyst_service.core.technical_provider import (
+    SHORT_MID_LONG_HORIZONS,
     TechnicalVerdictError,
     external_technical_weight,
     resolve_technical_verdicts_by_horizon,
@@ -479,3 +480,39 @@ def test_resolve_by_horizon_drops_an_invalid_payload_rather_than_failing_the_bat
     resolved = resolve_technical_verdicts_by_horizon(payloads)
 
     assert {entry.horizon for entry in resolved} == {Horizon.ONE_WEEK, Horizon.THREE_TO_SIX_MONTHS}
+
+
+def test_resolve_by_horizon_logs_a_warning_for_the_dropped_horizon(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The Worker mirror asserts the same trace (technical-provider.test.mjs).
+    # A silent drop would leave no record when Vincent's engine sends one bad
+    # horizon, so the log line is part of the contract, not incidental.
+    payloads = {
+        Horizon.ONE_WEEK: _external_payload(action="buy"),
+        # SELL is illegal in an opportunity zone: this horizon must be dropped.
+        Horizon.TWO_TO_FOUR_WEEKS: _external_payload(action="sell"),
+    }
+
+    with caplog.at_level("WARNING"):
+        resolved = resolve_technical_verdicts_by_horizon(payloads)
+
+    assert [entry.horizon for entry in resolved] == [Horizon.ONE_WEEK]
+    warnings = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelname == "WARNING"
+        and "Rejected external technical verdict for 2-4W, omitting" in record.getMessage()
+    ]
+    assert len(warnings) == 1
+
+
+def test_short_mid_long_horizons_excludes_the_day_trade_horizon() -> None:
+    # Mirrors the Worker constant (technical-provider.test.mjs): 1D is Ryan's
+    # day-trade horizon and has no decision.v1 counterpart, so it stays out.
+    assert SHORT_MID_LONG_HORIZONS == (
+        Horizon.ONE_WEEK,
+        Horizon.TWO_TO_FOUR_WEEKS,
+        Horizon.THREE_TO_SIX_MONTHS,
+    )
+    assert Horizon.ONE_DAY not in SHORT_MID_LONG_HORIZONS
