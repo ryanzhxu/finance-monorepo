@@ -556,6 +556,74 @@ test('conflict is not detected when supporting context agrees with his action', 
   assert.equal(recommendation.conflict_summary, null)
 })
 
+// Mirrors test_conflict_detection.py in analyst_service/tests. The blended
+// (no external verdict) path used to hardcode conflict_detected: false, so the
+// production fallback-to-local-technicals path never reported a technical vs
+// fundamental split that Python's aggregate_recommendation does.
+test('blended path reports a technical vs fundamental conflict like Python', () => {
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'MA_50_200', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'EPS_Surprise', signal: 'SELL', weight: 1.0, note: 'sell' },
+    { dimension: 'PE_Percentile', signal: 'SELL', weight: 1.0, note: 'sell' },
+    { dimension: 'Analyst_Ratings', signal: 'SELL', weight: 1.0, note: 'sell' },
+  ]
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    {},
+    'risk_on',
+  )
+
+  assert.equal(recommendation.conflict_detected, true)
+  assert.equal(
+    recommendation.conflict_summary,
+    'Technicals lean BUY (3/3 signals) but fundamentals lean SELL (3/3 signals).',
+  )
+})
+
+test('blended path reports no conflict when technicals and fundamentals align', () => {
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'MA_50_200', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'EPS_Surprise', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'PE_Percentile', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'Analyst_Ratings', signal: 'BUY', weight: 1.0, note: 'buy' },
+  ]
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    {},
+    'risk_on',
+  )
+
+  assert.equal(recommendation.conflict_detected, false)
+  assert.equal(recommendation.conflict_summary, null)
+})
+
+test('blended path reports no conflict with only one technical signal', () => {
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'buy' },
+    { dimension: 'EPS_Surprise', signal: 'SELL', weight: 1.0, note: 'sell' },
+    { dimension: 'PE_Percentile', signal: 'SELL', weight: 1.0, note: 'sell' },
+    { dimension: 'Analyst_Ratings', signal: 'SELL', weight: 1.0, note: 'sell' },
+  ]
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    {},
+    'risk_on',
+  )
+
+  assert.equal(recommendation.conflict_detected, false)
+  assert.equal(recommendation.conflict_summary, null)
+})
+
 test('worker never reports price/volume proxies as Reddit data', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch

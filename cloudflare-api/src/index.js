@@ -944,6 +944,40 @@ function computeCategoryVotes(signals) {
   return votes
 }
 
+// The direction with the greatest weighted vote. Mirrors
+// aggregator._dominant_direction: ties break BUY > HOLD > SELL, matching
+// Python's max((BUY, HOLD, SELL), key=...) which keeps the first maximum.
+function dominantDirection(vote) {
+  let best = 'BUY'
+  for (const direction of ['HOLD', 'SELL']) {
+    if (vote[direction] > vote[best]) best = direction
+  }
+  return best
+}
+
+// Blended-path conflict, mirroring aggregate_recommendation's signal-count
+// heuristic in analyst_service/core/aggregator.py: a conflict exists only when
+// both the technical and fundamental categories carry >=2 signals and their
+// dominant directions disagree. This was hardcoded false on the Worker, so the
+// production fallback-to-local-technicals path (Vincent's engine unconfigured
+// or rejected) never surfaced a technical/fundamental split that Python reports.
+function blendedConflict(votingSignals, categoryVotes) {
+  const technical = votingSignals.filter((signal) => SIGNAL_CATEGORIES[signal.dimension] === 'technical')
+  const fundamental = votingSignals.filter((signal) => SIGNAL_CATEGORIES[signal.dimension] === 'fundamental')
+  const technicalDirection = dominantDirection(categoryVotes.technical)
+  const fundamentalDirection = dominantDirection(categoryVotes.fundamental)
+  const detected = technical.length >= 2 && fundamental.length >= 2 && technicalDirection !== fundamentalDirection
+  if (!detected) return { conflictDetected: false, conflictSummary: null }
+  const technicalSupporters = technical.filter((signal) => signal.signal === technicalDirection).length
+  const fundamentalSupporters = fundamental.filter((signal) => signal.signal === fundamentalDirection).length
+  return {
+    conflictDetected: true,
+    conflictSummary:
+      `Technicals lean ${technicalDirection} (${technicalSupporters}/${technical.length} signals) ` +
+      `but fundamentals lean ${fundamentalDirection} (${fundamentalSupporters}/${fundamental.length} signals).`,
+  }
+}
+
 // Ryan's non-technical layers, summarized beside an external technical action.
 // Mirrors _build_supporting_context in analyst_service/core/aggregator.py.
 // Returns null when there is nothing to say - "no non-technical evidence" is
@@ -996,21 +1030,26 @@ function buildRecommendation(
     ? technicalVerdict.confidence
     : round(clamp(0.5 + Math.abs(score) * 0.45 + (entry.entry_assessment === 'buy_now' ? 0.05 : 0), 0.2, 0.98), 2)
   const supportingContext = external ? buildSupportingContext(votingSignals, direction) : null
-  // Mirrors aggregate_recommendation's external branch in aggregator.py: the
-  // technical-vs-fundamental signal-count heuristic below needs >=2 signals per
-  // category, but substitution collapses "technical" to his one verdict
-  // signal, so it never fires once an external verdict is present. Reuse
-  // supportingContext instead so the narrative still gets told to name the
-  // tension - his BUY against fundamentals that lean the opposite way -
-  // rather than going silent about it.
-  const conflictDetected = external && supportingContext != null && !supportingContext.agrees_with_action
-  const conflictSummary = conflictDetected
-    ? `Vincent's technical engine calls ${direction}, but Ryan's fundamental, sentiment and macro context leans ${supportingContext.direction}.`
-    : null
+  const categoryVotes = computeCategoryVotes(votingSignals)
+  // Two paths, mirroring aggregate_recommendation in aggregator.py exactly.
+  // External: the technical-vs-fundamental signal-count heuristic never fires
+  // because substitution collapses "technical" to his one verdict signal, so
+  // reuse supportingContext to name the tension - his BUY against fundamentals
+  // that lean the opposite way. Blended: run the same signal-count heuristic
+  // Python runs, instead of the old unconditional false.
+  let conflictDetected
+  let conflictSummary
+  if (external) {
+    conflictDetected = supportingContext != null && !supportingContext.agrees_with_action
+    conflictSummary = conflictDetected
+      ? `Vincent's technical engine calls ${direction}, but Ryan's fundamental, sentiment and macro context leans ${supportingContext.direction}.`
+      : null
+  } else {
+    ;({ conflictDetected, conflictSummary } = blendedConflict(votingSignals, categoryVotes))
+  }
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
   const reviewAction =
     direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
-  const categoryVotes = computeCategoryVotes(votingSignals)
   return {
     direction,
     // Each branch above already carries its final precision: the blended path is
