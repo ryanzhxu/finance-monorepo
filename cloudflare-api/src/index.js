@@ -1779,6 +1779,66 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
   return jsonCors({ detail: `Unhandled analyst route ${pathname}` }, 404)
 }
 
+// The confidence buckets `backtesting/track_record.performance_report` always
+// emits, even for an empty store. Mirrored so the empty-store shape matches the
+// Python service field-for-field.
+const TRACK_RECORD_CONFIDENCE_BUCKETS = ['0.0-0.5', '0.5-0.65', '0.65-0.8', '0.8-1.0']
+
+function emptyPerformanceBucket(label) {
+  return {
+    label,
+    evaluated_count: 0,
+    decision_count: 0,
+    hit_rate: null,
+    average_forward_return: null,
+  }
+}
+
+// The Worker persists no analyses, so its track record is genuinely empty: zero
+// recorded calls, nothing scored. This mirrors `analyst_service`'s `/history/*`
+// endpoints against an empty store exactly, so the Track Record view renders its
+// honest "No calls recorded yet" state in production instead of a fetch error.
+// It fabricates nothing — every count is a true zero and every rate is null.
+// A populated store is a separate, human-gated change (Worker-side persistence).
+async function handleHistoryRoute(pathname, request) {
+  if (request.method !== 'GET') {
+    return jsonCors({ detail: `Method ${request.method} not allowed on ${pathname}` }, 405)
+  }
+  const generatedAt = new Date().toISOString()
+  if (pathname === '/history/coverage') {
+    return jsonCors({
+      record_count: 0,
+      distinct_symbols: 0,
+      earliest: null,
+      latest: null,
+    })
+  }
+  if (pathname === '/history/performance') {
+    return jsonCors({
+      generated_at: generatedAt,
+      evaluated_count: 0,
+      decision_count: 0,
+      hit_rate: null,
+      average_forward_return: null,
+      average_benchmark_relative_return: null,
+      by_direction: [],
+      by_confidence: TRACK_RECORD_CONFIDENCE_BUCKETS.map(emptyPerformanceBucket),
+      by_entry_assessment: [],
+      advisory: ['No recommendations have enough forward history yet; nothing here is measurable.'],
+    })
+  }
+  const symbol = decodeURIComponent(pathname.slice('/history/'.length)).trim().toUpperCase()
+  if (!symbol) {
+    return jsonCors({ detail: `Unhandled history route ${pathname}` }, 404)
+  }
+  // An unknown symbol is an empty timeline, not a 404 — mirrors the Python route.
+  return jsonCors({
+    symbol,
+    generated_at: generatedAt,
+    entries: [],
+  })
+}
+
 function normalizeSharedSpaceSlug(value) {
   return String(value ?? '').trim().toLowerCase()
 }
@@ -2165,6 +2225,8 @@ export default {
         pathname.startsWith('/entry/confluence/')
       ) {
         response = await handleAnalyzeRoute(pathname, request, env)
+      } else if (pathname.startsWith('/history/')) {
+        response = await handleHistoryRoute(pathname, request)
       } else if (pathname.startsWith('/shared-spaces/')) {
         response = await handleSharedSpacesRoute(pathname, request, env)
       } else {
