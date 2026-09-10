@@ -280,6 +280,10 @@ export default function TrackRecord() {
                 label={t('avgForwardReturn')}
                 value={formatPercent(performance.average_forward_return)}
               />
+              <Stat
+                label={t('avgVsBenchmark')}
+                value={formatPercent(performance.average_benchmark_relative_return)}
+              />
             </div>
             <BucketTable title={t('byDirection')} buckets={performance.by_direction} />
             <BucketTable title={t('byConfidence')} buckets={performance.by_confidence} />
