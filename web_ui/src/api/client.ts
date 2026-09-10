@@ -10,6 +10,9 @@ import type {
   TrendingScreenResponse,
   ResearchJobRequest,
   ResearchJobState,
+  TrackRecordCoverage,
+  TrackRecordTimeline,
+  TrackRecordPerformance,
 } from './types'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null
@@ -304,6 +307,35 @@ export async function removeSharedWatchlistSymbol(
       `/shared-spaces/${slug}/watchlist/${encodeURIComponent(symbol)}`,
       sharedSpaceRequestConfig(sessionToken),
     )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchTrackRecordCoverage(): Promise<TrackRecordCoverage> {
+  try {
+    const response = await analystClient.get<TrackRecordCoverage>('/history/coverage')
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchTrackRecordTimeline(symbol: string): Promise<TrackRecordTimeline> {
+  try {
+    const response = await analystClient.get<TrackRecordTimeline>(
+      `/history/${encodeURIComponent(symbol)}`,
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchTrackRecordPerformance(): Promise<TrackRecordPerformance> {
+  try {
+    const response = await analystClient.get<TrackRecordPerformance>('/history/performance')
     return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })
