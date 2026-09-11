@@ -2,9 +2,8 @@
 cloudflare-api/src/consolidated/index-hurdle.js and cloudflare-api/test/
 consolidated-hurdle.test.mjs. Every case here mirrors a case in the JS test
 file; the expected values must match exactly (this is a port, not a
-reinterpretation). Not collected by the main `pytest -q` run (see
-pyproject.toml testpaths) — run directly:
-  UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest backtesting/tests/test_index_hurdle.py -q
+reinterpretation). Collected by the main `pytest -q` run (lives under
+`tests/`, per pyproject.toml testpaths).
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ from backtesting.index_hurdle import (
     run_index_hurdle,
 )
 
-FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "contracts" / "consolidated" / "fixtures"
+FIXTURES_DIR = Path(__file__).resolve().parent.parent / "contracts" / "consolidated" / "fixtures"
 
 
 def series(length: int, daily_pct: float, start: float = 100.0) -> list[dict]:
