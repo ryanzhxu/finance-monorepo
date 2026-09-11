@@ -26,17 +26,20 @@ Current state:
 
 - [x] `README.md` — this file
 - [x] `schema/consolidated.schema.json`
-- [ ] `fixtures/valid-*.json`
-- [ ] `fixtures/invalid-*.json`
-- [ ] `tests/test_contract.py` — schema layer
-- [ ] `schema/error.schema.json` — not started. `consolidated_decision.errors`
-      is already a field *inside* this schema (a pipeline that partially fails
-      still returns a 200 with `errors: { technical, index_hurdle }` populated
-      and the rest of the object degraded, per `cloudflare-api/src/consolidated/pipeline.js`),
-      so there may be no separate transport-level error envelope to define —
-      `/analyze` and `/decisions` have their own existing error shapes for a
-      hard failure (missing symbol, engine off). Decide this once fixtures are
-      being written.
+- [x] `fixtures/valid-*.json` — `valid-pass-with-buy.json`, `valid-fail-holds-buy.json`, `valid-engine-failure.json`
+- [x] `fixtures/invalid-*.json` — `invalid-buy-with-failed-hurdle.json`, `invalid-unknown-action.json`, `invalid-missing-horizon.json`
+- [x] `tests/test_contract.py` — schema layer (all 6 fixtures round-trip; run with
+      `UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-project --with jsonschema python contracts/consolidated/tests/test_contract.py`)
+- [x] `schema/error.schema.json` — decided, not needed. Writing the fixtures
+      confirmed `errors` is an ordinary field of `consolidated.schema.json`
+      (`$defs/errors`), not a separate transport envelope: `/analyze` and
+      `/decisions` still return their own existing error shapes for a hard
+      failure (missing symbol, engine off), and a partially-failed pipeline
+      returns 200 with `errors` populated inline, already covered by
+      `valid-engine-failure.json`.
+- [ ] A Worker test that validates a real `runConsolidated` output against this
+      schema, so the contract cannot drift from what the code actually emits.
+      Deferred to the next slice.
 
 ## What this contract is not
 
