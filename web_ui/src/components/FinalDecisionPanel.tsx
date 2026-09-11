@@ -78,6 +78,22 @@ const ACTION_KEYS: Record<string, MessageKey> = {
   sell: 'actionSell',
   avoid: 'actionAvoid',
 }
+const PRICE_STATE_KEYS: Record<string, MessageKey> = {
+  IN_OPPORTUNITY_ZONE: 'priceStateInOpportunity',
+  NEAR_OPPORTUNITY_ZONE: 'priceStateNearOpportunity',
+  NEUTRAL_ZONE: 'priceStateNeutral',
+  NEAR_REDUCE_ZONE: 'priceStateNearReduce',
+  IN_REDUCE_ZONE: 'priceStateInReduce',
+  BEYOND_REDUCE_ZONE: 'priceStateBeyondReduce',
+  BREAKDOWN_ZONE: 'priceStateBreakdown',
+  INVALID_LANDSCAPE: 'priceStateInvalidLandscape',
+}
+const DATA_QUALITY_KEYS: Record<string, MessageKey> = {
+  available: 'available',
+  unavailable: 'unavailable',
+  source_unavailable: 'dataQualitySourceUnavailable',
+  invalid_source_data: 'dataQualityInvalidSource',
+}
 
 const money = (value: number | null | undefined): string =>
   value == null || Number.isNaN(value) ? '—' : `$${value.toFixed(2)}`
@@ -93,6 +109,24 @@ const actionLabel = (
 ): string => {
   if (!value) return '—'
   const key = ACTION_KEYS[value]
+  return key ? t(key) : readable(value)
+}
+
+const priceStateLabel = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | null | undefined,
+): string => {
+  if (!value) return '—'
+  const key = PRICE_STATE_KEYS[value]
+  return key ? t(key) : readable(value)
+}
+
+const dataQualityLabel = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | undefined,
+): string => {
+  if (!value) return '—'
+  const key = DATA_QUALITY_KEYS[value]
   return key ? t(key) : readable(value)
 }
 
@@ -169,7 +203,7 @@ function HorizonColumn({
             {technical.confidence != null ? t('percentConfidence', { percent: Math.round(technical.confidence) }) : ''}
             {technical.data_quality != null ? ` · ${t('data')} ${technical.data_quality}` : ''}
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{readable(technical.price_state)}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">{priceStateLabel(t, technical.price_state)}</p>
           {technical.price_state === 'INVALID_LANDSCAPE' ? (
             <p className="mt-2 text-[11px] italic text-slate-500 dark:text-slate-400">{t('noPriceLandscape')}</p>
           ) : (
@@ -289,8 +323,8 @@ export function FinalDecisionPanel({ decision }: FinalDecisionPanelProps) {
       {quality ? (
         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
           {t('consolidatedInputs', {
-            fourHour: quality.four_hour ?? '—',
-            oneHour: quality.one_hour ?? '—',
+            fourHour: dataQualityLabel(t, quality.four_hour),
+            oneHour: dataQualityLabel(t, quality.one_hour),
             market: quality.market ?? '—',
           })}
         </p>

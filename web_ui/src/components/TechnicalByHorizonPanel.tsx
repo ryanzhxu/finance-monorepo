@@ -41,6 +41,17 @@ const ACTION_KEYS: Record<string, MessageKey> = {
   avoid: 'actionAvoid',
 }
 
+const PRICE_STATE_KEYS: Record<string, MessageKey> = {
+  IN_OPPORTUNITY_ZONE: 'priceStateInOpportunity',
+  NEAR_OPPORTUNITY_ZONE: 'priceStateNearOpportunity',
+  NEUTRAL_ZONE: 'priceStateNeutral',
+  NEAR_REDUCE_ZONE: 'priceStateNearReduce',
+  IN_REDUCE_ZONE: 'priceStateInReduce',
+  BEYOND_REDUCE_ZONE: 'priceStateBeyondReduce',
+  BREAKDOWN_ZONE: 'priceStateBreakdown',
+  INVALID_LANDSCAPE: 'priceStateInvalidLandscape',
+}
+
 const money = (value: number | null | undefined): string =>
   value == null || Number.isNaN(value) ? '—' : `$${value.toFixed(2)}`
 
@@ -53,6 +64,15 @@ const actionLabel = (
 ): string => {
   if (!value) return '—'
   const key = ACTION_KEYS[value]
+  return key ? t(key) : readable(value)
+}
+
+const priceStateLabel = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | null | undefined,
+): string => {
+  if (!value) return '—'
+  const key = PRICE_STATE_KEYS[value]
   return key ? t(key) : readable(value)
 }
 
@@ -158,7 +178,7 @@ export function TechnicalByHorizonPanel({ recommendation }: TechnicalByHorizonPa
                 {t('percentConfidence', { percent: (verdict.confidence * 100).toFixed(0) })}
                 {verdict.data_quality != null ? ` · ${t('data')} ${verdict.data_quality}` : ''}
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{readable(verdict.price_state)}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{priceStateLabel(t, verdict.price_state)}</p>
 
               <Landscape verdict={verdict} />
 
