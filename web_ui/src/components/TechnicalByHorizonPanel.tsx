@@ -31,11 +31,30 @@ const ACTION_TONE: Record<string, string> = {
   avoid: 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300',
 }
 
+const ACTION_KEYS: Record<string, MessageKey> = {
+  strong_buy: 'actionStrongBuy',
+  buy: 'actionBuy',
+  accumulate: 'actionAccumulate',
+  hold: 'actionHold',
+  trim: 'actionTrim',
+  sell: 'actionSell',
+  avoid: 'actionAvoid',
+}
+
 const money = (value: number | null | undefined): string =>
   value == null || Number.isNaN(value) ? '—' : `$${value.toFixed(2)}`
 
 const readable = (value: string | null | undefined): string =>
   value ? value.toLowerCase().replace(/_/g, ' ') : '—'
+
+const actionLabel = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | null | undefined,
+): string => {
+  if (!value) return '—'
+  const key = ACTION_KEYS[value]
+  return key ? t(key) : readable(value)
+}
 
 function Landscape({ verdict }: { verdict: TechnicalVerdict }) {
   const { t } = useI18n()
@@ -126,7 +145,7 @@ export function TechnicalByHorizonPanel({ recommendation }: TechnicalByHorizonPa
 
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <span className={`rounded px-2 py-0.5 text-[12px] font-semibold ${tone}`}>
-                  {readable(action)}
+                  {actionLabel(t, action)}
                 </span>
                 {verdict.execution_intent ? (
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">

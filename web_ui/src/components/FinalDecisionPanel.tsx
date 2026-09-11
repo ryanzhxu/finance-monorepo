@@ -69,6 +69,15 @@ const GUARD_KEYS: Record<string, MessageKey> = {
   fired: 'guardFired',
   unavailable: 'guardUnavailable',
 }
+const ACTION_KEYS: Record<string, MessageKey> = {
+  strong_buy: 'actionStrongBuy',
+  buy: 'actionBuy',
+  accumulate: 'actionAccumulate',
+  hold: 'actionHold',
+  trim: 'actionTrim',
+  sell: 'actionSell',
+  avoid: 'actionAvoid',
+}
 
 const money = (value: number | null | undefined): string =>
   value == null || Number.isNaN(value) ? '—' : `$${value.toFixed(2)}`
@@ -77,6 +86,15 @@ const band = (range: PriceRange | null): string => (range ? `${money(range.low)}
 
 const readable = (value: string | null | undefined): string =>
   value ? value.toLowerCase().replace(/_/g, ' ') : '—'
+
+const actionLabel = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | null | undefined,
+): string => {
+  if (!value) return '—'
+  const key = ACTION_KEYS[value]
+  return key ? t(key) : readable(value)
+}
 
 const signedPct = (value: number | null): string =>
   value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
@@ -129,14 +147,14 @@ function HorizonColumn({
         <span
           className={`rounded px-2 py-0.5 text-[13px] font-semibold ${finalAction ? (ACTION_TONE[finalAction] ?? NEUTRAL_TONE) : NEUTRAL_TONE}`}
         >
-          {finalAction ? readable(finalAction) : t('unavailable')}
+          {finalAction ? actionLabel(t, finalAction) : t('unavailable')}
         </span>
       </div>
 
       {changed ? (
         <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
-          {t('technicalAction')} <span className="line-through">{readable(technical!.action)}</span> → {t('finalAction')}{' '}
-          {readable(finalAction)}
+          {t('technicalAction')} <span className="line-through">{actionLabel(t, technical!.action)}</span> → {t('finalAction')}{' '}
+          {actionLabel(t, finalAction)}
         </p>
       ) : null}
       {entry.adjustments.map((adjustment) => (
