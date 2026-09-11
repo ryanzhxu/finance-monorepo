@@ -5,10 +5,11 @@ import {
   fearGreedLabel,
   fetchYahooChart,
   loadMarketContext,
+  loadQuoteInputs,
   seriesChange,
   validateNativeFourHour,
 } from '../src/consolidated/market-data.js'
-import { runTechnicalEngine } from '../src/consolidated/technical-engine.js'
+import { decideTechnical, runTechnicalEngine } from '../src/consolidated/technical-engine.js'
 import { runConsolidated } from '../src/consolidated/pipeline.js'
 import { verdictFromExternal } from '../src/technical-provider.js'
 
@@ -160,6 +161,38 @@ test('the technical engine exposes a compact technical-details subset per horizo
   assert.ok(['very_low', 'low', 'normal', 'elevated', 'high', 'extreme'].includes(result.marketStructure.relative_volume.state))
   assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.high))
   assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.low))
+})
+
+test("a leveraged/inverse ETF feeds Vincent's engine its underlying's technical features and price", async () => {
+  const requested = []
+  const fetchImpl = async (url) => {
+    requested.push(decodeURIComponent(new URL(url).pathname))
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const soxlQuote = await loadQuoteInputs('SOXL', { fetchImpl })
+  requested.length = 0
+  const { decision } = await decideTechnical({ ticker: 'SOXL', quote: soxlQuote, market, fetchImpl })
+  assert.ok(requested.some((path) => path.includes('SOXX')), "SOXL's profile names SOXX as its underlying, so decideTechnical loads SOXX bars")
+  assert.ok(decision.horizons.mid, 'still decides normally with the extra underlying input')
+})
+
+test('a plain equity, and an ETF whose own ticker is its underlying, never fetch a duplicate underlying series', async () => {
+  const requested = []
+  const fetchImpl = async (url) => {
+    requested.push(decodeURIComponent(new URL(url).pathname))
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const nvdaQuote = await loadQuoteInputs('NVDA', { fetchImpl })
+  requested.length = 0
+  await decideTechnical({ ticker: 'NVDA', quote: nvdaQuote, market, fetchImpl })
+  assert.equal(requested.length, 0, 'NVDA is not an ETF, so decideTechnical fetches nothing extra')
+
+  const qqqQuote = await loadQuoteInputs('QQQ', { fetchImpl })
+  requested.length = 0
+  await decideTechnical({ ticker: 'QQQ', quote: qqqQuote, market, fetchImpl })
+  assert.equal(requested.length, 0, "QQQ's own profile names QQQ as its underlying, which decideTechnical must not re-fetch")
 })
 
 test('the consolidated pipeline composes technical, fundamentals and the hurdle', async () => {

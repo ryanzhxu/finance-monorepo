@@ -45,19 +45,35 @@ export function classificationFor(ticker, metadata = {}) {
 // Returns both the decision and the canonical technical features it decided
 // from, so a caller can show the underlying indicators without asking the
 // engine to compute them a second time.
-export function decideTechnical({ ticker, quote, market }) {
+//
+// Leveraged and inverse ETFs (profile-definitions.js `underlyingTicker`) feed
+// his engine their underlying's technical features and price too, the same
+// way his dashboard's applySnapshot does (technical_engine/main.js) — never a
+// second decision, just the extra input his engine already knows how to use.
+export async function decideTechnical({ ticker, quote, market, fetchImpl = fetch }) {
   const inputs = globalThis.DecisionFeatureInputs
   const technicalFeatures = globalThis.CanonicalTechnicalFeatures.buildTechnicalFeatures(inputs.featureInputs(quote, market))
+  const classification = classificationFor(ticker, quote.metadata || quote)
+  let underlyingTechnicalFeatures = null
+  let underlyingPrice = null
+  const underlyingTicker = classification.isETF ? classification.underlyingTicker : null
+  if (underlyingTicker && underlyingTicker !== ticker) {
+    const underlyingQuote = await loadQuoteInputs(underlyingTicker, { fetchImpl }).catch(() => null)
+    if (underlyingQuote) {
+      underlyingTechnicalFeatures = globalThis.CanonicalTechnicalFeatures.buildTechnicalFeatures(inputs.featureInputs(underlyingQuote, market))
+      underlyingPrice = finite(underlyingQuote.price)
+    }
+  }
   const decision = globalThis.DecisionEngine.decide({
     ticker,
     price: finite(quote.price),
     technicalFeatures,
     marketContext: market,
-    classification: classificationFor(ticker, quote.metadata || quote),
+    classification,
     metadata: quote.metadata || {},
     language: 'en',
-    underlyingTechnicalFeatures: null,
-    underlyingPrice: null,
+    underlyingTechnicalFeatures,
+    underlyingPrice,
   })
   return { decision, technicalFeatures }
 }
@@ -203,7 +219,7 @@ export async function runTechnicalEngine(symbol, { fetchImpl = fetch, metadata =
     loadQuoteInputs(symbol, { fetchImpl, metadata }),
     loadMarketContext({ fetchImpl }),
   ])
-  const { decision, technicalFeatures } = decideTechnical({ ticker: symbol, quote, market })
+  const { decision, technicalFeatures } = await decideTechnical({ ticker: symbol, quote, market, fetchImpl })
   const generatedAt = new Date().toISOString()
   const horizons = Object.fromEntries(
     HORIZONS.map((horizon) => [horizon, horizonSummary(decision, horizon, quote.price, technicalDetails(technicalFeatures, horizon))]),
