@@ -1507,6 +1507,10 @@ function buildScreenResult(snapshot, marketRegime, screenType, rank) {
   }
 }
 
+// Worker subrequest budget: one /decisions symbol costs ~15-18 fetches for the
+// first symbol and ~7-9 for each later one even with market data cached, so a
+// batch of 6 could exceed the Free plan's 50-fetch cap and fail the later rows.
+const DECISIONS_MAX_SYMBOLS = 3
 const SCREENER_HURDLE_LIMIT = 10
 const SCREENER_HURDLE_NOT_EVALUATED = {
   status: 'not_evaluated',
@@ -1906,7 +1910,7 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
     const body = await readJson(request)
     const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
     if (!symbols.length) return badRequest('symbols is required')
-    const limited = symbols.slice(0, 6)
+    const limited = symbols.slice(0, DECISIONS_MAX_SYMBOLS)
     const results = await runWithConcurrency(limited, 2, async (symbol) => {
       try {
         const response = await buildAnalyze(symbol, { includeNarrative: false, includeEntry: true, env })
@@ -1920,7 +1924,7 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
         return { symbol, error: serializeBatchError(error) }
       }
     })
-    return jsonCors({ results })
+    return jsonCors({ results, max_symbols: DECISIONS_MAX_SYMBOLS })
   }
   if (pathname === '/entry' && request.method === 'POST') {
     const body = await readJson(request)

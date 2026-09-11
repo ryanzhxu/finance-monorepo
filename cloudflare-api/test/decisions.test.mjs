@@ -188,7 +188,7 @@ test('/decisions returns a consolidated_decision per symbol, in order, and one b
   }
 })
 
-test('/decisions caps a request at 6 symbols', async () => {
+test('/decisions caps a request at 3 symbols and reports max_symbols', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockCombinedFetch
   try {
@@ -202,11 +202,57 @@ test('/decisions caps a request at 6 symbols', async () => {
     )
     assert.equal(response.status, 200)
     const payload = await response.json()
-    assert.equal(payload.results.length, 6)
+    assert.equal(payload.max_symbols, 3)
+    assert.equal(payload.results.length, 3)
     assert.deepEqual(
       payload.results.map((row) => row.symbol),
-      ['A', 'B', 'C', 'D', 'E', 'F'],
+      ['A', 'B', 'C'],
     )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+// finance-query.com (quote/snapshot) succeeds so buildAnalyze reaches
+// runConsolidated; only the Yahoo/CNN calls the technical engine and index
+// hurdle depend on fail, isolating the errors surfaced from runConsolidated.
+function mockFetchYahooDown(input) {
+  const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : (input?.url ?? String(input))
+  const url = new URL(rawUrl)
+  if (url.hostname.includes('finance.yahoo.com') || url.hostname.includes('cnn.io')) {
+    return Promise.reject(new Error('simulated network failure'))
+  }
+  return mockCombinedFetch(input)
+}
+
+test('/decisions surfaces a short, no-stack reason when the technical engine fails, instead of failing silently', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFetchYahooDown
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/decisions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbols: ['NVDA'] }),
+      }),
+      CONSOLIDATED_ENV,
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    const [nvda] = payload.results
+    assert.equal(nvda.symbol, 'NVDA')
+    assert.ok(nvda.consolidated_decision, 'the quote/entry lookup failing does not fail the whole row')
+    const { errors } = nvda.consolidated_decision
+    // The index hurdle fails closed per-benchmark on its own (status 'fail'
+    // with insufficient_data rows) rather than throwing, so only the
+    // technical engine's harder failure shows up in `errors` here.
+    assert.ok(errors, 'errors is populated instead of silently null')
+    assert.equal(errors.technical, 'simulated network failure')
+    assert.doesNotMatch(errors.technical, /\n\s+at /, 'no stack trace, just the message')
+    assert.notEqual(nvda.consolidated_decision.index_hurdle.status, 'pass')
+    for (const horizon of ['short', 'mid', 'long']) {
+      assert.equal(nvda.consolidated_decision.horizons[horizon].final_action, null)
+    }
   } finally {
     globalThis.fetch = originalFetch
   }

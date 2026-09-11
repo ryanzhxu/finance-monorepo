@@ -3,7 +3,9 @@ import { fetchDecisions } from '../api/client'
 import type { ConsolidatedHorizon, DecisionRow } from '../api/types'
 import { useI18n, type MessageKey } from '../i18n'
 
-const CHUNK_SIZE = 6
+// Matches the Worker's DECISIONS_MAX_SYMBOLS (cloudflare-api/src/index.js) —
+// the subrequest budget for one /decisions request.
+const CHUNK_SIZE = 3
 
 const HORIZONS = [
   { key: 'short', title: 'horizonShort' },
@@ -126,6 +128,13 @@ function DecisionRowView({ row, onSelectSymbol }: { row: DecisionRow; onSelectSy
       <td className="px-3 py-2">
         <div className="font-semibold text-slate-800 dark:text-slate-100">{row.symbol}</div>
         {row.company_name ? <div className="text-[11px] text-slate-500 dark:text-slate-400">{row.company_name}</div> : null}
+        {decision.errors ? (
+          <div className="text-[10px] text-rose-600 dark:text-rose-400">
+            {t('consolidatedDecisionUnavailable', {
+              reason: decision.errors.technical ?? decision.errors.index_hurdle ?? '',
+            })}
+          </div>
+        ) : null}
       </td>
       <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-300">{money(row.current_price)}</td>
       {HORIZONS.map(({ key, title }) => (
@@ -152,8 +161,8 @@ function DecisionRowView({ row, onSelectSymbol }: { row: DecisionRow; onSelectSy
  * One row per watched symbol: current price, the consolidated Short/Mid/Long
  * action (Vincent's own action struck through when the final one differs),
  * the index hurdle chip, and the fundamentals stance. Fetches `/decisions` in
- * chunks of 6 symbols, matching the Worker's subrequest budget, and renders
- * each row as soon as its chunk resolves.
+ * chunks of CHUNK_SIZE symbols, matching the Worker's subrequest budget, and
+ * renders each row as soon as its chunk resolves.
  */
 export function DecisionBoard({ symbols, onSelectSymbol }: DecisionBoardProps) {
   const { t } = useI18n()

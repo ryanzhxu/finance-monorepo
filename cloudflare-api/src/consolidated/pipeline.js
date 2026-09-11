@@ -20,12 +20,20 @@ export function earningsDateFromQuote(quote) {
   return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString().slice(0, 10) : null
 }
 
+// Short, no-stack reason a caller can show to a user (e.g. "unavailable —
+// could not load market data (<reason>)"), not a debugging trace.
+function shortReason(error) {
+  return String(error?.message || error).slice(0, 200)
+}
+
 export async function runConsolidated(symbol, { quote = null, fundamentalSignals = [], earnings = {}, fetchImpl = defaultFetch } = {}) {
   const earningsDate = earningsDateFromQuote(quote)
   const traits = classificationFor(symbol, { quoteType: quote?.quoteType }).companyTraits ?? []
+  const errors = {}
   const [technical, hurdle] = await Promise.all([
     runTechnicalEngine(symbol, { fetchImpl, metadata: earningsDate ? { earningsDate } : {} }).catch((error) => {
       console.warn(`consolidated technical engine failed for ${symbol}: ${error?.message || error}`)
+      errors.technical = shortReason(error)
       return null
     }),
     runIndexHurdle(symbol, {
@@ -36,11 +44,17 @@ export async function runConsolidated(symbol, { quote = null, fundamentalSignals
       loadSeries: (item) => loadDailyBars(item, { fetchImpl }).then(({ bars }) => seriesFromBars(bars)),
     }).catch((error) => {
       console.warn(`index hurdle failed for ${symbol}: ${error?.message || error}`)
+      errors.index_hurdle = shortReason(error)
       return null
     }),
   ])
   return {
-    consolidated: buildConsolidatedDecision({ technical, fundamentals: fundamentalStance(fundamentalSignals), hurdle }),
+    consolidated: buildConsolidatedDecision({
+      technical,
+      fundamentals: fundamentalStance(fundamentalSignals),
+      hurdle,
+      errors: Object.keys(errors).length ? errors : null,
+    }),
     decisionV1ByHorizon: technical?.decisionV1 ?? {},
   }
 }

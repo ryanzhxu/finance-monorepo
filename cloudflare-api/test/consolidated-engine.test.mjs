@@ -153,6 +153,7 @@ test('the consolidated pipeline composes technical, fundamentals and the hurdle'
   assert.equal(consolidated.version, 'consolidated.v1')
   assert.equal(consolidated.fundamentals.stance, 'supportive')
   assert.deepEqual(consolidated.index_hurdle.benchmarks.map((row) => row.symbol), ['SPY', 'QQQ', 'XLK', 'SMH'])
+  assert.equal(consolidated.errors, null, 'no failures happened, so errors stays null rather than an empty object')
   for (const horizon of ['short', 'mid', 'long']) {
     const entry = consolidated.horizons[horizon]
     assert.ok(LEGAL_ACTIONS.includes(entry.final_action))
@@ -161,4 +162,18 @@ test('the consolidated pipeline composes technical, fundamentals and the hurdle'
     }
   }
   assert.ok(decisionV1ByHorizon['2-4W'])
+})
+
+test('the consolidated pipeline reports a short, no-stack reason instead of silently swallowing a technical-engine failure', async () => {
+  const quote = { sector: 'Technology', industry: 'Semiconductors', quoteType: 'EQUITY' }
+  const failingFetch = async () => {
+    throw new Error('simulated network failure')
+  }
+  const { consolidated } = await runConsolidated('NVDA', { quote, fetchImpl: failingFetch })
+  assert.ok(consolidated.errors, 'errors is populated instead of null')
+  assert.equal(consolidated.errors.technical, 'simulated network failure')
+  assert.doesNotMatch(consolidated.errors.technical, /\n\s+at /, 'a message, not a stack trace')
+  for (const horizon of ['short', 'mid', 'long']) {
+    assert.equal(consolidated.horizons[horizon].final_action, null)
+  }
 })

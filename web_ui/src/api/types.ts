@@ -221,6 +221,9 @@ export interface ConsolidatedDecision {
   index_hurdle: IndexHurdle | null
   fundamentals: { stance: FundamentalStance; vote: Partial<Record<Direction, number>>; signal_count: number } | null
   data_quality: { daily?: string; four_hour?: string; one_hour?: string; market?: number } | null
+  // Short, no-stack reasons the technical engine and/or index hurdle could
+  // not run (e.g. a subrequest budget error), null when both succeeded.
+  errors: { technical?: string; index_hurdle?: string } | null
 }
 
 /** One `/decisions` board row: a successful consolidated decision or a per-symbol failure. */
@@ -241,6 +244,7 @@ export type DecisionRow = DecisionRowOk | DecisionRowError
 
 export interface DecisionsResponse {
   results: DecisionRow[]
+  max_symbols: number
 }
 
 export interface AnalysisResponse {

@@ -320,6 +320,13 @@ export function FinalDecisionPanel({ decision }: FinalDecisionPanelProps) {
         {decision.producer ? <p className="text-[11px] text-slate-500 dark:text-slate-400">{decision.producer}</p> : null}
       </div>
       <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">{t('finalDecisionHint')}</p>
+      {decision.errors ? (
+        <p className="mt-1 text-[11px] font-medium text-rose-700 dark:text-rose-400">
+          {t('consolidatedDecisionUnavailable', {
+            reason: decision.errors.technical ?? decision.errors.index_hurdle ?? '',
+          })}
+        </p>
+      ) : null}
       {quality ? (
         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
           {t('consolidatedInputs', {
