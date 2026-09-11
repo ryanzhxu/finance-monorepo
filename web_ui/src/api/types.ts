@@ -154,6 +154,75 @@ export interface Recommendation {
   technical_by_horizon?: HorizonTechnicalVerdict[]
 }
 
+/** Vincent's engine output for one horizon, as the consolidated pipeline reports it. */
+export interface ConsolidatedTechnical {
+  available: boolean
+  action: string | null
+  // Vincent's own 0-100 scale.
+  confidence: number | null
+  price_state: string
+  execution_intent: string | null
+  opportunity_range: PriceRange | null
+  reduce_range: PriceRange | null
+  invalidation: number | null
+  current_price: number | null
+  reasons: string[]
+  data_quality: number | null
+}
+
+export type FundamentalStance = 'supportive' | 'neutral' | 'weak' | 'unavailable'
+
+export interface ConsolidatedAdjustment {
+  layer: 'technical' | 'fundamentals' | 'index_hurdle'
+  from: string | null
+  to: string | null
+  reason: 'technical_unavailable' | 'fundamentals_weak' | 'index_hurdle_failed' | 'index_hurdle_unavailable'
+  detail: string | null
+}
+
+export interface ConsolidatedHorizon {
+  technical: ConsolidatedTechnical | null
+  fundamentals: { stance: FundamentalStance; applied: boolean }
+  final_action: string | null
+  adjustments: ConsolidatedAdjustment[]
+}
+
+export interface HurdleBenchmarkRow {
+  symbol: string
+  role: 'index' | 'sector' | 'industry' | 'local_index'
+  label: string
+  rel_12_1_pct: number | null
+  rel_6m_pct: number | null
+  ratio_above_200d: boolean | null
+  evidence_true: number
+  evidence_known: number
+  sessions: number
+  result: 'beats' | 'lags' | 'mixed' | 'insufficient_data'
+}
+
+export interface IndexHurdle {
+  status: 'pass' | 'fail' | 'not_applicable' | 'unavailable'
+  benchmarks: HurdleBenchmarkRow[]
+  lagging: string[]
+  earnings_guard: {
+    status: 'clear' | 'fired' | 'unavailable'
+    eps_surprise_pct: number | null
+    analysts_deteriorating: boolean | null
+  }
+}
+
+/** Technical (Vincent) → fundamentals (Ryan) → index hurdle, per horizon. */
+export interface ConsolidatedDecision {
+  version: string
+  producer: string | null
+  generated_at: string
+  current_price: number | null
+  horizons: Record<'short' | 'mid' | 'long', ConsolidatedHorizon>
+  index_hurdle: IndexHurdle | null
+  fundamentals: { stance: FundamentalStance; vote: Partial<Record<Direction, number>>; signal_count: number } | null
+  data_quality: { daily?: string; four_hour?: string; one_hour?: string; market?: number } | null
+}
+
 export interface AnalysisResponse {
   symbol: string
   company_name?: string | null
@@ -168,6 +237,8 @@ export interface AnalysisResponse {
   signals: Signal[]
   entry: EntryBlock | null
   recommendation: Recommendation
+  // Present only when the Worker runs the consolidated pipeline (QA today).
+  consolidated_decision?: ConsolidatedDecision | null
   narrative: string | null
 }
 

@@ -5,6 +5,7 @@ import { SupportingContextPanel } from '../components/SupportingContextPanel'
 import { ConflictBanner } from '../components/ConflictBanner'
 import { TechnicalByHorizonPanel } from '../components/TechnicalByHorizonPanel'
 import { CategoryVotesPanel } from '../components/CategoryVotesPanel'
+import { FinalDecisionPanel } from '../components/FinalDecisionPanel'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -1182,7 +1183,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
               <ConflictBanner recommendation={analysis!.recommendation} />
               <SupportingContextPanel recommendation={analysis!.recommendation} />
-              <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
+              {analysis!.consolidated_decision ? (
+                <FinalDecisionPanel decision={analysis!.consolidated_decision} />
+              ) : (
+                <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
+              )}
               <CategoryVotesPanel recommendation={analysis!.recommendation} />
 
               <div className="flex flex-wrap gap-2">

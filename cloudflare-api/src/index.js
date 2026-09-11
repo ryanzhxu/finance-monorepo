@@ -7,6 +7,7 @@ import {
   substituteTechnicalSignals,
 } from './technical-provider.js'
 import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
+import { consolidatedEnabled, runConsolidated } from './consolidated/pipeline.js'
 import {
   atr,
   clamp,
@@ -50,6 +51,8 @@ const ALLOWED_CORS_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://finance-web-ui.pages.dev',
+  'https://stock.qa.ryanxu.dev',
+  'https://finance-web-ui-qa.rxlab.workers.dev',
 ])
 
 function corsHeaders(request = null) {
@@ -1082,7 +1085,7 @@ function buildRecommendation(
   }
 }
 
-function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence, fundamentals, sentiment, macro, signals, recommendation, includeNarrative = false }) {
+function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence, fundamentals, sentiment, macro, signals, recommendation, includeNarrative = false, consolidatedDecision = null }) {
   const dataFreshness = {
     price: 'live',
     technicals: 'live',
@@ -1135,6 +1138,9 @@ function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence,
     signals,
     entry,
     recommendation,
+    // Present only when CONSOLIDATED_DECISION is on (QA). Vincent's per-horizon
+    // action, Ryan's fundamentals, the index hurdle, and the final action.
+    consolidated_decision: consolidatedDecision,
     narrative,
   }
 }
@@ -1230,7 +1236,26 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   // same seam as a pushed one, so it is trusted no more than a pushed verdict.
   let byHorizonPayloads = {}
   let technicalPayload = technical
-  if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
+  let consolidatedDecision = null
+  if (technicalPayload == null && consolidatedEnabled(env)) {
+    // One repo, one engine: Vincent's engine runs inside this Worker with no
+    // network hop, and its verdicts still pass through the same decision.v1
+    // seam as a pulled or pushed one. The consolidated decision adds Ryan's
+    // fundamentals and the index hurdle on top, per horizon.
+    const consolidated = await runConsolidated(normalized, {
+      quote,
+      fundamentalSignals: localSignals.filter((signal) => SIGNAL_CATEGORIES[signal.dimension] === 'fundamental'),
+      earnings: {
+        epsSurprisePct: fundamentals.eps_surprise_pct,
+        upgrades30d: fundamentals.analyst_upgrades_30d,
+        downgrades30d: fundamentals.analyst_downgrades_30d,
+        recommendationTrend: quote?.recommendationTrend ?? null,
+      },
+    })
+    consolidatedDecision = consolidated.consolidated
+    byHorizonPayloads = consolidated.decisionV1ByHorizon
+    technicalPayload = byHorizonPayloads['2-4W'] ?? null
+  } else if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
     byHorizonPayloads = await fetchExternalTechnicalVerdicts(normalized, SHORT_MID_LONG_HORIZONS, env)
     technicalPayload = byHorizonPayloads['2-4W'] ?? null
   }
@@ -1270,6 +1295,7 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     signals,
     recommendation,
     includeNarrative,
+    consolidatedDecision,
   })
 }
 

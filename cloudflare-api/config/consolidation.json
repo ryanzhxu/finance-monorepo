@@ -1,0 +1,82 @@
+{
+  "version": "consolidated.v1",
+  "horizons": ["short", "mid", "long"],
+  "buyFamily": ["strong_buy", "buy", "accumulate"],
+  "fundamentals": {
+    "appliesToHorizons": ["mid", "long"],
+    "minSignals": 2,
+    "stepDown": {
+      "strong_buy": "buy",
+      "buy": "accumulate",
+      "accumulate": "hold"
+    }
+  },
+  "indexHurdle": {
+    "coreBenchmarks": ["SPY", "QQQ"],
+    "notApplicable": ["SPY", "VOO", "IVV", "SPLG", "VTI", "ITOT"],
+    "windows": {
+      "momentumLookback": 252,
+      "momentumSkip": 21,
+      "sixMonth": 126,
+      "ratioAverage": 200
+    },
+    "minEvidence": 2,
+    "historyRange": "2y",
+    "earningsGuard": {
+      "minNetDrop": 0.05
+    },
+    "sectorEtfs": {
+      "Technology": "XLK",
+      "Communication Services": "XLC",
+      "Consumer Cyclical": "XLY",
+      "Consumer Defensive": "XLP",
+      "Energy": "XLE",
+      "Financial Services": "XLF",
+      "Healthcare": "XLV",
+      "Industrials": "XLI",
+      "Basic Materials": "XLB",
+      "Real Estate": "XLRE",
+      "Utilities": "XLU"
+    },
+    "industryEtfs": {
+      "SMH": ["Semiconductors", "Semiconductor Equipment & Materials"],
+      "IGV": ["Software - Application", "Software - Infrastructure"],
+      "XBI": ["Biotechnology"],
+      "IHI": ["Medical Devices", "Medical Instruments & Supplies"],
+      "IHE": ["Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic"],
+      "KRE": ["Banks - Regional"],
+      "KBE": ["Banks - Diversified"],
+      "IAI": ["Capital Markets"],
+      "KIE": ["Insurance - Diversified", "Insurance - Life", "Insurance - Property & Casualty", "Insurance - Specialty", "Insurance Brokers"],
+      "ITA": ["Aerospace & Defense"],
+      "XOP": ["Oil & Gas E&P"],
+      "OIH": ["Oil & Gas Equipment & Services"],
+      "ITB": ["Residential Construction"],
+      "XRT": ["Specialty Retail", "Discount Stores", "Apparel Retail", "Department Stores", "Home Improvement Retail"],
+      "FDN": ["Internet Retail", "Internet Content & Information"],
+      "JETS": ["Airlines"],
+      "IYT": ["Railroads", "Trucking", "Integrated Freight & Logistics"],
+      "TAN": ["Solar"],
+      "GDX": ["Gold"],
+      "SLX": ["Steel"],
+      "COPX": ["Copper"],
+      "URA": ["Uranium"],
+      "XME": ["Other Industrial Metals & Mining", "Aluminum"],
+      "PEJ": ["Restaurants", "Entertainment", "Travel Services", "Lodging", "Resorts & Casinos"],
+      "IYZ": ["Telecom Services"]
+    },
+    "traitEtfs": {
+      "Cybersecurity": "CIBR",
+      "Semiconductor": "SMH"
+    },
+    "localIndexBySuffix": {
+      ".HK": "^HSI",
+      ".SS": "000300.SS",
+      ".SZ": "000300.SS",
+      ".T": "^N225",
+      ".TO": "^GSPTSE",
+      ".L": "^FTSE",
+      ".KS": "^KS11"
+    }
+  }
+}

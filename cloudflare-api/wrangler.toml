@@ -39,3 +39,39 @@ new_sqlite_classes = ["SharedWatchlistSpace"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["ResearchJob", "ResearchRateLimiter"]
+
+# QA: `wrangler deploy --env qa` → finance-api-qa, used by
+# https://stock.qa.ryanxu.dev. Vars, bindings and Durable Objects do not inherit
+# into an environment, so everything is restated here. QA gets its own Durable
+# Object namespaces, so it never reads or writes the production watchlist. It
+# runs Vincent's engine in process (CONSOLIDATED_DECISION) with no service hop.
+[env.qa]
+name = "finance-api-qa"
+workers_dev = true
+
+[env.qa.vars]
+CONSOLIDATED_DECISION = "on"
+TECHNICAL_ENGINE_TIMEOUT = "8"
+SHARED_WATCHLIST_SLUG = "drama"
+SHARED_WATCHLIST_DISPLAY_NAME = "Drama (QA)"
+RESEARCH_ENABLED = "false"
+RESEARCH_DECISION_SUPPORT_ENABLED = "false"
+RESEARCH_MODEL_STATUS = "configured"
+CURSOR_RESEARCH_DISCOVERY_MODEL = "claude-sonnet-5"
+CURSOR_RESEARCH_VERIFICATION_MODEL = "claude-haiku-4-5"
+CURSOR_RESEARCH_REVIEW_MODEL = "claude-haiku-4-5"
+
+[env.qa.durable_objects]
+bindings = [
+  { name = "SHARED_WATCHLIST_SPACE", class_name = "SharedWatchlistSpace" },
+  { name = "RESEARCH_JOBS", class_name = "ResearchJob" },
+  { name = "RESEARCH_RATE_LIMITER", class_name = "ResearchRateLimiter" },
+]
+
+[[env.qa.migrations]]
+tag = "v1"
+new_sqlite_classes = ["SharedWatchlistSpace"]
+
+[[env.qa.migrations]]
+tag = "v2"
+new_sqlite_classes = ["ResearchJob", "ResearchRateLimiter"]

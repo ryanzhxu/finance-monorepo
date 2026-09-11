@@ -39,7 +39,11 @@ def test_wrangler_config_only_defines_prod_worker() -> None:
 
     assert data["name"] == "finance-api"
     assert data["workers_dev"] is True
-    assert "env" not in data
+    # The only environment allowed is the consolidation QA Worker. The retired
+    # dev environment must not come back.
+    assert set(data.get("env", {})) <= {"qa"}
+    if "qa" in data.get("env", {}):
+        assert data["env"]["qa"]["name"] == "finance-api-qa"
     assert "[env.dev]" not in content
     assert 'name = "finance-api-dev"' not in content
 
