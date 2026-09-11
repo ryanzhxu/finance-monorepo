@@ -315,12 +315,13 @@
         "evidence_true": 1,
         "evidence_known": 3,
         "sessions": 252,
-        "result": "mixed"
+        "result": "lags"
       }
     ],
     "lagging": [
       "SPY",
-      "QQQ"
+      "QQQ",
+      "XLY"
     ],
     "earnings_guard": {
       "status": "clear",

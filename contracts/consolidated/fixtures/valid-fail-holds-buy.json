@@ -161,10 +161,10 @@
         "evidence_true": 1,
         "evidence_known": 3,
         "sessions": 252,
-        "result": "mixed"
+        "result": "lags"
       }
     ],
-    "lagging": ["SPY", "QQQ"],
+    "lagging": ["SPY", "QQQ", "XLY"],
     "earnings_guard": {
       "status": "clear",
       "eps_surprise_pct": -1.2,
