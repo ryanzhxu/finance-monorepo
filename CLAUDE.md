@@ -14,6 +14,10 @@ Cloudflare Worker + Pages deployment; no Render resources
 - analyst_service  → localhost:8001
 - screener_service → localhost:8002
 - web_ui           → localhost:5173 (prod: Cloudflare Pages)
+- cloudflare-api   → production Worker API (`npm run dev` for local wrangler)
+- technical_engine → Vincent's technical-analysis engine, imported with git
+  history; the Worker runs it in-process as the sole technical layer (spec D1).
+  Protected: read and import freely, never edit.
 
 ## Local dev
 ```bash
@@ -29,18 +33,20 @@ cd web_ui && npm run dev
 
 ## Tests
 ```bash
-# Python. The ignore flag is needed because test_stock_research.py is tracked
-# while the module it imports is still untracked WIP on codex/prod-cutover.
-UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -q \
-  --ignore=analyst_service/tests/test_stock_research.py
-# Expected: 176 passed
+# Python
+UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -q
+# Expected: 271 passed
+
+# Vincent's engine
+node --test technical_engine/tests/*.test.js
+# Expected: 6 suites passing
 
 # Worker
 cd cloudflare-api && npm test
-# Expected: 31 passing
+# Expected: 139 passing
 
 # Frontend
-cd web_ui && npm run build
+cd web_ui && npm test && npm run build
 ```
 
 ## After any API/model change
