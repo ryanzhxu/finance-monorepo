@@ -43,7 +43,7 @@ node --test technical_engine/tests/*.test.js
 
 # Worker
 cd cloudflare-api && npm test
-# Expected: 139 passing
+# Expected: 149 passing
 
 # Frontend
 cd web_ui && npm test && npm run build
