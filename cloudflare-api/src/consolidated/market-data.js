@@ -8,6 +8,13 @@
 
 const CHART_HOSTS = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com']
 const FEAR_GREED_URL = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata'
+// Yahoo's chart API answers 429 to a full Chrome UA without browser cookies,
+// but 200 to a bare Mozilla/5.0 (matches the rest of the Worker, src/index.js).
+const YAHOO_HEADERS = {
+  'user-agent': 'Mozilla/5.0',
+  accept: 'application/json,text/plain,*/*',
+}
+// CNN's Fear & Greed endpoint needs a browser UA plus referer/origin.
 const BROWSER_HEADERS = {
   'user-agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36',
@@ -64,7 +71,7 @@ export async function fetchYahooChart(symbol, { interval = '1d', range = RANGES.
     const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplits`
     try {
       const response = await fetchImpl(url, {
-        headers: BROWSER_HEADERS,
+        headers: YAHOO_HEADERS,
         cf: { cacheTtl: EDGE_CACHE_SECONDS, cacheEverything: true },
       })
       if (!response.ok) throw new Error(`HTTP ${response.status} from Yahoo chart for ${symbol} ${interval}`)

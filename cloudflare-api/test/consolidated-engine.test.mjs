@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   clearMarketDataCache,
   fearGreedLabel,
+  fetchYahooChart,
   loadMarketContext,
   seriesChange,
   validateNativeFourHour,
@@ -99,6 +100,17 @@ test('series change and fear/greed labels match server.py', () => {
   assert.equal(fearGreedLabel(25), 'Extreme Fear')
   assert.equal(fearGreedLabel(50), 'Neutral')
   assert.equal(fearGreedLabel(80), 'Extreme Greed')
+})
+
+test('Yahoo chart requests use a bare Mozilla/5.0 UA, not a full Chrome string that Yahoo 429s', async () => {
+  let seenHeaders
+  await fetchYahooChart('SPY', {
+    fetchImpl: async (url, init) => {
+      seenHeaders = init.headers
+      return mockYahoo(url)
+    },
+  })
+  assert.equal(seenHeaders['user-agent'], 'Mozilla/5.0')
 })
 
 test('market context carries VIX, 10Y, SPY and QQQ, and a blocked fear/greed stays unavailable', async () => {
