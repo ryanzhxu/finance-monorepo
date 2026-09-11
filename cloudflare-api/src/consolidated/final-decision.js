@@ -84,6 +84,7 @@ export function buildConsolidatedDecision({ technical = null, fundamentals = nul
     index_hurdle: hurdle,
     fundamentals,
     data_quality: technical?.dataQuality ?? null,
+    market_structure: technical?.marketStructure ?? null,
     errors,
   }
 }

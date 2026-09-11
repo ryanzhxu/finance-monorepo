@@ -140,6 +140,28 @@ test("Vincent's engine runs in process and decides all three horizons from nativ
   }
 })
 
+test('the technical engine exposes a compact technical-details subset per horizon, computed once', async () => {
+  const result = await runTechnicalEngine('NVDA', { fetchImpl: async (url) => mockYahoo(url) })
+  for (const horizon of ['short', 'mid', 'long']) {
+    const details = result.horizons[horizon].technical_details
+    assert.ok(details, `${horizon} carries technical_details`)
+    assert.ok(['unavailable', 'strong_bullish', 'bullish', 'strong_bearish', 'bearish', 'mixed'].includes(details.moving_averages.alignment))
+    assert.equal(details.rsi.available, true)
+    assert.ok(Number.isFinite(details.rsi.value))
+    assert.equal(details.macd.available, true)
+    assert.ok(Number.isFinite(details.macd.macd_line))
+    assert.equal(details.adx.available, true)
+    assert.ok(Number.isFinite(details.adx.adx))
+    assert.equal(details.bollinger.available, true)
+    assert.ok(Number.isFinite(details.bollinger.upper_band))
+    assert.ok(details.relative_strength, `${horizon} carries relative_strength`)
+    assert.ok(details.fibonacci, `${horizon} carries fibonacci`)
+  }
+  assert.ok(['very_low', 'low', 'normal', 'elevated', 'high', 'extreme'].includes(result.marketStructure.relative_volume.state))
+  assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.high))
+  assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.low))
+})
+
 test('the consolidated pipeline composes technical, fundamentals and the hurdle', async () => {
   const quote = { sector: 'Technology', industry: 'Semiconductors', quoteType: 'EQUITY' }
   const { consolidated, decisionV1ByHorizon } = await runConsolidated('NVDA', {
@@ -157,10 +179,12 @@ test('the consolidated pipeline composes technical, fundamentals and the hurdle'
   for (const horizon of ['short', 'mid', 'long']) {
     const entry = consolidated.horizons[horizon]
     assert.ok(LEGAL_ACTIONS.includes(entry.final_action))
+    assert.ok(entry.technical.technical_details, `${horizon} technical carries technical_details`)
     if (['strong_buy', 'buy', 'accumulate'].includes(entry.final_action)) {
       assert.equal(consolidated.index_hurdle.status, 'pass', 'a final buy implies the hurdle passed')
     }
   }
+  assert.ok(consolidated.market_structure, 'consolidated_decision carries market_structure')
   assert.ok(decisionV1ByHorizon['2-4W'])
 })
 

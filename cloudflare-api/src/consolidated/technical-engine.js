@@ -42,12 +42,16 @@ export function classificationFor(ticker, metadata = {}) {
   return globalThis.ProfileDefinitions.profileFor(ticker, metadata)
 }
 
+// Returns both the decision and the canonical technical features it decided
+// from, so a caller can show the underlying indicators without asking the
+// engine to compute them a second time.
 export function decideTechnical({ ticker, quote, market }) {
   const inputs = globalThis.DecisionFeatureInputs
-  return globalThis.DecisionEngine.decide({
+  const technicalFeatures = globalThis.CanonicalTechnicalFeatures.buildTechnicalFeatures(inputs.featureInputs(quote, market))
+  const decision = globalThis.DecisionEngine.decide({
     ticker,
     price: finite(quote.price),
-    technicalFeatures: globalThis.CanonicalTechnicalFeatures.buildTechnicalFeatures(inputs.featureInputs(quote, market)),
+    technicalFeatures,
     marketContext: market,
     classification: classificationFor(ticker, quote.metadata || quote),
     metadata: quote.metadata || {},
@@ -55,11 +59,86 @@ export function decideTechnical({ ticker, quote, market }) {
     underlyingTechnicalFeatures: null,
     underlyingPrice: null,
   })
+  return { decision, technicalFeatures }
+}
+
+// This Worker's horizon keys (short/mid/long) vs. the canonical feature
+// layer's own keys (short/medium/long).
+const FEATURE_HORIZON = { short: 'short', mid: 'medium', long: 'long' }
+const DETAILS_PRIMARY_INTERVAL = { short: '4h', mid: '1d', long: '1w' }
+
+function pickPrimary(group, primaryInterval) {
+  const entries = Object.values(group || {})
+  return entries.find((feature) => feature?.interval === primaryInterval) || entries[0] || null
+}
+
+function compactIndicator(feature, keys) {
+  if (!feature || feature.available === false) return { available: false }
+  const picked = { available: true }
+  for (const key of keys) picked[key] = feature[key] ?? null
+  return picked
+}
+
+// A compact, read-only subset of Vincent's canonical technical features for
+// one horizon: enough for a UI "technical details" section, without a second
+// computation and without his engine's full derivation metadata.
+export function technicalDetails(technicalFeatures, horizon) {
+  const set = technicalFeatures?.horizons?.[FEATURE_HORIZON[horizon]]
+  if (!set) return null
+  const primaryInterval = DETAILS_PRIMARY_INTERVAL[horizon]
+  const rs = set.relative_strength || null
+  const fib = set.fibonacci || null
+  return {
+    moving_averages: {
+      alignment: set.trend?.ma_structure?.alignment ?? 'unavailable',
+      compression_state: set.trend?.ma_structure?.compression_state ?? 'unavailable',
+    },
+    rsi: compactIndicator(pickPrimary(set.momentum?.rsi, primaryInterval), ['value', 'state']),
+    macd: compactIndicator(pickPrimary(set.momentum?.macd, primaryInterval), ['macd_line', 'signal_line', 'histogram', 'crossover_state', 'state']),
+    kdj: compactIndicator(pickPrimary(set.momentum?.kdj, primaryInterval), ['k', 'd', 'j', 'crossover_state']),
+    adx: compactIndicator(pickPrimary(set.trend?.adx, primaryInterval), ['adx', 'plus_di', 'minus_di', 'trend_strength', 'directional_bias']),
+    atr: compactIndicator(pickPrimary(set.volatility?.atr, primaryInterval), ['value', 'atr_pct', 'volatility_regime']),
+    bollinger: compactIndicator(pickPrimary(set.volatility?.bollinger, primaryInterval), ['upper_band', 'middle_band', 'lower_band', 'price_position', 'squeeze_state']),
+    obv: compactIndicator(pickPrimary(set.participation?.obv, primaryInterval), ['trend', 'divergence']),
+    relative_strength: rs ? { state: rs.state ?? 'unavailable', vs_spy: rs.primary?.vs_spy ?? null, vs_qqq: rs.primary?.vs_qqq ?? null } : null,
+    fibonacci: fib
+      ? {
+          availability: fib.availability ?? 'unavailable',
+          direction: fib.direction ?? null,
+          fib_zone: fib.fib_zone ?? 'unavailable',
+          nearest_fib_level: fib.nearest_fib_level ?? null,
+          distance_to_nearest_fib_pct: fib.distance_to_nearest_fib_pct ?? null,
+        }
+      : null,
+  }
+}
+
+// Symbol-level context that does not vary by horizon: relative volume and the
+// 52-week structure.
+export function marketStructureDetails(technicalFeatures) {
+  const volume = technicalFeatures?.volume
+  const pricePosition = technicalFeatures?.price_position
+  return {
+    relative_volume:
+      volume?.availability === 'available'
+        ? { state: volume.relative_volume?.state ?? 'unavailable', displayed_rvol: volume.relative_volume?.displayed_rvol ?? null }
+        : { state: 'unavailable', displayed_rvol: null },
+    fifty_two_week:
+      pricePosition && pricePosition.availability && pricePosition.availability !== 'unavailable'
+        ? {
+            high: finite(pricePosition.high_52w),
+            low: finite(pricePosition.low_52w),
+            position_pct: finite(pricePosition.position_52w_pct),
+            distance_to_high_pct: finite(pricePosition.distance_to_52w_high_pct),
+            distance_to_low_pct: finite(pricePosition.distance_to_52w_low_pct),
+          }
+        : null,
+  }
 }
 
 // One horizon, in this Worker's snake_case vocabulary. An unusable landscape
 // emits null bands on purpose rather than a fake range.
-export function horizonSummary(decision, horizon, currentPrice = null) {
+export function horizonSummary(decision, horizon, currentPrice = null, details = null) {
   const value = decision?.horizons?.[horizon]
   if (!value) {
     return {
@@ -74,6 +153,7 @@ export function horizonSummary(decision, horizon, currentPrice = null) {
       current_price: finite(currentPrice),
       reasons: ['Horizon unavailable'],
       data_quality: null,
+      technical_details: details,
     }
   }
   const landscape = value.priceLandscape || {}
@@ -91,6 +171,7 @@ export function horizonSummary(decision, horizon, currentPrice = null) {
     current_price: finite(landscape.currentPrice ?? currentPrice),
     reasons: (value.reasons?.supporting || []).slice(0, 5),
     data_quality: finite(value.debug?.dataQuality?.score),
+    technical_details: details,
   }
 }
 
@@ -122,9 +203,11 @@ export async function runTechnicalEngine(symbol, { fetchImpl = fetch, metadata =
     loadQuoteInputs(symbol, { fetchImpl, metadata }),
     loadMarketContext({ fetchImpl }),
   ])
-  const decision = decideTechnical({ ticker: symbol, quote, market })
+  const { decision, technicalFeatures } = decideTechnical({ ticker: symbol, quote, market })
   const generatedAt = new Date().toISOString()
-  const horizons = Object.fromEntries(HORIZONS.map((horizon) => [horizon, horizonSummary(decision, horizon, quote.price)]))
+  const horizons = Object.fromEntries(
+    HORIZONS.map((horizon) => [horizon, horizonSummary(decision, horizon, quote.price, technicalDetails(technicalFeatures, horizon))]),
+  )
   const decisionV1 = Object.fromEntries(
     HORIZONS.filter((horizon) => horizons[horizon].available).map((horizon) => [
       HORIZON_TO_ANALYST[horizon],
@@ -140,5 +223,6 @@ export async function runTechnicalEngine(symbol, { fetchImpl = fetch, metadata =
     horizons,
     decisionV1,
     dataQuality: { ...quote.dataQuality, market: marketQuality },
+    marketStructure: marketStructureDetails(technicalFeatures),
   }
 }
