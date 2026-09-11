@@ -8,7 +8,16 @@ for (const file of [
 
 const engine = globalThis.DecisionEngine;
 const profiles = require("../profile-definitions.js");
-const watchlist = require("../watchlist.shared.json").watchlist;
+// watchlist.shared.json is a local, git-ignored file. When it is absent (a
+// fresh clone, CI), check every reviewed stock profile instead.
+const watchlist = (() => {
+  try {
+    return require("../watchlist.shared.json").watchlist;
+  } catch (error) {
+    if (error.code !== "MODULE_NOT_FOUND") throw error;
+    return Object.keys(profiles.stocks);
+  }
+})();
 const unavailable = { availability: "unavailable" };
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
