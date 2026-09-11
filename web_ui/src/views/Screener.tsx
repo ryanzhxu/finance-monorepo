@@ -18,6 +18,7 @@ type ScreenerRow = {
   confidence: number | null
   entryAssessment: string | null
   dataQuality: number | null
+  heldByIndexHurdle: boolean
 }
 
 function formatScore(value: number | null | undefined): string {
@@ -38,6 +39,7 @@ function mapUndervaluedRow(item: ScreenResultItem): ScreenerRow {
     confidence: item.confidence,
     entryAssessment: item.entry_assessment ?? null,
     dataQuality: item.data_quality_score,
+    heldByIndexHurdle: item.held_by_index_hurdle ?? false,
   }
 }
 
@@ -50,6 +52,7 @@ function mapTrendingRow(item: TrendingResultItem): ScreenerRow {
     confidence: item.confidence,
     entryAssessment: item.buyability?.entry_assessment ?? null,
     dataQuality: item.data_quality_score,
+    heldByIndexHurdle: item.held_by_index_hurdle ?? false,
   }
 }
 
@@ -192,7 +195,9 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                       <td className="px-4 py-3 text-slate-700">
                         {row.confidence == null ? '—' : `${(row.confidence * 100).toFixed(1)}%`}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{row.entryAssessment ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {row.heldByIndexHurdle ? t('screenerHeldByHurdle') : row.entryAssessment ?? '—'}
+                      </td>
                       <td className="px-4 py-3 text-slate-700">{row.dataQuality ?? '—'}</td>
                       <td className="px-4 py-3">
                         <button

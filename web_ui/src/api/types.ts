@@ -327,6 +327,8 @@ export interface ScreenResultItem {
   analyst_upgrades_30d?: number | null
   margin_expansion_bps?: number | null
   components?: Record<string, unknown>
+  index_hurdle?: IndexHurdle | null
+  held_by_index_hurdle?: boolean
 }
 
 export interface ScreenResponse {
@@ -380,6 +382,9 @@ export interface TrendingResultItem {
   reason: string
   score_breakdown: Record<string, unknown>
   buyability?: BuyabilityResult | null
+  recommendation?: Direction | null
+  index_hurdle?: IndexHurdle | null
+  held_by_index_hurdle?: boolean
 }
 
 export interface TrendingScreenResponse {
