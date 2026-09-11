@@ -720,6 +720,44 @@ test('direction stays his pre-hurdle call when there is no consolidated decision
   assert.ok(!recommendation.risk_flags.includes('index_hurdle_held'))
 })
 
+// Supervisor 01:57 note: buildRecommendation fell back to the blended local
+// technicals whenever consolidatedDecision existed but the mid final_action
+// was null (his engine failed for this symbol - Yahoo outage, subrequest
+// cap). That let a stale local BUY vote surface with no hurdle behind it,
+// the opposite of spec D1 (his engine is the only technical opinion once
+// consolidated mode is on). It must hold and say so instead.
+test('direction holds and flags technical_engine_unavailable when consolidated mode is on but his mid action is null', () => {
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'oversold' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'histogram positive' },
+    { dimension: 'MA_50_200', signal: 'BUY', weight: 1.0, note: 'golden cross' },
+  ]
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: null,
+        adjustments: [],
+      },
+    },
+    errors: { technical: 'technical engine threw: fetch failed' },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    { entry_assessment: 'wait_for_breakout_confirmation' },
+    'risk_on',
+    null,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'HOLD')
+  assert.equal(recommendation.review_action, 'HOLD')
+  assert.ok(recommendation.risk_flags.includes('technical_engine_unavailable'))
+})
+
 test('worker never reports price/volume proxies as Reddit data', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch

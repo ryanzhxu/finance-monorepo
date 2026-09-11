@@ -1124,7 +1124,14 @@ function buildRecommendation(
   // consolidated_decision.horizons.mid.technical and technical_by_horizon.
   const midHorizon = consolidatedDecision?.horizons?.mid ?? null
   const finalAction = midHorizon?.final_action ?? null
-  const outputDirection = finalAction != null ? ACTION_TO_DIRECTION[finalAction] ?? direction : direction
+  // In consolidated mode his mid action is the only legal source of "the"
+  // direction (spec D1). If his engine failed for this symbol (finalAction
+  // null), Ryan's blended local technicals must never surface as a stand-in
+  // BUY/SELL with no hurdle behind it - hold, and flag it as unavailable.
+  const technicalEngineUnavailable = consolidatedDecision != null && finalAction == null
+  const outputDirection = consolidatedDecision != null
+    ? (finalAction != null ? ACTION_TO_DIRECTION[finalAction] ?? 'HOLD' : 'HOLD')
+    : direction
   for (const adjustment of midHorizon?.adjustments ?? []) {
     if (adjustment.layer === 'index_hurdle' && !riskFlags.includes('index_hurdle_held')) {
       riskFlags.push('index_hurdle_held')
@@ -1133,8 +1140,12 @@ function buildRecommendation(
       riskFlags.push('fundamentals_stepped_down')
     }
   }
-  const reviewAction =
-    outputDirection === 'BUY' ? 'BUY' : outputDirection === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
+  if (technicalEngineUnavailable && !riskFlags.includes('technical_engine_unavailable')) {
+    riskFlags.push('technical_engine_unavailable')
+  }
+  const reviewAction = technicalEngineUnavailable
+    ? 'HOLD'
+    : outputDirection === 'BUY' ? 'BUY' : outputDirection === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
   return {
     direction: outputDirection,
     // Each branch above already carries its final precision: the blended path is
