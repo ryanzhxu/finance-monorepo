@@ -56,8 +56,8 @@ function mockYahooFetch(url) {
   return Promise.resolve(new Response(JSON.stringify(chart(days, wave(100, DRIFT[symbol] ?? 0)))))
 }
 
-function screenRow(symbol, recommendation, quote = {}) {
-  return { symbol, recommendation, components: { quote } }
+function screenRow(symbol, recommendation, quote = {}, entryAssessment = 'wait_for_pullback') {
+  return { symbol, recommendation, entry_assessment: entryAssessment, components: { quote } }
 }
 
 test('a buy row that beats every benchmark keeps its BUY flag and reports index_hurdle pass', async () => {
@@ -87,7 +87,7 @@ test('a buy row that lags a benchmark is capped at HOLD and names the lagging be
   }
 })
 
-test('a non-buy row is never evaluated, and evaluation is capped at 10 buy rows', async () => {
+test('a non-buy row is never evaluated and keeps its own recommendation, and evaluation is capped at 10 buy rows', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockYahooFetch
   try {
@@ -95,10 +95,52 @@ test('a non-buy row is never evaluated, and evaluation is capped at 10 buy rows'
     const results = [screenRow('HOLDER', 'HOLD'), ...buyRows]
     await applyScreenerHurdle(results)
     assert.equal(results[0].index_hurdle.status, 'not_evaluated')
+    assert.equal(results[0].recommendation, 'HOLD')
+    assert.equal(results[0].held_by_index_hurdle, undefined)
     const evaluated = buyRows.filter((row) => row.index_hurdle.status !== 'not_evaluated')
     const skipped = buyRows.filter((row) => row.index_hurdle.status === 'not_evaluated')
     assert.equal(evaluated.length, 10)
     assert.equal(skipped.length, 1)
+    // Fail closed: a buy row pushed past the evaluation cap must not keep
+    // reading as a buy just because it was never evaluated.
+    assert.equal(skipped[0].recommendation, 'HOLD')
+    assert.equal(skipped[0].held_by_index_hurdle, true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('a buy row whose hurdle evaluation throws fails closed to HOLD instead of keeping BUY', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const brokenRow = {
+      symbol: 'BROKEN',
+      recommendation: 'BUY',
+      entry_assessment: 'buy_now',
+      get components() {
+        throw new Error('boom')
+      },
+    }
+    const results = [brokenRow]
+    await applyScreenerHurdle(results)
+    assert.equal(results[0].index_hurdle.status, 'not_evaluated')
+    assert.equal(results[0].recommendation, 'HOLD')
+    assert.equal(results[0].held_by_index_hurdle, true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('a row flagged as a buy only through entry_assessment (not recommendation) still respects the hurdle', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const results = [screenRow('LOSER', 'WATCH', {}, 'buy_now')]
+    await applyScreenerHurdle(results)
+    assert.equal(results[0].index_hurdle.status, 'fail')
+    assert.equal(results[0].recommendation, 'HOLD')
+    assert.equal(results[0].held_by_index_hurdle, true)
   } finally {
     globalThis.fetch = originalFetch
   }

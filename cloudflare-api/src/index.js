@@ -1489,17 +1489,25 @@ const SCREENER_HURDLE_NOT_EVALUATED = {
   earnings_guard: { status: 'unavailable', eps_surprise_pct: null, analysts_deteriorating: null },
 }
 
-// Spec backlog 7: a screen result flagged BUY must carry the index hurdle
-// status, and never present as a buy when the hurdle fails. Evaluated only for
-// the top buy candidates (Worker subrequest budget); the rest report
-// not_evaluated rather than a false pass. loadDailyBars caches per symbol, so
-// a shared benchmark (SPY, QQQ, a sector ETF) is only fetched once.
+// A screen result flags a buy either through `recommendation` or through the
+// separate `entry_assessment` field (undervalued/opportunities/etc rows carry
+// both). Either one must respect the index hurdle.
+function isScreenerBuyFlagged(row) {
+  return row.recommendation === 'BUY' || row.entry_assessment === 'buy_now'
+}
+
+// Spec backlog 7: a screen result flagged as a buy must carry the index hurdle
+// status, and never present as a buy when the hurdle fails or was not
+// evaluated. Evaluated only for the top buy candidates (Worker subrequest
+// budget); the rest fail closed to HOLD rather than a false pass.
+// loadDailyBars caches per symbol, so a shared benchmark (SPY, QQQ, a sector
+// ETF) is only fetched once.
 async function applyScreenerHurdle(results) {
-  const buyRows = results.filter((row) => row.recommendation === 'BUY').slice(0, SCREENER_HURDLE_LIMIT)
+  const buyRows = results.filter(isScreenerBuyFlagged).slice(0, SCREENER_HURDLE_LIMIT)
   await Promise.all(
     buyRows.map(async (row) => {
-      const quote = row.components?.quote ?? null
       try {
+        const quote = row.components?.quote ?? null
         const latestEarnings = extractLatestEarningsSurprise(quote)
         const recentRecommendations = extractRecentRecommendationCounts(quote)
         const traits = classificationFor(row.symbol, { quoteType: quote?.quoteType }).companyTraits ?? []
@@ -1516,14 +1524,25 @@ async function applyScreenerHurdle(results) {
           loadSeries: (symbol) => loadDailyBars(symbol).then(({ bars }) => seriesFromBars(bars)),
         })
         row.index_hurdle = hurdle
-        if (hurdle.status !== 'pass' && hurdle.status !== 'not_applicable') row.recommendation = 'HOLD'
+        if (hurdle.status !== 'pass' && hurdle.status !== 'not_applicable') {
+          row.recommendation = 'HOLD'
+          row.held_by_index_hurdle = true
+        }
       } catch {
         row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+        row.recommendation = 'HOLD'
+        row.held_by_index_hurdle = true
       }
     }),
   )
   for (const row of results) {
-    if (!row.index_hurdle) row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+    if (row.index_hurdle) continue
+    row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+    // Beyond the evaluation cap: fail closed rather than implying a pass.
+    if (isScreenerBuyFlagged(row)) {
+      row.recommendation = 'HOLD'
+      row.held_by_index_hurdle = true
+    }
   }
 }
 
