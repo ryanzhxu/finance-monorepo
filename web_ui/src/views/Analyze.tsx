@@ -15,7 +15,7 @@ import type {
   FibonacciLevels,
   Signal,
 } from '../api/types'
-import { formatDirection } from '../formatters'
+import { formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n, type MessageKey } from '../i18n'
 
 type AnalyzeProps = {
@@ -537,7 +537,7 @@ function ResultsPanel({
     vix?: number | null
   }
 }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const nextFomc =
     macro.next_fomc_date && macro.days_to_next_fomc != null
       ? `${formatDateLabel(macro.next_fomc_date)} · ${macro.days_to_next_fomc}d`
@@ -647,7 +647,7 @@ function ResultsPanel({
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-950 dark:text-amber-400">
-              {entry.entry_assessment}
+              {formatEntryAssessment(entry.entry_assessment, locale)}
             </span>
             <span className="text-[12px] leading-5 text-slate-500 dark:text-slate-400">{entry.reason}</span>
           </div>
