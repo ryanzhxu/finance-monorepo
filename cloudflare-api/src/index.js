@@ -114,6 +114,21 @@ function normalizeSymbol(value) {
 
 const SHARED_SPACE_SYMBOL_PATTERN = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/
 
+// Runs `worker` over `items` with at most `limit` in flight at once, preserving
+// input order in the returned array. One item's rejection never sinks another.
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let cursor = 0
+  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index], index)
+    }
+  })
+  await Promise.all(lanes)
+  return results
+}
+
 function normalizeUniverse(value) {
   const upper = String(value ?? '').trim().toUpperCase()
   return Object.prototype.hasOwnProperty.call(UNIVERSES, upper) ? upper : 'SP500'
@@ -1884,6 +1899,29 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
     }
     return jsonCors(responses)
   }
+  if (pathname === '/decisions' && request.method === 'POST') {
+    if (!consolidatedEnabled(env)) {
+      return jsonCors({ detail: 'consolidated decision is not enabled' }, 404)
+    }
+    const body = await readJson(request)
+    const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
+    if (!symbols.length) return badRequest('symbols is required')
+    const limited = symbols.slice(0, 6)
+    const results = await runWithConcurrency(limited, 2, async (symbol) => {
+      try {
+        const response = await buildAnalyze(symbol, { includeNarrative: false, includeEntry: true, env })
+        return {
+          symbol,
+          company_name: response.company_name,
+          current_price: response.entry?.current_price ?? response.consolidated_decision?.current_price ?? null,
+          consolidated_decision: response.consolidated_decision,
+        }
+      } catch (error) {
+        return { symbol, error: serializeBatchError(error) }
+      }
+    })
+    return jsonCors({ results })
+  }
   if (pathname === '/entry' && request.method === 'POST') {
     const body = await readJson(request)
     if (!body?.symbol) return badRequest('symbol is required')
@@ -2431,6 +2469,7 @@ export default {
         pathname === '/search' ||
         pathname === '/analyze' ||
         pathname === '/batch' ||
+        pathname === '/decisions' ||
         pathname === '/entry' ||
         pathname === '/entry/confluence' ||
         pathname.startsWith('/entry/confluence/')
