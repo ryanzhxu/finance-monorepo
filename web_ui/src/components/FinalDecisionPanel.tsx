@@ -9,6 +9,7 @@ import type {
   PriceRange,
 } from '../api/types'
 import { useI18n, type MessageKey } from '../i18n'
+import { composeHorizonSummary, type HorizonSummary } from '../horizonSummary'
 
 type FinalDecisionPanelProps = {
   decision: ConsolidatedDecision
@@ -212,6 +213,36 @@ function useReason() {
   }
 }
 
+// Renders composeHorizonSummary's parts into one plain-language line, e.g.
+// "Vincent: accumulate (in opportunity zone) · Fundamentals supportive ·
+// beats SPY, QQQ, XLV → Accumulate", reusing the same label vocabulary shown
+// elsewhere in this panel so the line never introduces new wording.
+function useHorizonSummaryLine() {
+  const { t } = useI18n()
+  return (summary: HorizonSummary): string => {
+    const fragments = summary.parts.map((part) => {
+      switch (part.kind) {
+        case 'unavailable':
+          return t('reasonTechnicalUnavailable')
+        case 'technical':
+          return t('summaryVincent', { action: actionLabel(t, part.action), priceState: priceStateLabel(t, part.priceState) })
+        case 'fundamentals':
+          return t('fundamentalsStance', { stance: t(STANCE_KEYS[part.stance]) })
+        case 'hurdle_beats':
+          return t('summaryHurdleBeats', { benchmarks: part.benchmarks.join(', ') })
+        case 'hurdle_lags':
+          return t('summaryHurdleLags', { benchmarks: part.benchmarks.join(', ') })
+        case 'hurdle_earnings_guard':
+          return t('reasonEarningsGuard')
+        case 'hurdle_unavailable':
+          return t('reasonIndexHurdleUnavailable')
+      }
+    })
+    if (summary.parts.length === 1 && summary.parts[0].kind === 'unavailable') return fragments[0]
+    return `${fragments.join(' · ')} → ${actionLabel(t, summary.finalAction)}`
+  }
+}
+
 // Percent-position geometry for the price landscape bar. Mirrors the min/max
 // and padding math in technical_engine/decision-presentation.js's
 // `priceMapModel` (read, not imported — that file also carries English/Chinese
@@ -404,6 +435,7 @@ function HorizonColumn({
 }) {
   const { t } = useI18n()
   const reason = useReason()
+  const summaryLine = useHorizonSummaryLine()
   const technical = entry.technical
   const finalAction = entry.final_action
   const changed = technical?.action != null && finalAction !== technical.action
@@ -414,6 +446,8 @@ function HorizonColumn({
         <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{t(titleKey)}</span>
         <span className="text-[10px] text-slate-500 dark:text-slate-400">{t(windowKey)}</span>
       </div>
+
+      <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">{summaryLine(composeHorizonSummary(entry, hurdle))}</p>
 
       <div className="mt-1.5">
         <span
