@@ -98,6 +98,11 @@ test('native 4h validation keeps 09:30/13:30 sessions and drops malformed days',
 test('series change and fear/greed labels match server.py', () => {
   assert.equal(seriesChange([10, 11, 12, 13, 14, 15, 16], 5), 5)
   assert.equal(seriesChange([1], 5), null)
+  assert.equal(
+    seriesChange([null, null, null, 10], 1),
+    null,
+    'no non-null value between the anchor and the start of the series is still null, not a stale delta',
+  )
   assert.equal(fearGreedLabel(25), 'Extreme Fear')
   assert.equal(fearGreedLabel(50), 'Neutral')
   assert.equal(fearGreedLabel(80), 'Extreme Greed')
