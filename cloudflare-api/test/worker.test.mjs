@@ -624,6 +624,102 @@ test('blended path reports no conflict with only one technical signal', () => {
   assert.equal(recommendation.conflict_summary, null)
 })
 
+// Supervisor 01:40 note: the watchlist sidebar cards, the Analyze header badge
+// and the track record all read recommendation.direction, but it used to map
+// Vincent's pre-hurdle mid action straight to BUY, so a symbol the index
+// hurdle held still read as a buy everywhere except the Decision Board. This
+// mirrors the AMZN case found live on QA: technical accumulate, hurdle fail.
+test('direction follows the consolidated final action, not his pre-hurdle call, when the hurdle holds it', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'accumulate',
+    confidence: 70,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: 'hold',
+        adjustments: [
+          { layer: 'index_hurdle', from: 'accumulate', to: 'hold', reason: 'index_hurdle_failed', detail: 'does not beat SPY, QQQ' },
+        ],
+      },
+    },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'HOLD')
+  assert.equal(recommendation.review_action, 'HOLD')
+  assert.equal(recommendation.technical_action, 'hold')
+  assert.ok(recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
+test('direction follows the consolidated final action when fundamentals step it down', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'strong_buy',
+    confidence: 85,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: 'buy',
+        adjustments: [
+          { layer: 'fundamentals', from: 'strong_buy', to: 'buy', reason: 'fundamentals_weak', detail: null },
+        ],
+      },
+    },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'BUY')
+  assert.equal(recommendation.technical_action, 'buy')
+  assert.ok(recommendation.risk_flags.includes('fundamentals_stepped_down'))
+  assert.ok(!recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
+test('direction stays his pre-hurdle call when there is no consolidated decision', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'buy',
+    confidence: 80,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+  )
+
+  assert.equal(recommendation.direction, 'BUY')
+  assert.equal(recommendation.technical_action, 'buy')
+  assert.ok(!recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
 test('worker never reports price/volume proxies as Reddit data', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch

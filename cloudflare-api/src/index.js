@@ -7,6 +7,7 @@ import {
   UNIVERSES,
 } from './data.js'
 import {
+  ACTION_TO_DIRECTION,
   EXTERNAL_TECHNICAL_DIMENSION,
   SHORT_MID_LONG_HORIZONS,
   resolveTechnicalVerdict,
@@ -1079,6 +1080,7 @@ function buildRecommendation(
   technicalVerdict = null,
   displaced = null,
   technicalByHorizon = [],
+  consolidatedDecision = null,
 ) {
   const score = computeWeightedScore(votingSignals)
   const external = technicalVerdict != null && technicalVerdict.source === 'external'
@@ -1114,10 +1116,27 @@ function buildRecommendation(
     ;({ conflictDetected, conflictSummary } = blendedConflict(votingSignals, categoryVotes))
   }
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
+  // The consolidated decision (Vincent's mid-horizon action, stepped down by
+  // Ryan's fundamentals and capped by the index hurdle) is the one final
+  // answer the app is allowed to show as a buy - never his pre-hurdle call.
+  // Everything that reads as "the recommendation" (direction, review_action,
+  // technical_action) must follow it; his raw call stays visible unchanged in
+  // consolidated_decision.horizons.mid.technical and technical_by_horizon.
+  const midHorizon = consolidatedDecision?.horizons?.mid ?? null
+  const finalAction = midHorizon?.final_action ?? null
+  const outputDirection = finalAction != null ? ACTION_TO_DIRECTION[finalAction] ?? direction : direction
+  for (const adjustment of midHorizon?.adjustments ?? []) {
+    if (adjustment.layer === 'index_hurdle' && !riskFlags.includes('index_hurdle_held')) {
+      riskFlags.push('index_hurdle_held')
+    }
+    if (adjustment.layer === 'fundamentals' && !riskFlags.includes('fundamentals_stepped_down')) {
+      riskFlags.push('fundamentals_stepped_down')
+    }
+  }
   const reviewAction =
-    direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
+    outputDirection === 'BUY' ? 'BUY' : outputDirection === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
   return {
-    direction,
+    direction: outputDirection,
     // Each branch above already carries its final precision: the blended path is
     // rounded to 2 dp, the external path preserves his 6 dp verbatim.
     confidence,
@@ -1138,7 +1157,7 @@ function buildRecommendation(
     technical_source: technicalVerdict != null ? technicalVerdict.source : 'local',
     technical_producer: technicalVerdict != null ? technicalVerdict.producer : null,
     technical_price_state: technicalVerdict != null ? (technicalVerdict.price_state ?? null) : null,
-    technical_action: technicalVerdict != null ? (technicalVerdict.action ?? null) : null,
+    technical_action: finalAction ?? (technicalVerdict != null ? (technicalVerdict.action ?? null) : null),
     technical_execution_intent: technicalVerdict != null ? (technicalVerdict.execution_intent ?? null) : null,
     local_technical_direction: displaced != null ? displaced.direction : null,
     technical_agreement:
@@ -1342,6 +1361,7 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     technicalVerdict,
     displaced,
     technicalByHorizon,
+    consolidatedDecision,
   )
   for (const flag of technicalRiskFlags) {
     if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
