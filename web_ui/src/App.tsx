@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchAnalyzeBundle } from './api/client'
 import Watchlist from './components/Watchlist'
+import { DecisionBoard } from './components/DecisionBoard'
 import type { AnalysisResponse, EntryConfluenceResponse } from './api/types'
 import Analyze from './views/Analyze'
 import Health from './views/Health'
@@ -21,7 +22,7 @@ import {
   type WatchlistEntry,
 } from './watchlist'
 
-type ViewKey = 'analyze' | 'screener' | 'research' | 'health' | 'history'
+type ViewKey = 'analyze' | 'decisions' | 'screener' | 'research' | 'health' | 'history'
 
 type AnalyzeSelection = {
   value: string
@@ -122,6 +123,7 @@ function PublicApp() {
 
   const tabs: Array<{ key: ViewKey; label: string }> = [
     { key: 'analyze', label: t('analyze') },
+    { key: 'decisions', label: t('decisionBoard') },
     { key: 'screener', label: t('screener') },
     { key: 'research', label: t('research') },
     { key: 'health', label: t('health') },
@@ -354,6 +356,15 @@ function PublicApp() {
               watchlistSymbols={watchlistEntries.map((entry) => entry.symbol)}
             />
           ) : null}
+            {activeView === 'decisions' ? (
+              <DecisionBoard
+                symbols={watchlistEntries.map((entry) => entry.symbol)}
+                onSelectSymbol={(symbol) => {
+                  setRequestedSymbol({ value: symbol, nonce: Date.now() })
+                  setActiveView('analyze')
+                }}
+              />
+            ) : null}
             {activeView === 'screener' ? (
               <Screener
                 onAnalyzeSymbol={(symbol) => {
