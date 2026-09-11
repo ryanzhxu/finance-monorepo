@@ -4,10 +4,10 @@ compatibility_date = "2026-06-27"
 workers_dev = true
 
 [vars]
-# Vincent's decision engine owns the technical layer (decided 2026-08-28).
-# The client appends /decision/<SYMBOL>?horizon=<h>, so this points at the
-# Worker's /api prefix. Unset it to fall back to the local technicals.
-TECHNICAL_ENGINE_BASE_URL = "https://decision-v1.rxlab.workers.dev/api"
+# Vincent's decision engine owns the technical layer (decided 2026-08-28), now
+# run in process (no service-binding hop to the standalone decision-v1
+# Worker — proven out on the QA environment below).
+CONSOLIDATED_DECISION = "on"
 TECHNICAL_ENGINE_TIMEOUT = "8"
 SHARED_WATCHLIST_SLUG = "drama"
 SHARED_WATCHLIST_DISPLAY_NAME = "Drama"
@@ -17,13 +17,6 @@ RESEARCH_MODEL_STATUS = "configured"
 CURSOR_RESEARCH_DISCOVERY_MODEL = "claude-sonnet-5"
 CURSOR_RESEARCH_VERIFICATION_MODEL = "claude-haiku-4-5"
 CURSOR_RESEARCH_REVIEW_MODEL = "claude-haiku-4-5"
-
-# Worker-to-Worker over a public *.workers.dev URL loops back to the CALLING
-# Worker on the same account, which then 404s because it has no such route.
-# A service binding routes directly to decision-v1 instead, with no public hop.
-[[services]]
-binding = "TECHNICAL_ENGINE"
-service = "decision-v1"
 
 [durable_objects]
 bindings = [
