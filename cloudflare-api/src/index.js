@@ -34,6 +34,7 @@ import {
   lowest,
 } from './indicators.js'
 import { handleResearchRoute, ResearchJob, ResearchRateLimiter } from './research.js'
+import config from '../config/consolidation.json' with { type: 'json' }
 
 const FINANCE_QUERY_BASE = 'https://finance-query.com/v2'
 const DEFAULT_HEADERS = {
@@ -96,11 +97,19 @@ function jsonCors(data, status = 200, extraHeaders = {}) {
   return withCors(json(data, status, extraHeaders))
 }
 
+// Class-share dots become dashes (BRK.B -> BRK-B), but an exchange suffix dot
+// (0700.HK, 9988.HK) must survive: finance-query.com and Yahoo's chart API
+// both 404 on a dashed exchange suffix, and the index hurdle's
+// localIndexBySuffix lookup (config/consolidation.json) matches on the dot.
+const EXCHANGE_SUFFIXES = Object.keys(config.indexHurdle.localIndexBySuffix)
+
 function normalizeSymbol(value) {
-  return String(value ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, '-')
+  const upper = String(value ?? '').trim().toUpperCase()
+  const suffix = EXCHANGE_SUFFIXES.find((candidate) => upper.endsWith(candidate))
+  if (suffix) {
+    return `${upper.slice(0, -suffix.length).replace(/\./g, '-')}${suffix}`
+  }
+  return upper.replace(/\./g, '-')
 }
 
 function normalizeUniverse(value) {
@@ -2371,6 +2380,7 @@ export const __testOnly = {
   buildRecommendation,
   buildFundamentalSignals,
   applyScreenerHurdle,
+  normalizeSymbol,
 }
 
 export default {
