@@ -196,3 +196,22 @@ test('a trending row not flagged buy_now is never evaluated', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+// buildTrendingResponse has no `components.quote` on its rows (it would bloat
+// every trending result with a full quote object), so it passes applyScreenerHurdle
+// a `quoteFor` lookup keyed by symbol instead. Without it, a trending row's
+// hurdle only ever checks SPY/QQQ and silently skips its sector/industry ETFs.
+test('a trending semiconductor row is checked against its sector and industry ETFs, not just SPY/QQQ', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const results = [trendingRow('WINNER', 'buy_now')]
+    const quoteBySymbol = new Map([['WINNER', { sector: 'Technology', industry: 'Semiconductors' }]])
+    await applyScreenerHurdle(results, (row) => quoteBySymbol.get(row.symbol) ?? null)
+    assert.equal(results[0].index_hurdle.status, 'pass')
+    const benchmarkSymbols = results[0].index_hurdle.benchmarks.map((benchmark) => benchmark.symbol).sort()
+    assert.deepEqual(benchmarkSymbols, ['QQQ', 'SMH', 'SPY', 'XLK'])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

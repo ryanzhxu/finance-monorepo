@@ -1512,12 +1512,17 @@ function isScreenerBuyFlagged(row) {
 // budget); the rest fail closed to HOLD rather than a false pass.
 // loadDailyBars caches per symbol, so a shared benchmark (SPY, QQQ, a sector
 // ETF) is only fetched once.
-async function applyScreenerHurdle(results) {
+// `quoteFor` defaults to the `components.quote` shape screen rows carry.
+// Trending rows have no `components` in their public response (it would
+// bloat every trending result with a full quote object), so
+// `buildTrendingResponse` passes a lookup keyed by row identity instead of
+// putting the quote on the row itself.
+async function applyScreenerHurdle(results, quoteFor = (row) => row.components?.quote ?? null) {
   const buyRows = results.filter(isScreenerBuyFlagged).slice(0, SCREENER_HURDLE_LIMIT)
   await Promise.all(
     buyRows.map(async (row) => {
       try {
-        const quote = row.components?.quote ?? null
+        const quote = quoteFor(row) ?? null
         const latestEarnings = extractLatestEarningsSurprise(quote)
         const recentRecommendations = extractRecentRecommendationCounts(quote)
         const traits = classificationFor(row.symbol, { quoteType: quote?.quoteType }).companyTraits ?? []
@@ -1623,8 +1628,14 @@ async function buildTrendingResponse(requestBody) {
     }
   }
 
+  // Trending rows have no `components.quote` in their public shape (unlike
+  // screen rows), so the hurdle's sector/industry lookup would otherwise only
+  // ever see SPY/QQQ. Keep the quote out of the response and hand it to
+  // applyScreenerHurdle by symbol instead.
+  const trendingQuoteBySymbol = new Map()
   const results = snapshots
     .map((snapshot) => {
+      trendingQuoteBySymbol.set(snapshot.symbol, snapshot.quote)
       const mention24h = Math.max(1, Math.round((snapshot.volumeRatio90d ?? 1) * 4 + Math.abs(snapshot.recentGapPct ?? 0)))
       const mention3d = Math.max(mention24h + 2, Math.round(mention24h * 1.6))
       const mention5d = Math.max(mention3d + 2, Math.round(mention3d * 1.3))
@@ -1701,7 +1712,7 @@ async function buildTrendingResponse(requestBody) {
     .sort((left, right) => right.score_breakdown.trend_score - left.score_breakdown.trend_score)
     .slice(0, limit)
 
-  await applyScreenerHurdle(results)
+  await applyScreenerHurdle(results, (row) => trendingQuoteBySymbol.get(row.symbol) ?? null)
 
   return {
     screen_type: 'trending',
