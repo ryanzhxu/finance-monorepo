@@ -20,6 +20,20 @@ export function earningsDateFromQuote(quote) {
   return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString().slice(0, 10) : null
 }
 
+// How many whole days away the next earnings date is, and whether that falls
+// inside Vincent's own near-earnings window (his engine already reads this
+// same date as risk input; this only reports it for the UI, no second rule).
+export function earningsProximityFrom(earningsDate, now = new Date()) {
+  if (!earningsDate) return null
+  const target = Date.parse(`${earningsDate}T00:00:00Z`)
+  if (!Number.isFinite(target)) return null
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const daysToEarnings = Math.round((target - today) / 86_400_000)
+  const nearDays = globalThis.DecisionEngine?.config?.market?.earnings?.nearDays
+  const near = Number.isFinite(nearDays) ? daysToEarnings >= 0 && daysToEarnings <= nearDays : false
+  return { date: earningsDate, days_to_earnings: daysToEarnings, near }
+}
+
 // Short, no-stack reason a caller can show to a user (e.g. "unavailable —
 // could not load market data (<reason>)"), not a debugging trace.
 function shortReason(error) {
@@ -54,6 +68,7 @@ export async function runConsolidated(symbol, { quote = null, fundamentalSignals
       fundamentals: fundamentalStance(fundamentalSignals),
       hurdle,
       errors: Object.keys(errors).length ? errors : null,
+      earnings: earningsProximityFrom(earningsDate),
     }),
     decisionV1ByHorizon: technical?.decisionV1 ?? {},
   }

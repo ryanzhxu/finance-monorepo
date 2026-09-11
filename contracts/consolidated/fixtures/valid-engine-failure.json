@@ -61,5 +61,6 @@
   },
   "errors": {
     "technical": "Yahoo chart request timed out after 3 retries"
-  }
+  },
+  "earnings": null
 }

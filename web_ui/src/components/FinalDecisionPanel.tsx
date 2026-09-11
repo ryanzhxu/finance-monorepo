@@ -598,6 +598,19 @@ export function FinalDecisionPanel({ decision }: FinalDecisionPanelProps) {
           })}
         </p>
       ) : null}
+      {decision.earnings && decision.earnings.days_to_earnings >= 0 ? (
+        <p
+          className={
+            decision.earnings.near
+              ? 'mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400'
+              : 'mt-1 text-[11px] text-slate-500 dark:text-slate-400'
+          }
+        >
+          {decision.earnings.days_to_earnings === 0
+            ? t('earningsToday', { date: decision.earnings.date })
+            : t('earningsIn', { days: decision.earnings.days_to_earnings, date: decision.earnings.date })}
+        </p>
+      ) : null}
 
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         {HORIZONS.map(({ key, title, window }) => (

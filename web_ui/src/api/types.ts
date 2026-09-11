@@ -286,6 +286,9 @@ export interface ConsolidatedDecision {
   // Short, no-stack reasons the technical engine and/or index hurdle could
   // not run (e.g. a subrequest budget error), null when both succeeded.
   errors: { technical?: string; index_hurdle?: string } | null
+  // The next earnings date already fed into Vincent's engine as risk input;
+  // near reuses his own near-earnings window. Null when the quote has no date.
+  earnings: { date: string; days_to_earnings: number; near: boolean } | null
 }
 
 /** One `/decisions` board row: a successful consolidated decision or a per-symbol failure. */

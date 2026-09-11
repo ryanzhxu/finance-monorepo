@@ -71,7 +71,7 @@ export function composeHorizon(horizon, technical, fundamentals, hurdle) {
   return { technical, fundamentals: fundamentalsView, final_action: action, adjustments }
 }
 
-export function buildConsolidatedDecision({ technical = null, fundamentals = null, hurdle = null, errors = null } = {}) {
+export function buildConsolidatedDecision({ technical = null, fundamentals = null, hurdle = null, errors = null, earnings = null } = {}) {
   const horizons = Object.fromEntries(
     config.horizons.map((horizon) => [horizon, composeHorizon(horizon, technical?.horizons?.[horizon] ?? null, fundamentals, hurdle)]),
   )
@@ -86,5 +86,6 @@ export function buildConsolidatedDecision({ technical = null, fundamentals = nul
     data_quality: technical?.dataQuality ?? null,
     market_structure: technical?.marketStructure ?? null,
     errors,
+    earnings,
   }
 }

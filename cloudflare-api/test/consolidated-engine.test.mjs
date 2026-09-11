@@ -10,7 +10,7 @@ import {
   validateNativeFourHour,
 } from '../src/consolidated/market-data.js'
 import { decideTechnical, horizonSummary, runTechnicalEngine } from '../src/consolidated/technical-engine.js'
-import { runConsolidated } from '../src/consolidated/pipeline.js'
+import { earningsProximityFrom, runConsolidated } from '../src/consolidated/pipeline.js'
 import { verdictFromExternal } from '../src/technical-provider.js'
 
 const LEGAL_ACTIONS = ['strong_buy', 'buy', 'accumulate', 'hold', 'trim', 'sell', 'avoid']
@@ -260,6 +260,7 @@ test('the consolidated pipeline composes technical, fundamentals and the hurdle'
   assert.equal(consolidated.fundamentals.stance, 'supportive')
   assert.deepEqual(consolidated.index_hurdle.benchmarks.map((row) => row.symbol), ['SPY', 'QQQ', 'XLK', 'SMH'])
   assert.equal(consolidated.errors, null, 'no failures happened, so errors stays null rather than an empty object')
+  assert.equal(consolidated.earnings, null, 'quote carries no calendarEvents, so earnings proximity is null, not a fabricated date')
   for (const horizon of ['short', 'mid', 'long']) {
     const entry = consolidated.horizons[horizon]
     assert.ok(LEGAL_ACTIONS.includes(entry.final_action))
@@ -284,4 +285,27 @@ test('the consolidated pipeline reports a short, no-stack reason instead of sile
   for (const horizon of ['short', 'mid', 'long']) {
     assert.equal(consolidated.horizons[horizon].final_action, null)
   }
+})
+
+test('earningsProximityFrom reports days-to-earnings and Vincent\'s own near-earnings window, not a second threshold', () => {
+  assert.equal(earningsProximityFrom(null), null, 'no date, no proximity')
+  assert.equal(earningsProximityFrom('not-a-date'), null, 'an unparseable date degrades to null rather than NaN days')
+  const now = new Date('2026-09-11T14:00:00Z')
+  assert.deepEqual(earningsProximityFrom('2026-09-15', now), { date: '2026-09-15', days_to_earnings: 4, near: true }, '4 days out is inside the engine\'s 7-day nearDays window')
+  assert.deepEqual(earningsProximityFrom('2026-10-01', now), { date: '2026-10-01', days_to_earnings: 20, near: false }, '20 days out is outside the window')
+  assert.deepEqual(earningsProximityFrom('2026-09-01', now), { date: '2026-09-01', days_to_earnings: -10, near: false }, 'a past date reports negative days rather than clamping to zero')
+})
+
+test('the consolidated pipeline threads the quote earnings date into consolidated_decision.earnings', async () => {
+  const earningsDate = Math.floor(Date.UTC(2026, 8, 15) / 1000)
+  const quote = {
+    sector: 'Technology',
+    industry: 'Semiconductors',
+    quoteType: 'EQUITY',
+    calendarEvents: { earnings: { earningsDate: [earningsDate] } },
+  }
+  const { consolidated } = await runConsolidated('NVDA', { quote, fetchImpl: async (url) => mockYahoo(url) })
+  assert.equal(consolidated.earnings.date, '2026-09-15')
+  assert.equal(typeof consolidated.earnings.days_to_earnings, 'number')
+  assert.equal(typeof consolidated.earnings.near, 'boolean')
 })

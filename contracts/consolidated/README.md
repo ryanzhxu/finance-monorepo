@@ -158,6 +158,16 @@ at two levels with different shapes and different meanings:
   the same score, not derived from the symbol-level object above, and not
   comparable across horizons the way a shared quality tier would be.
 
+## `earnings`
+
+`consolidated_decision.earnings` (symbol-level, `pipeline.js
+earningsProximityFrom()`): `{ date, days_to_earnings, near } | null` — the
+same earnings date already threaded into Vincent's engine as
+`metadata.earningsDate` (his own risk input, `technical_engine/decision-engine/market-engine.js`),
+reported back for the UI. `near` reuses his engine's own
+`DecisionEngine.config.market.earnings.nearDays` window rather than a second
+threshold. Null when the quote carries no earnings date.
+
 ## Judgment calls made in this slice
 
 - **snake_case, not camelCase**, unlike `contracts/decision/`. This contract
