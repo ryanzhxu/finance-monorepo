@@ -2,6 +2,7 @@ import type {
   ConsolidatedAdjustment,
   ConsolidatedDecision,
   ConsolidatedHorizon,
+  ConsolidatedTechnical,
   IndexHurdle,
   PriceRange,
 } from '../api/types'
@@ -153,6 +154,87 @@ function useReason() {
   }
 }
 
+// Percent-position geometry for the price landscape bar. Mirrors the min/max
+// and padding math in technical_engine/decision-presentation.js's
+// `priceMapModel` (read, not imported — that file also carries English/Chinese
+// reason text this panel does not use), so the bar lines up with the numbers
+// already shown below it.
+type PriceLandscapeGeometry = {
+  opportunity: { start: number; end: number } | null
+  reduce: { start: number; end: number } | null
+  invalidationPos: number | null
+  currentPos: number | null
+}
+
+function priceLandscapeGeometry(technical: ConsolidatedTechnical): PriceLandscapeGeometry | null {
+  const current = technical.current_price
+  const values: number[] = []
+  if (technical.opportunity_range) values.push(technical.opportunity_range.low, technical.opportunity_range.high)
+  if (technical.reduce_range) values.push(technical.reduce_range.low, technical.reduce_range.high)
+  if (technical.invalidation != null) values.push(technical.invalidation)
+  if (current != null) values.push(current)
+  if (!values.length) return null
+
+  let min = Math.min(...values)
+  let max = Math.max(...values)
+  const padding = Math.max(Math.abs(current || max || 1) * 0.025, (max - min) * 0.12, 0.01)
+  min -= padding
+  max += padding
+  const position = (value: number) => Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
+  const rangePos = (range: PriceRange | null) =>
+    range ? { start: position(Math.min(range.low, range.high)), end: position(Math.max(range.low, range.high)) } : null
+
+  return {
+    opportunity: rangePos(technical.opportunity_range),
+    reduce: rangePos(technical.reduce_range),
+    invalidationPos: technical.invalidation != null ? position(technical.invalidation) : null,
+    currentPos: current != null ? position(current) : null,
+  }
+}
+
+function PriceLandscapeBar({ technical }: { technical: ConsolidatedTechnical }) {
+  const { t } = useI18n()
+  const geometry = priceLandscapeGeometry(technical)
+  if (!geometry) return null
+  const { opportunity, reduce, invalidationPos, currentPos } = geometry
+
+  return (
+    <div className="relative mt-2 h-4 w-full" aria-hidden="true">
+      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-300 dark:bg-slate-700" />
+      {opportunity ? (
+        <div
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-emerald-400/80 dark:bg-emerald-500/60"
+          style={{ left: `${opportunity.start}%`, width: `${Math.max(1.5, opportunity.end - opportunity.start)}%` }}
+          title={`${t('opportunity')} ${band(technical.opportunity_range)}`}
+        />
+      ) : null}
+      {reduce ? (
+        <div
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-orange-400/80 dark:bg-orange-500/60"
+          style={{ left: `${reduce.start}%`, width: `${Math.max(1.5, reduce.end - reduce.start)}%` }}
+          title={`${t('reduce')} ${band(technical.reduce_range)}`}
+        />
+      ) : null}
+      {invalidationPos != null ? (
+        <div
+          className="absolute top-0 bottom-0 w-px bg-amber-500 dark:bg-amber-400"
+          style={{ left: `${invalidationPos}%` }}
+          title={`${t('invalidation')} ${money(technical.invalidation)}`}
+        />
+      ) : null}
+      {currentPos != null ? (
+        <div
+          className="absolute -top-0.5 -translate-x-1/2 text-[9px] leading-none text-slate-700 dark:text-slate-200"
+          style={{ left: `${currentPos}%` }}
+          title={`${t('currentPrice')} ${money(technical.current_price)}`}
+        >
+          ▲
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function HorizonColumn({
   entry,
   titleKey,
@@ -207,20 +289,23 @@ function HorizonColumn({
           {technical.price_state === 'INVALID_LANDSCAPE' ? (
             <p className="mt-2 text-[11px] italic text-slate-500 dark:text-slate-400">{t('noPriceLandscape')}</p>
           ) : (
-            <dl className="mt-2 space-y-1 text-[11px]">
-              <div className="flex justify-between gap-2">
-                <dt className="text-emerald-700 dark:text-emerald-400">{t('opportunity')}</dt>
-                <dd className="tabular-nums text-slate-700 dark:text-slate-300">{band(technical.opportunity_range)}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-orange-700 dark:text-orange-400">{t('reduce')}</dt>
-                <dd className="tabular-nums text-slate-700 dark:text-slate-300">{band(technical.reduce_range)}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500 dark:text-slate-400">{t('invalidation')}</dt>
-                <dd className="tabular-nums text-slate-700 dark:text-slate-300">{money(technical.invalidation)}</dd>
-              </div>
-            </dl>
+            <>
+              <PriceLandscapeBar technical={technical} />
+              <dl className="mt-2 space-y-1 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-emerald-700 dark:text-emerald-400">{t('opportunity')}</dt>
+                  <dd className="tabular-nums text-slate-700 dark:text-slate-300">{band(technical.opportunity_range)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-orange-700 dark:text-orange-400">{t('reduce')}</dt>
+                  <dd className="tabular-nums text-slate-700 dark:text-slate-300">{band(technical.reduce_range)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500 dark:text-slate-400">{t('invalidation')}</dt>
+                  <dd className="tabular-nums text-slate-700 dark:text-slate-300">{money(technical.invalidation)}</dd>
+                </div>
+              </dl>
+            </>
           )}
           {technical.reasons?.length ? (
             <p className="mt-2 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400" title={technical.reasons.join('\n')}>
