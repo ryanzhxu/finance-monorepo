@@ -1,0 +1,9 @@
+Flask
+gunicorn
+flask-cors
+requests
+numpy
+yfinance
+pandas
+lxml
+html5lib

@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: stock-decision-dashboard
+    runtime: python
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: gunicorn --timeout 120 --workers 1 server:app
+    healthCheckPath: /
+    disk:
+      name: watchlist-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: WATCHLIST_DB_PATH
+        value: /var/data/watchlist.db
+      - key: DECISION_HISTORY_DB_PATH
+        value: /var/data/历史记录.sqlite
+      - key: EOD_DECISION_NODE_PATH
+        value: node
+      - key: EOD_HISTORY_NODE_MAX_OLD_SPACE_MB
+        value: "192"
+      - key: MARKET_CACHE_DIR
+        value: /var/data/cache
+      - key: MARKET_DATA_MAX_TICKERS
+        value: "60"
+      - key: MARKET_DATA_MAX_LIVE_TICKERS
+        value: "2"
+      - key: MARKET_DATA_MAX_WORKERS
+        value: "2"
+      - key: MARKET_DATA_ROUTE_TIMEOUT_SECONDS
+        value: "18"
