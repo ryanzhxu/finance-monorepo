@@ -97,6 +97,50 @@ const DATA_QUALITY_KEYS: Record<string, MessageKey> = {
   source_unavailable: 'dataQualitySourceUnavailable',
   invalid_source_data: 'dataQualityInvalidSource',
 }
+// Shared vocabulary across the technical-details indicators (RSI state, MACD
+// crossover, ADX bias, ATR/RVOL regime, OBV trend/divergence, relative
+// strength, ...) — one flat map since the same words (bullish, neutral,
+// rising, ...) recur across indicators with the same meaning. fibonacci's
+// `fib_zone` is excluded on purpose: the engine composes it as free text
+// ("Between 61.8% and 78.6%"), not a fixed enum, so it keeps the generic
+// `readable()` fallback below.
+const TECHNICAL_WORD_KEYS: Record<string, MessageKey> = {
+  unavailable: 'unavailable',
+  dependency_unavailable: 'unavailable',
+  strong_bullish: 'technicalStrongBullish',
+  bullish: 'technicalBullish',
+  strong_bearish: 'technicalStrongBearish',
+  bearish: 'technicalBearish',
+  mixed: 'technicalMixed',
+  tight: 'technicalTight',
+  compressing: 'technicalCompressing',
+  expanding: 'technicalExpanding',
+  normal: 'technicalNormal',
+  extreme_oversold: 'technicalExtremeOversold',
+  oversold: 'technicalOversold',
+  weak: 'technicalWeak',
+  neutral: 'technicalNeutral',
+  strong: 'technicalStrong',
+  overbought: 'technicalOverbought',
+  extreme_overbought: 'technicalExtremeOverbought',
+  none: 'technicalNone',
+  bullish_cross: 'technicalBullishCross',
+  bearish_cross: 'technicalBearishCross',
+  low: 'technicalLow',
+  elevated: 'technicalElevated',
+  extreme: 'technicalExtreme',
+  very_low: 'technicalVeryLow',
+  high: 'technicalHigh',
+  squeeze: 'technicalSqueeze',
+  expanded: 'technicalExpanded',
+  rising: 'technicalRising',
+  falling: 'technicalFalling',
+  flat: 'technicalFlat',
+  bearish_divergence: 'technicalBearishDivergence',
+  bullish_divergence: 'technicalBullishDivergence',
+  outperforming: 'technicalOutperforming',
+  underperforming: 'technicalUnderperforming',
+}
 
 const money = (value: number | null | undefined): string =>
   value == null || Number.isNaN(value) ? '—' : `$${value.toFixed(2)}`
@@ -133,6 +177,15 @@ const dataQualityLabel = (
 ): string => {
   if (!value) return '—'
   const key = DATA_QUALITY_KEYS[value]
+  return key ? t(key) : readable(value)
+}
+
+const technicalWord = (
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  value: string | null | undefined,
+): string => {
+  if (!value) return '—'
+  const key = TECHNICAL_WORD_KEYS[value]
   return key ? t(key) : readable(value)
 }
 
@@ -244,42 +297,42 @@ function PriceLandscapeBar({ technical }: { technical: ConsolidatedTechnical }) 
 // one horizon (technical-engine.js's `technicalDetails`). Indicator names
 // (RSI, MACD, KDJ, ADX, ATR, OBV) are standard technical-analysis
 // abbreviations, kept as-is across locales like a ticker symbol. Enum values
-// the engine emits (state, crossover_state, squeeze_state, ...) fall back to
-// `readable()` — the same graceful-degradation pattern used elsewhere in this
-// panel for vocabulary that has not been given dedicated labels yet.
+// the engine emits (state, crossover_state, squeeze_state, ...) are localized
+// via `technicalWord()` (TECHNICAL_WORD_KEYS above), falling back to
+// `readable()` for a value with no dedicated label yet.
 function TechnicalDetailsSection({ details }: { details: ConsolidatedTechnicalDetails }) {
   const { t } = useI18n()
   const rows: Array<{ label: string; value: string }> = [
     {
       label: t('movingAverages'),
-      value: `${readable(details.moving_averages.alignment)} · ${readable(details.moving_averages.compression_state)}`,
+      value: `${technicalWord(t, details.moving_averages.alignment)} · ${technicalWord(t, details.moving_averages.compression_state)}`,
     },
   ]
-  if (details.rsi.available) rows.push({ label: 'RSI', value: `${num(details.rsi.value, 1)} · ${readable(details.rsi.state)}` })
+  if (details.rsi.available) rows.push({ label: 'RSI', value: `${num(details.rsi.value, 1)} · ${technicalWord(t, details.rsi.state)}` })
   if (details.macd.available)
     rows.push({
       label: 'MACD',
-      value: `${num(details.macd.macd_line)} / ${num(details.macd.signal_line)} / ${num(details.macd.histogram)} · ${readable(details.macd.crossover_state)}`,
+      value: `${num(details.macd.macd_line)} / ${num(details.macd.signal_line)} / ${num(details.macd.histogram)} · ${technicalWord(t, details.macd.crossover_state)}`,
     })
   if (details.kdj.available)
     rows.push({ label: 'KDJ', value: `K ${num(details.kdj.k, 0)} · D ${num(details.kdj.d, 0)} · J ${num(details.kdj.j, 0)}` })
   if (details.adx.available)
     rows.push({
       label: 'ADX',
-      value: `${num(details.adx.adx, 0)} · +DI ${num(details.adx.plus_di, 0)} · -DI ${num(details.adx.minus_di, 0)} · ${readable(details.adx.directional_bias)}`,
+      value: `${num(details.adx.adx, 0)} · +DI ${num(details.adx.plus_di, 0)} · -DI ${num(details.adx.minus_di, 0)} · ${technicalWord(t, details.adx.directional_bias)}`,
     })
   if (details.atr.available)
-    rows.push({ label: 'ATR', value: `${num(details.atr.value)} · ${num(details.atr.atr_pct, 1)}% · ${readable(details.atr.volatility_regime)}` })
+    rows.push({ label: 'ATR', value: `${num(details.atr.value)} · ${num(details.atr.atr_pct, 1)}% · ${technicalWord(t, details.atr.volatility_regime)}` })
   if (details.bollinger.available)
     rows.push({
       label: 'Bollinger',
-      value: `${money(details.bollinger.lower_band)}–${money(details.bollinger.upper_band)} · ${readable(details.bollinger.squeeze_state)}`,
+      value: `${money(details.bollinger.lower_band)}–${money(details.bollinger.upper_band)} · ${technicalWord(t, details.bollinger.squeeze_state)}`,
     })
-  if (details.obv.available) rows.push({ label: 'OBV', value: `${readable(details.obv.trend)} · ${readable(details.obv.divergence)}` })
+  if (details.obv.available) rows.push({ label: 'OBV', value: `${technicalWord(t, details.obv.trend)} · ${technicalWord(t, details.obv.divergence)}` })
   if (details.relative_strength)
     rows.push({
       label: t('relativeStrength'),
-      value: `${readable(details.relative_strength.state)} · SPY ${signedPct(details.relative_strength.vs_spy)} · QQQ ${signedPct(details.relative_strength.vs_qqq)}`,
+      value: `${technicalWord(t, details.relative_strength.state)} · SPY ${signedPct(details.relative_strength.vs_spy)} · QQQ ${signedPct(details.relative_strength.vs_qqq)}`,
     })
   if (details.fibonacci)
     rows.push({
@@ -319,7 +372,7 @@ function MarketStructureSection({ structure }: { structure: ConsolidatedMarketSt
         <div className="flex justify-between gap-2">
           <dt className="text-slate-500 dark:text-slate-400">{t('relativeVolume')}</dt>
           <dd className="tabular-nums text-slate-700 dark:text-slate-300">
-            {readable(structure.relative_volume.state)}
+            {technicalWord(t, structure.relative_volume.state)}
             {structure.relative_volume.displayed_rvol != null ? ` · ${num(structure.relative_volume.displayed_rvol, 2)}x` : ''}
           </dd>
         </div>
