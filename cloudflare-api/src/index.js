@@ -1,4 +1,11 @@
-import { ENTRY_RULES, SCORING_WEIGHTS, SCREENER_THRESHOLDS, SIGNAL_WEIGHTS, UNIVERSES } from './data.js'
+import {
+  ENTRY_RULES,
+  FUNDAMENTAL_SIGNAL_THRESHOLDS,
+  SCORING_WEIGHTS,
+  SCREENER_THRESHOLDS,
+  SIGNAL_WEIGHTS,
+  UNIVERSES,
+} from './data.js'
 import {
   EXTERNAL_TECHNICAL_DIMENSION,
   SHORT_MID_LONG_HORIZONS,
@@ -583,6 +590,45 @@ function signalDirectionFromValue(value, buyBelow, sellAbove) {
   return 'HOLD'
 }
 
+// Ryan's fundamental signals, mirroring analyst_service/core/signals.py: each
+// votes only when its data exists, with the thresholds from
+// analyst_service/config/signal_thresholds.yaml. The Worker used to emit only
+// PE, and voted it HOLD even with no PE, so fundamentals barely counted.
+function buildFundamentalSignals(fundamentals) {
+  const thresholds = FUNDAMENTAL_SIGNAL_THRESHOLDS
+  const signals = []
+  const epsSurprise = fundamentals.eps_surprise_pct
+  if (epsSurprise != null) {
+    signals.push({
+      dimension: 'EPS_Surprise',
+      signal: epsSurprise >= thresholds.epsBuyAbove ? 'BUY' : epsSurprise <= thresholds.epsSellBelow ? 'SELL' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.EPS_Surprise,
+      note: `EPS surprise ${epsSurprise.toFixed(1)}%`,
+    })
+  }
+  const pePercentile = fundamentals.pe_percentile_5y
+  if (pePercentile != null) {
+    signals.push({
+      dimension: 'PE_Percentile',
+      signal: pePercentile > thresholds.peSellAbove ? 'SELL' : pePercentile < thresholds.peBuyBelow ? 'BUY' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.PE_Percentile,
+      note: `PE percentile ${Math.round(pePercentile)}th`,
+    })
+  }
+  const upgrades = fundamentals.analyst_upgrades_30d
+  const downgrades = fundamentals.analyst_downgrades_30d
+  if (upgrades != null && downgrades != null) {
+    const net = upgrades - downgrades
+    signals.push({
+      dimension: 'Analyst_Ratings',
+      signal: net > thresholds.analystNetBuyAbove ? 'BUY' : net < 0 ? 'SELL' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.Analyst_Ratings,
+      note: `Net revisions ${net} over 30D`,
+    })
+  }
+  return signals
+}
+
 function buildSignals(snapshot, entry, fundamentals, sentiment, macro) {
   const signals = []
   const pushSignal = (dimension, direction, weight, note) => {
@@ -652,19 +698,7 @@ function buildSignals(snapshot, entry, fundamentals, sentiment, macro) {
     entry.reason,
   )
 
-  const pePercentile = fundamentals.pe_percentile_5y
-  pushSignal(
-    'PE_Percentile',
-    pePercentile == null
-      ? 'HOLD'
-      : pePercentile <= 40
-        ? 'BUY'
-        : pePercentile >= 70
-          ? 'SELL'
-          : 'HOLD',
-    SIGNAL_WEIGHTS.PE_Percentile,
-    pePercentile == null ? 'PE percentile unavailable' : `PE percentile ${Math.round(pePercentile)}th`,
-  )
+  signals.push(...buildFundamentalSignals(fundamentals))
 
   const shortInterest = sentiment.short_interest_pct
   pushSignal(
@@ -2265,6 +2299,7 @@ export const __testOnly = {
     healthCache.clear()
   },
   buildRecommendation,
+  buildFundamentalSignals,
 }
 
 export default {
