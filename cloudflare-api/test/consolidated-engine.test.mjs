@@ -232,6 +232,20 @@ test('a plain equity, and an ETF whose own ticker is its underlying, never fetch
   assert.equal(requested.length, 0, "QQQ's own profile names QQQ as its underlying, which decideTechnical must not re-fetch")
 })
 
+test("a leveraged/inverse ETF still decides normally when its underlying's quote fails to load", async () => {
+  // decideTechnical's underlying fetch is wrapped in .catch(() => null) so a
+  // transient failure on the underlying (SOXX down, rate limited, etc.) must
+  // not sink SOXL's own decision - it just loses the extra confirmation input.
+  const fetchImpl = async (url) => {
+    if (decodeURIComponent(new URL(url).pathname).includes('SOXX')) throw new Error('network down')
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const soxlQuote = await loadQuoteInputs('SOXL', { fetchImpl })
+  const { decision } = await decideTechnical({ ticker: 'SOXL', quote: soxlQuote, market, fetchImpl })
+  assert.ok(decision.horizons.mid, "SOXL still decides normally when SOXX's quote fetch throws")
+})
+
 test('the consolidated pipeline composes technical, fundamentals and the hurdle', async () => {
   const quote = { sector: 'Technology', industry: 'Semiconductors', quoteType: 'EQUITY' }
   const { consolidated, decisionV1ByHorizon } = await runConsolidated('NVDA', {
