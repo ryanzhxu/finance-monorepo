@@ -145,3 +145,54 @@ test('a row flagged as a buy only through entry_assessment (not recommendation) 
     globalThis.fetch = originalFetch
   }
 })
+
+// Trending rows carry their buy flag nested under `buyability.entry_assessment`
+// (buildTrendingResponse has no top-level `recommendation`/`entry_assessment`).
+function trendingRow(symbol, entryAssessment) {
+  return { symbol, buyability: { entry_assessment: entryAssessment } }
+}
+
+test('a trending row flagged buy_now under buyability beats the benchmarks and keeps reading as a buy', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const results = [trendingRow('WINNER', 'buy_now')]
+    await applyScreenerHurdle(results)
+    assert.equal(results[0].index_hurdle.status, 'pass')
+    assert.equal(results[0].recommendation, undefined)
+    assert.equal(results[0].held_by_index_hurdle, undefined)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('a trending row flagged buy_now under buyability that lags a benchmark fails closed to HOLD', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const results = [trendingRow('LOSER', 'buy_now')]
+    await applyScreenerHurdle(results)
+    assert.equal(results[0].index_hurdle.status, 'fail')
+    assert.equal(results[0].recommendation, 'HOLD')
+    assert.equal(results[0].held_by_index_hurdle, true)
+    // buyability.entry_assessment stays 'buy_now': the Screener view's
+    // "held — index hurdle" label is a separate later pass.
+    assert.equal(results[0].buyability.entry_assessment, 'buy_now')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('a trending row not flagged buy_now is never evaluated', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockYahooFetch
+  try {
+    const results = [trendingRow('LOSER', 'wait_for_pullback')]
+    await applyScreenerHurdle(results)
+    assert.equal(results[0].index_hurdle.status, 'not_evaluated')
+    assert.equal(results[0].recommendation, undefined)
+    assert.equal(results[0].held_by_index_hurdle, undefined)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

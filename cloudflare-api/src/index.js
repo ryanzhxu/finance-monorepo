@@ -1498,11 +1498,12 @@ const SCREENER_HURDLE_NOT_EVALUATED = {
   earnings_guard: { status: 'unavailable', eps_surprise_pct: null, analysts_deteriorating: null },
 }
 
-// A screen result flags a buy either through `recommendation` or through the
-// separate `entry_assessment` field (undervalued/opportunities/etc rows carry
-// both). Either one must respect the index hurdle.
+// A screen result flags a buy through `recommendation`, through the separate
+// `entry_assessment` field (undervalued/opportunities/etc rows carry both), or
+// through `buyability.entry_assessment` (trending rows). Any one must respect
+// the index hurdle.
 function isScreenerBuyFlagged(row) {
-  return row.recommendation === 'BUY' || row.entry_assessment === 'buy_now'
+  return row.recommendation === 'BUY' || row.entry_assessment === 'buy_now' || row.buyability?.entry_assessment === 'buy_now'
 }
 
 // Spec backlog 7: a screen result flagged as a buy must carry the index hurdle
@@ -1699,6 +1700,8 @@ async function buildTrendingResponse(requestBody) {
     })
     .sort((left, right) => right.score_breakdown.trend_score - left.score_breakdown.trend_score)
     .slice(0, limit)
+
+  await applyScreenerHurdle(results)
 
   return {
     screen_type: 'trending',
