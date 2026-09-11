@@ -411,9 +411,21 @@ function HorizonColumn({
             </>
           )}
           {technical.reasons?.length ? (
-            <p className="mt-2 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400" title={technical.reasons.join('\n')}>
-              {technical.reasons[0]}
-            </p>
+            <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <p>{technical.reasons[0]}</p>
+              {technical.reasons.length > 1 ? (
+                <details className="mt-1">
+                  <summary className="cursor-pointer select-none text-slate-600 dark:text-slate-300">
+                    {t('moreReasons', { count: technical.reasons.length - 1 })}
+                  </summary>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {technical.reasons.slice(1).map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </div>
           ) : null}
           {technical.technical_details ? <TechnicalDetailsSection details={technical.technical_details} /> : null}
         </>
