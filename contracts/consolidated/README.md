@@ -37,9 +37,9 @@ Current state:
       failure (missing symbol, engine off), and a partially-failed pipeline
       returns 200 with `errors` populated inline, already covered by
       `valid-engine-failure.json`.
-- [ ] A Worker test that validates a real `runConsolidated` output against this
-      schema, so the contract cannot drift from what the code actually emits.
-      Deferred to the next slice.
+- [x] A Worker test that validates a real `runConsolidated` output against this
+      schema (`cloudflare-api/test/consolidated-contract.test.mjs`), so the
+      contract cannot drift from what the code actually emits.
 
 ## What this contract is not
 
