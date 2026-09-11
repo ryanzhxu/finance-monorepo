@@ -453,6 +453,7 @@ function HurdleTable({ hurdle }: { hurdle: IndexHurdle | null }) {
                 <th className="py-1 pr-2 text-right font-medium">{t('hurdleRel121')}</th>
                 <th className="py-1 pr-2 text-right font-medium">{t('hurdleRel6m')}</th>
                 <th className="py-1 pr-2 text-center font-medium">{t('hurdleTrend')}</th>
+                <th className="py-1 pr-2 text-center font-medium">{t('hurdleChecks')}</th>
                 <th className="py-1 font-medium">{t('hurdleResult')}</th>
               </tr>
             </thead>
@@ -471,6 +472,9 @@ function HurdleTable({ hurdle }: { hurdle: IndexHurdle | null }) {
                   <td className="py-1 pr-2 text-center">
                     {row.ratio_above_200d == null ? '—' : row.ratio_above_200d ? '✓' : '✗'}
                   </td>
+                  <td className="py-1 pr-2 text-center tabular-nums">
+                    {row.evidence_true}/{row.evidence_known}
+                  </td>
                   <td className={`py-1 font-semibold ${RESULT_TONE[row.result] ?? ''}`}>
                     {t(RESULT_KEYS[row.result] ?? 'hurdleInsufficient')}
                   </td>
@@ -479,6 +483,10 @@ function HurdleTable({ hurdle }: { hurdle: IndexHurdle | null }) {
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {hurdle?.benchmarks?.length ? (
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{t('hurdleRuleExplanation')}</p>
       ) : null}
 
       {hurdle ? (
