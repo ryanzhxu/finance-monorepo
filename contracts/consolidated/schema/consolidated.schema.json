@@ -251,7 +251,11 @@
                   "type": "string",
                   "description": "Free text composed by Vincent's engine (e.g. 'Between 61.8% and 78.6%'), not a fixed enum."
                 },
-                "nearest_fib_level": { "type": ["number", "null"] },
+                "nearest_fib_level": {
+                  "type": ["string", "null"],
+                  "pattern": "^\\d+(\\.\\d+)?%$",
+                  "description": "Vincent's fib level LABEL (e.g. '78.6%', '0.0%'), not a ratio. See technical-features.js nearest?.label."
+                },
                 "distance_to_nearest_fib_pct": { "type": ["number", "null"] }
               }
             },

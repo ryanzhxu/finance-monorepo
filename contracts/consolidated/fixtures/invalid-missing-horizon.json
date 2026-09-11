@@ -80,7 +80,7 @@
             "availability": "available",
             "direction": "up",
             "fib_zone": "Between 38.2% and 50.0%",
-            "nearest_fib_level": 0.5,
+            "nearest_fib_level": "50.0%",
             "distance_to_nearest_fib_pct": 0.9
           }
         }
@@ -169,7 +169,7 @@
             "availability": "available",
             "direction": "up",
             "fib_zone": "Between 61.8% and 78.6%",
-            "nearest_fib_level": 0.618,
+            "nearest_fib_level": "61.8%",
             "distance_to_nearest_fib_pct": 1.4
           }
         }
