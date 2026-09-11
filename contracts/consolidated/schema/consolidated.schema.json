@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-monorepo.internal/contracts/consolidated/v1/consolidated.schema.json",
+  "title": "consolidated.v1 payload",
+  "description": "The consolidated decision for one symbol, as cloudflare-api/src/consolidated/pipeline.js (runConsolidated) composes it: Vincent's technical engine (the majority) run in process, Ryan's fundamentals (a minority that can only step a buy down one step), and the index hurdle (a buy must beat every benchmark or it is held). Short, mid and long are fully independent; a consumer must never average or vote across them. This is a data contract for the object cloudflare-api/src/index.js emits as consolidated_decision, not a model: it must not encode scoring logic beyond the legality already enforced in code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "producer", "generated_at", "current_price", "horizons", "index_hurdle", "fundamentals", "data_quality", "market_structure", "errors"],
+  "properties": {
+    "version": {
+      "const": "consolidated.v1",
+      "description": "Exact match, read from cloudflare-api/config/consolidation.json's own version field. Any other value is rejected outright."
+    },
+    "producer": {
+      "type": ["string", "null"],
+      "description": "Vincent's engine identifier ('vincent-stock-decision-dashboard', technical-engine.js PRODUCER). Null only when the technical engine failed entirely for this symbol (see errors.technical)."
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "ISO 8601 UTC timestamp, Z-suffixed. When the pipeline composed this decision."
+    },
+    "current_price": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "The price the pipeline evaluated against. Null only when the technical engine could not load a usable quote."
+    },
+    "horizons": { "$ref": "#/$defs/horizons" },
+    "index_hurdle": { "anyOf": [{ "$ref": "#/$defs/indexHurdle" }, { "type": "null" }] },
+    "fundamentals": { "anyOf": [{ "$ref": "#/$defs/fundamentalStance" }, { "type": "null" }] },
+    "data_quality": { "anyOf": [{ "$ref": "#/$defs/symbolDataQuality" }, { "type": "null" }] },
+    "market_structure": { "anyOf": [{ "$ref": "#/$defs/marketStructure" }, { "type": "null" }] },
+    "errors": { "anyOf": [{ "$ref": "#/$defs/errors" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "priceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "high"],
+      "description": "An inclusive price band. low < high is a real invariant but is not enforced here (a cross-field numeric comparison JSON Schema draft 2020-12 cannot express); enforce it in tests/test_invariants.py once that file exists, matching contracts/decision/'s precedent.",
+      "properties": {
+        "low": { "type": "number", "exclusiveMinimum": 0 },
+        "high": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "horizons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["short", "mid", "long"],
+      "description": "All three horizons are always present. A horizon the pipeline could not evaluate still appears, with technical: null and an adjustments entry explaining why, rather than being omitted.",
+      "properties": {
+        "short": { "$ref": "#/$defs/horizonDecision" },
+        "mid": { "$ref": "#/$defs/horizonDecision" },
+        "long": { "$ref": "#/$defs/horizonDecision" }
+      }
+    },
+    "horizonDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["technical", "fundamentals", "final_action", "adjustments"],
+      "description": "One horizon's composed decision (final-decision.js composeHorizon). final_action is what the UI must show as the decision; technical.action is Vincent's own pre-adjustment call, kept visible but never itself the thing rendered as the recommendation (spec: 'nothing reads as a buy unless it beats the indices').",
+      "properties": {
+        "technical": { "anyOf": [{ "$ref": "#/$defs/technicalHorizon" }, { "type": "null" }] },
+        "fundamentals": { "$ref": "#/$defs/horizonFundamentalsView" },
+        "final_action": {
+          "anyOf": [
+            { "type": "string", "enum": ["strong_buy", "buy", "accumulate", "hold", "trim", "sell", "avoid"] },
+            { "type": "null" }
+          ],
+          "description": "Null only when technical is null (the engine produced no opinion for this horizon at all)."
+        },
+        "adjustments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/adjustment" },
+          "description": "Zero or more layers that changed the action on the way from technical.action to final_action, in the order applied: fundamentals before index_hurdle. Empty when Vincent's call passed through unchanged."
+        }
+      },
+      "allOf": [
+        {
+          "description": "A buy-family final_action requires the index hurdle to have passed or not apply. This is the contract's central invariant.",
+          "if": { "properties": { "final_action": { "enum": ["strong_buy", "buy", "accumulate"] } }, "required": ["final_action"] },
+          "then": {
+            "properties": {
+              "adjustments": {
+                "not": {
+                  "type": "array",
+                  "contains": { "properties": { "layer": { "const": "index_hurdle" } } }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "adjustment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "from", "to", "reason", "detail"],
+      "properties": {
+        "layer": { "type": "string", "enum": ["technical", "fundamentals", "index_hurdle"] },
+        "from": { "type": ["string", "null"] },
+        "to": { "type": ["string", "null"] },
+        "reason": {
+          "type": "string",
+          "enum": ["technical_unavailable", "fundamentals_weak", "index_hurdle_unavailable", "index_hurdle_failed"]
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "Short human-readable elaboration (e.g. 'does not beat SPY, QQQ'). Null when the reason code is self-explanatory."
+        }
+      }
+    },
+    "horizonFundamentalsView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stance", "applied"],
+      "description": "Not the full fundamentalStance object (see $defs/fundamentalStance) - a horizon only needs to know the stance and whether it was eligible to apply here (cloudflare-api/config/consolidation.json fundamentals.appliesToHorizons is ['mid', 'long']; short never applies fundamentals).",
+      "properties": {
+        "stance": { "type": "string", "enum": ["unavailable", "supportive", "neutral", "weak"] },
+        "applied": { "type": "boolean" }
+      }
+    },
+    "technicalHorizon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "action", "confidence", "price_state", "execution_intent", "opportunity_range", "reduce_range", "invalidation", "current_price", "reasons", "data_quality", "technical_details"],
+      "description": "Vincent's engine output for one horizon (technical-engine.js horizonSummary), reshaped into this Worker's snake_case vocabulary. available: false means the engine's own decision.horizons object omitted this key (insufficient data for just this horizon); every other field then degrades to its safe default rather than reading off undefined.",
+      "properties": {
+        "available": { "type": "boolean" },
+        "action": {
+          "anyOf": [
+            { "type": "string", "enum": ["strong_buy", "buy", "accumulate", "hold", "trim", "sell", "avoid"] },
+            { "type": "null" }
+          ],
+          "description": "Vincent's own call, before fundamentals or the index hurdle touch it. Gated by price_state via the allOf rules below."
+        },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "price_state": {
+          "type": "string",
+          "enum": [
+            "IN_OPPORTUNITY_ZONE", "NEAR_OPPORTUNITY_ZONE", "NEUTRAL_ZONE",
+            "NEAR_REDUCE_ZONE", "IN_REDUCE_ZONE", "BEYOND_REDUCE_ZONE",
+            "BREAKDOWN_ZONE", "INVALID_LANDSCAPE"
+          ]
+        },
+        "execution_intent": {
+          "anyOf": [{ "type": "string", "enum": ["enter", "add", "hold", "reduce", "exit", "avoid"] }, { "type": "null" }]
+        },
+        "opportunity_range": { "anyOf": [{ "$ref": "#/$defs/priceRange" }, { "type": "null" }] },
+        "reduce_range": { "anyOf": [{ "$ref": "#/$defs/priceRange" }, { "type": "null" }] },
+        "invalidation": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "current_price": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "reasons": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Vincent's supporting reasons, capped at 5. English only today (technical_engine/execution-engine.js and exhaustion-engine.js hardcode English sentences; see contracts/consolidated/README.md and the loop's investigation in PROGRESS.md)."
+        },
+        "data_quality": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "This horizon's own feature-confidence score (value.debug.dataQuality.score inside Vincent's engine). NOT the same object as the symbol-level consolidated_decision.data_quality - see the README's 'two different meanings of data quality' section."
+        },
+        "technical_details": { "anyOf": [{ "$ref": "#/$defs/technicalDetails" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "price_state": { "const": "IN_OPPORTUNITY_ZONE" } }, "required": ["price_state"] },
+          "then": { "properties": { "action": { "enum": ["strong_buy", "buy", "accumulate"] } } }
+        },
+        {
+          "if": { "properties": { "price_state": { "enum": ["NEAR_OPPORTUNITY_ZONE", "NEUTRAL_ZONE", "NEAR_REDUCE_ZONE"] } }, "required": ["price_state"] },
+          "then": { "properties": { "action": { "const": "hold" } } }
+        },
+        {
+          "if": { "properties": { "price_state": { "enum": ["IN_REDUCE_ZONE", "BEYOND_REDUCE_ZONE"] } }, "required": ["price_state"] },
+          "then": { "properties": { "action": { "enum": ["trim", "sell"] } } }
+        },
+        {
+          "if": { "properties": { "price_state": { "const": "BREAKDOWN_ZONE" } }, "required": ["price_state"] },
+          "then": { "properties": { "action": { "enum": ["sell", "avoid"] } } }
+        },
+        {
+          "if": { "properties": { "price_state": { "const": "INVALID_LANDSCAPE" } }, "required": ["price_state"] },
+          "then": {
+            "properties": {
+              "action": { "enum": ["hold", "avoid"] },
+              "opportunity_range": { "type": "null" },
+              "reduce_range": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "compactIndicator": {
+      "type": "object",
+      "description": "compactIndicator() in technical-engine.js: { available: false } when the underlying feature was unavailable, else { available: true, ...picked fields }. The picked fields vary per indicator (see technicalDetails below) and are intentionally left untyped here - they are Vincent's internal vocabulary (technical_engine/technical-features.js, protected, read-only), surfaced for a UI detail panel, not part of this contract's decision boundary.",
+      "properties": {
+        "available": { "type": "boolean" }
+      },
+      "required": ["available"]
+    },
+    "technicalDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moving_averages", "rsi", "macd", "kdj", "adx", "atr", "bollinger", "obv", "relative_strength", "fibonacci"],
+      "description": "A compact, read-only subset of Vincent's canonical technical features for one horizon (technical-engine.js technicalDetails()), for a UI 'technical details' panel. Not a second computation of anything used in the decision itself.",
+      "properties": {
+        "moving_averages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["alignment", "compression_state"],
+          "properties": {
+            "alignment": { "type": "string" },
+            "compression_state": { "type": "string" }
+          }
+        },
+        "rsi": { "$ref": "#/$defs/compactIndicator" },
+        "macd": { "$ref": "#/$defs/compactIndicator" },
+        "kdj": { "$ref": "#/$defs/compactIndicator" },
+        "adx": { "$ref": "#/$defs/compactIndicator" },
+        "atr": { "$ref": "#/$defs/compactIndicator" },
+        "bollinger": { "$ref": "#/$defs/compactIndicator" },
+        "obv": { "$ref": "#/$defs/compactIndicator" },
+        "relative_strength": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state", "vs_spy", "vs_qqq"],
+              "properties": {
+                "state": { "type": "string" },
+                "vs_spy": { "type": ["number", "null"] },
+                "vs_qqq": { "type": ["number", "null"] }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "fibonacci": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["availability", "direction", "fib_zone", "nearest_fib_level", "distance_to_nearest_fib_pct"],
+              "properties": {
+                "availability": { "type": "string" },
+                "direction": { "type": ["string", "null"] },
+                "fib_zone": {
+                  "type": "string",
+                  "description": "Free text composed by Vincent's engine (e.g. 'Between 61.8% and 78.6%'), not a fixed enum."
+                },
+                "nearest_fib_level": { "type": ["number", "null"] },
+                "distance_to_nearest_fib_pct": { "type": ["number", "null"] }
+              }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "marketStructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_volume", "fifty_two_week"],
+      "description": "Symbol-level context that does not vary by horizon (technical-engine.js marketStructureDetails()).",
+      "properties": {
+        "relative_volume": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "displayed_rvol"],
+          "properties": {
+            "state": { "type": "string" },
+            "displayed_rvol": { "type": ["number", "null"] }
+          }
+        },
+        "fifty_two_week": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["high", "low", "position_pct", "distance_to_high_pct", "distance_to_low_pct"],
+              "properties": {
+                "high": { "type": ["number", "null"] },
+                "low": { "type": ["number", "null"] },
+                "position_pct": { "type": ["number", "null"] },
+                "distance_to_high_pct": { "type": ["number", "null"] },
+                "distance_to_low_pct": { "type": ["number", "null"] }
+              }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "fundamentalStance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stance", "vote", "signal_count"],
+      "description": "final-decision.js fundamentalStance() - Ryan's blended fundamental vote, computed once per symbol (not per horizon; horizonFundamentalsView above is the per-horizon view of just its stance and eligibility).",
+      "properties": {
+        "stance": { "type": "string", "enum": ["unavailable", "supportive", "neutral", "weak"] },
+        "vote": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["BUY", "HOLD", "SELL"],
+          "properties": {
+            "BUY": { "type": "number", "minimum": 0 },
+            "HOLD": { "type": "number", "minimum": 0 },
+            "SELL": { "type": "number", "minimum": 0 }
+          }
+        },
+        "signal_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "indexHurdle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "benchmarks", "lagging", "earnings_guard"],
+      "description": "index-hurdle.js evaluateHurdle() - one hurdle evaluation shared across all three horizons for this symbol (the hurdle does not vary by horizon).",
+      "properties": {
+        "status": { "type": "string", "enum": ["not_applicable", "unavailable", "pass", "fail"] },
+        "benchmarks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/benchmarkRow" }
+        },
+        "lagging": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Symbols from benchmarks whose result was not 'beats'."
+        },
+        "earnings_guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "eps_surprise_pct", "analysts_deteriorating"],
+          "properties": {
+            "status": { "type": "string", "enum": ["unavailable", "fired", "clear"] },
+            "eps_surprise_pct": { "type": ["number", "null"] },
+            "analysts_deteriorating": { "type": ["boolean", "null"] }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "status is 'pass' only when every benchmark beats and the earnings guard has not fired; that composition is enforced in code (evaluateHurdle), documented here as a fixture-level invariant rather than a schema-level one because it spans an array (lagging.length === 0) and a nested object (earnings_guard.status), which draft 2020-12 can express but only awkwardly. See tests/test_invariants.py (not yet written) for the executable version.",
+          "if": { "properties": { "status": { "const": "not_applicable" } }, "required": ["status"] },
+          "then": { "properties": { "benchmarks": { "maxItems": 0 } } }
+        }
+      ]
+    },
+    "benchmarkRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "role", "label", "rel_12_1_pct", "rel_6m_pct", "ratio_above_200d", "evidence_true", "evidence_known", "sessions", "result"],
+      "description": "index-hurdle.js relativeEvidence(), merged with resolveBenchmarks()'s role/label. A benchmark 'beats' when at least minEvidence (2) of its 3 checks are true: 12-1 month relative return, 6-month relative return, and the stock/benchmark ratio above its 200-day average.",
+      "properties": {
+        "symbol": { "type": "string" },
+        "role": { "type": "string", "enum": ["index", "local_index", "sector", "industry"] },
+        "label": { "type": "string" },
+        "rel_12_1_pct": { "type": ["number", "null"] },
+        "rel_6m_pct": { "type": ["number", "null"] },
+        "ratio_above_200d": { "type": ["boolean", "null"] },
+        "evidence_true": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "evidence_known": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "sessions": { "type": "integer", "minimum": 0 },
+        "result": { "type": "string", "enum": ["insufficient_data", "beats", "lags", "mixed"] }
+      }
+    },
+    "symbolDataQuality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["daily", "four_hour", "one_hour", "market"],
+      "description": "market-data.js loadQuoteInputs()'s dataQuality object, plus the market-context score technical-engine.js appends. See the README's 'two different meanings of data quality' section - this is NOT the same shape as horizons.<h>.technical.data_quality.",
+      "properties": {
+        "daily": { "type": "string", "enum": ["available", "unavailable"] },
+        "four_hour": { "type": "string", "enum": ["available", "unavailable", "source_unavailable", "invalid_source_data"] },
+        "one_hour": { "type": "string", "enum": ["available", "unavailable"] },
+        "market": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of 5 market-context inputs (VIX, SPY, QQQ, 10Y yield, Fear & Greed) that loaded successfully."
+        }
+      }
+    },
+    "errors": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "description": "pipeline.js runConsolidated() - present (non-null) only when at least one sub-pipeline threw. A short, no-stack message per failed part; the rest of the payload still reflects whatever degraded gracefully (e.g. index_hurdle may still be usable even when technical failed, or vice versa).",
+      "properties": {
+        "technical": { "type": "string", "maxLength": 200 },
+        "index_hurdle": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}
