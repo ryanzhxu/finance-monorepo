@@ -949,6 +949,87 @@ test('shared watchlist routes support session, login, add, and remove', async ()
   assert.equal((await cookieSession.json()).authenticated, true)
 })
 
+async function loginToSharedSpace(env) {
+  const loginResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: 'swordfish' }),
+    }),
+    env,
+  )
+  return (await loginResponse.json()).session_token
+}
+
+test('shared watchlist POST rejects an invalid symbol instead of saving it verbatim', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const rejected = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ symbol: 'AAPL MSFT' }),
+    }),
+    env,
+  )
+  assert.equal(rejected.status, 400)
+
+  const watchlist = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.deepEqual((await watchlist.json()).symbols, [])
+})
+
+test('shared watchlist DELETE decodes the symbol path segment before removing', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const addResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ symbol: '^VIX' }),
+    }),
+    env,
+  )
+  assert.equal(addResponse.status, 200)
+  assert.deepEqual((await addResponse.json()).symbols, ['^VIX'])
+
+  const removeResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist/%5EVIX', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.equal(removeResponse.status, 200)
+  assert.deepEqual((await removeResponse.json()).symbols, [])
+})
+
+test('shared watchlist DELETE rejects a malformed percent-encoded symbol', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const malformed = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist/%zz', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.equal(malformed.status, 400)
+})
+
 // The Worker persists no analyses, so `/history/*` must mirror analyst_service
 // against an empty store: the just-shipped Track Record view then renders its
 // honest "No calls recorded yet" empty state in production instead of erroring.

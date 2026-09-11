@@ -112,6 +112,8 @@ function normalizeSymbol(value) {
   return upper.replace(/\./g, '-')
 }
 
+const SHARED_SPACE_SYMBOL_PATTERN = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/
+
 function normalizeUniverse(value) {
   const upper = String(value ?? '').trim().toUpperCase()
   return Object.prototype.hasOwnProperty.call(UNIVERSES, upper) ? upper : 'SP500'
@@ -2367,13 +2369,22 @@ export class SharedWatchlistSpace {
       if (!symbol) {
         return json({ detail: 'symbol is required' }, 400)
       }
+      if (!SHARED_SPACE_SYMBOL_PATTERN.test(symbol)) {
+        return json({ detail: `Invalid symbol: ${symbol}` }, 400)
+      }
       const next = normalizeSharedSpaceSymbols([...await readSharedSpaceSymbols(this.state), symbol])
       await this.state.storage.put('symbols', next)
       return sharedSpaceWatchlistResponse(config, this.state)
     }
 
     if (pathname.startsWith('/watchlist/') && request.method === 'DELETE') {
-      const symbol = normalizeSymbol(pathname.split('/').at(-1))
+      let rawSymbol
+      try {
+        rawSymbol = decodeURIComponent(pathname.split('/').at(-1))
+      } catch {
+        return json({ detail: 'Malformed symbol' }, 400)
+      }
+      const symbol = normalizeSymbol(rawSymbol)
       if (!symbol) {
         return json({ detail: 'symbol is required' }, 400)
       }
