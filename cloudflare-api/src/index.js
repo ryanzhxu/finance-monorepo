@@ -15,6 +15,9 @@ import {
 } from './technical-provider.js'
 import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
 import { consolidatedEnabled, runConsolidated } from './consolidated/pipeline.js'
+import { runIndexHurdle, seriesFromBars } from './consolidated/index-hurdle.js'
+import { loadDailyBars } from './consolidated/market-data.js'
+import { classificationFor } from './consolidated/technical-engine.js'
 import {
   atr,
   clamp,
@@ -1478,6 +1481,52 @@ function buildScreenResult(snapshot, marketRegime, screenType, rank) {
   }
 }
 
+const SCREENER_HURDLE_LIMIT = 10
+const SCREENER_HURDLE_NOT_EVALUATED = {
+  status: 'not_evaluated',
+  benchmarks: [],
+  lagging: [],
+  earnings_guard: { status: 'unavailable', eps_surprise_pct: null, analysts_deteriorating: null },
+}
+
+// Spec backlog 7: a screen result flagged BUY must carry the index hurdle
+// status, and never present as a buy when the hurdle fails. Evaluated only for
+// the top buy candidates (Worker subrequest budget); the rest report
+// not_evaluated rather than a false pass. loadDailyBars caches per symbol, so
+// a shared benchmark (SPY, QQQ, a sector ETF) is only fetched once.
+async function applyScreenerHurdle(results) {
+  const buyRows = results.filter((row) => row.recommendation === 'BUY').slice(0, SCREENER_HURDLE_LIMIT)
+  await Promise.all(
+    buyRows.map(async (row) => {
+      const quote = row.components?.quote ?? null
+      try {
+        const latestEarnings = extractLatestEarningsSurprise(quote)
+        const recentRecommendations = extractRecentRecommendationCounts(quote)
+        const traits = classificationFor(row.symbol, { quoteType: quote?.quoteType }).companyTraits ?? []
+        const hurdle = await runIndexHurdle(row.symbol, {
+          sector: quote?.sector ?? null,
+          industry: quote?.industry ?? null,
+          traits,
+          earnings: {
+            epsSurprisePct: latestEarnings.surprisePct,
+            upgrades30d: recentRecommendations.upgrades,
+            downgrades30d: recentRecommendations.downgrades,
+            recommendationTrend: quote?.recommendationTrend ?? null,
+          },
+          loadSeries: (symbol) => loadDailyBars(symbol).then(({ bars }) => seriesFromBars(bars)),
+        })
+        row.index_hurdle = hurdle
+        if (hurdle.status !== 'pass' && hurdle.status !== 'not_applicable') row.recommendation = 'HOLD'
+      } catch {
+        row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+      }
+    }),
+  )
+  for (const row of results) {
+    if (!row.index_hurdle) row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+  }
+}
+
 async function buildScreenResponse(screenType, requestBody) {
   const universeName = normalizeUniverse(requestBody?.universe)
   const tickers = Array.isArray(requestBody?.tickers) && requestBody.tickers.length > 0
@@ -1500,6 +1549,8 @@ async function buildScreenResponse(screenType, requestBody) {
     .sort((left, right) => right.opportunity_score - left.opportunity_score)
     .slice(0, requestBody?.limit ?? 25)
     .map((result, index) => ({ ...result, rank: index + 1 }))
+
+  await applyScreenerHurdle(results)
 
   const averageConfidence =
     results.length === 0 ? 0.5 : round(results.reduce((sum, item) => sum + item.confidence, 0) / results.length, 2)
@@ -2300,6 +2351,7 @@ export const __testOnly = {
   },
   buildRecommendation,
   buildFundamentalSignals,
+  applyScreenerHurdle,
 }
 
 export default {
