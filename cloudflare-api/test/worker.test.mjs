@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import worker, { __testOnly, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
 import { __researchTestOnly } from '../src/research.js'
 import { verdictFromExternal } from '../src/technical-provider.js'
+import { clearMarketDataCache } from '../src/consolidated/market-data.js'
 
 test.beforeEach(() => {
   __testOnly.clearCaches()
+  clearMarketDataCache()
 })
 
 function buildCandles(start = 100, step = 1, count = 240) {
@@ -182,6 +184,57 @@ test('health endpoint returns worker status', async () => {
     assert.equal(payload.status, 'ok')
     assert.equal(payload.service, 'finance_api_worker')
     assert.equal(payload.providers.finance_query, 'ok')
+    // The technical engine is compiled into this Worker, so its row always
+    // reports Vincent's own config version, regardless of Yahoo/CNN reachability.
+    assert.equal(payload.providers.technical_engine, 'decision-engine-v1')
+    // mockFinanceQueryFetch does not answer Yahoo or CNN, so both cached
+    // probes fail closed rather than throwing or hanging the response.
+    assert.equal(payload.providers.yahoo_chart, 'unreachable')
+    assert.equal(payload.providers.fear_greed, 'unreachable')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+function mockHealthMarketProbesFetch(input) {
+  const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : (input?.url ?? String(input))
+  const url = new URL(rawUrl)
+  if (url.hostname.includes('cnn.io')) {
+    return Promise.resolve(new Response(JSON.stringify({ fear_and_greed: { score: 55, previous_close: 50 } })))
+  }
+  if (url.hostname.includes('finance.yahoo.com')) {
+    const closes = Array.from({ length: 30 }, (_, index) => 400 + index)
+    const stamps = closes.map((_, index) => 1_700_000_000 + index * 86_400)
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          chart: {
+            result: [
+              {
+                meta: { regularMarketPrice: closes.at(-1), instrumentType: 'INDEX', currency: 'USD' },
+                timestamp: stamps,
+                indicators: {
+                  quote: [{ open: closes, high: closes, low: closes, close: closes, volume: closes.map(() => 1_000_000) }],
+                  adjclose: [{ adjclose: closes }],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    )
+  }
+  return mockFinanceQueryFetch(input)
+}
+
+test('health endpoint reports Yahoo chart and Fear & Greed as reachable when the cached probe succeeds', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockHealthMarketProbesFetch
+  try {
+    const response = await worker.fetch(new Request('https://example.com/health'))
+    const payload = await response.json()
+    assert.equal(payload.providers.yahoo_chart, 'reachable')
+    assert.equal(payload.providers.fear_greed, 'reachable')
   } finally {
     globalThis.fetch = originalFetch
   }

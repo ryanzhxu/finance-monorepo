@@ -17,7 +17,7 @@ import {
 import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
 import { consolidatedEnabled, runConsolidated } from './consolidated/pipeline.js'
 import { runIndexHurdle, seriesFromBars } from './consolidated/index-hurdle.js'
-import { loadDailyBars } from './consolidated/market-data.js'
+import { loadDailyBars, loadMarketContext } from './consolidated/market-data.js'
 import { classificationFor } from './consolidated/technical-engine.js'
 import {
   atr,
@@ -1791,11 +1791,19 @@ async function buildHealthResponse(serviceName, sharedSpacesState = 'disabled') 
   const cached = cacheGet(healthCache, key)
   if (cached) return cached
 
-  const [lookup, quote, chart] = await Promise.all([
+  const [lookup, quote, chart, marketContext] = await Promise.all([
     financeQueryGet('/lookup', { q: 'NVDA' }).catch(() => null),
     getQuote('NVDA').catch(() => null),
     getChart('NVDA').catch(() => null),
+    // loadMarketContext caches itself for 15 minutes and is already called by
+    // the consolidated pipeline, so this is a cached probe, not a fetch on
+    // every health check.
+    loadMarketContext().catch(() => null),
   ])
+
+  const technicalEngineVersion = globalThis.DecisionEngine?.config?.version ?? 'unknown'
+  const yahooChartReachable = marketContext?.market_context?.equity_trend?.spy?.value != null
+  const fearGreedReachable = marketContext?.market_context?.fear_greed?.value != null
 
   const providers = {
     finance_query: quote && chart ? 'ok' : 'degraded',
@@ -1803,6 +1811,11 @@ async function buildHealthResponse(serviceName, sharedSpacesState = 'disabled') 
     alpha_vantage: 'not_configured',
     redis: 'not_available',
     shared_spaces: sharedSpacesState,
+    // Vincent's engine runs in process (technical_engine/, spec D1) — its
+    // version comes straight from his own config, not duplicated here.
+    technical_engine: technicalEngineVersion,
+    yahoo_chart: yahooChartReachable ? 'reachable' : 'unreachable',
+    fear_greed: fearGreedReachable ? 'reachable' : 'unreachable',
   }
 
   const result = {
