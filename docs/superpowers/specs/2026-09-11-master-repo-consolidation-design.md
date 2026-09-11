@@ -81,8 +81,10 @@ path is proven in QA. Then it is removed.
 
 ### 4.2 Layer 2 — Fundamentals (minority)
 
-- Source: Ryan's existing fundamental signals (EPS surprise, analyst ratings, PE
-  percentile, 13F, and the rest) via the existing category vote.
+- Source: Ryan's fundamental signals (EPS surprise, analyst revisions, PE percentile),
+  voted exactly as `analyst_service/core/signals.py` votes them. Before this work the
+  Worker emitted only PE, so the layer had almost nothing to vote with. Fixed in
+  `buildFundamentalSignals` (a signal with no data does not vote).
 - Stance: `supportive` (fundamental vote leans BUY), `neutral`, `weak` (leans SELL), or
   `unavailable` (fewer than 2 fundamental signals).
 - Rule — asymmetric, downgrade only, buy family only, **mid and long horizons only**:
@@ -124,7 +126,8 @@ never tuned):
 - **E3 relative trend:** the ratio line (stock ÷ B) is above its own 200-day average.
 
 Per-benchmark result: `beats` when at least 2 of E1–E3 are true, `lags` when at least 2
-are false, `insufficient_data` when fewer than 2 can be computed.
+are false, `insufficient_data` when fewer than 2 can be computed, and `mixed` when exactly
+2 can be computed and they split 1–1. Only `beats` passes.
 
 Stock-level earnings guard: if the latest EPS surprise is negative **and** the analyst
 recommendation trend is deteriorating, the hurdle fails with `earnings_deteriorating`.
@@ -244,3 +247,7 @@ consumed 2023–2024 forecast holdout is not touched. Survivorship bias is state
 - Import Vincent's upstream commit `807a25e` (company-profile classifier)? Not imported (D6).
 - Fundamentals on Short: excluded by design (4.2). Change if you disagree.
 - Industry ETF map breadth: start with ~25 ETFs. Extend by editing config only.
+- Worker PE is always null: it reads `trailingPE`/`forwardPE`, the provider sends
+  `trailingPe`/`forwardPe`. Not fixed on purpose: the fix would switch on
+  `estimatePePercentile`, an absolute-PE mapping that breaks the repo's
+  self-5y-percentile invariant. A real 5-year PE history is needed first.
