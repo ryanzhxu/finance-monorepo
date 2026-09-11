@@ -223,6 +223,26 @@ export interface ConsolidatedDecision {
   data_quality: { daily?: string; four_hour?: string; one_hour?: string; market?: number } | null
 }
 
+/** One `/decisions` board row: a successful consolidated decision or a per-symbol failure. */
+export interface DecisionRowOk {
+  symbol: string
+  company_name?: string | null
+  current_price: number | null
+  consolidated_decision: ConsolidatedDecision
+  error?: undefined
+}
+
+export interface DecisionRowError {
+  symbol: string
+  error: { code: string; message: string; status?: number }
+}
+
+export type DecisionRow = DecisionRowOk | DecisionRowError
+
+export interface DecisionsResponse {
+  results: DecisionRow[]
+}
+
 export interface AnalysisResponse {
   symbol: string
   company_name?: string | null

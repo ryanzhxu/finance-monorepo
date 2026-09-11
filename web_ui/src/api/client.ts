@@ -2,6 +2,7 @@ import axios from 'axios'
 import type {
   AnalysisResponse,
   AnalystHealthResponse,
+  DecisionsResponse,
   EntryConfluenceResponse,
   ScreenResponse,
   SharedSpaceSessionResponse,
@@ -119,6 +120,15 @@ export async function fetchAnalyzeBundle(symbol: string, signal?: AbortSignal): 
       fetchEntryConfluence(symbol, undefined, signal),
     ])
     return { analysis, confluence }
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
+export async function fetchDecisions(symbols: string[], signal?: AbortSignal): Promise<DecisionsResponse> {
+  try {
+    const response = await analystClient.post<DecisionsResponse>('/decisions', { symbols }, { signal })
+    return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error), { cause: error })
   }
