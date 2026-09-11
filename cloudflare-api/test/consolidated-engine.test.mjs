@@ -128,6 +128,20 @@ test('market context carries VIX, 10Y, SPY and QQQ, and a blocked fear/greed sta
   assert.equal(context.fear_greed.value, null)
 })
 
+test('fear/greed reports its score, label and trend when CNN succeeds, matching server.py', async () => {
+  const fetchImpl = async (url) => {
+    const parsed = new URL(url)
+    if (parsed.hostname.includes('cnn.io')) {
+      return new Response(JSON.stringify({ fear_and_greed: { score: 62, previous_close: 55 } }))
+    }
+    return mockYahoo(url)
+  }
+  const { market_context: context } = await loadMarketContext({ fetchImpl })
+  assert.equal(context.fear_greed.value, 62)
+  assert.equal(context.fear_greed.label, 'Greed')
+  assert.equal(context.fear_greed.trend, 'rising', 'a 7-point rise over the previous close is a rising trend')
+})
+
 test("Vincent's engine runs in process and decides all three horizons from native 4h, 1h and daily bars", async () => {
   const result = await runTechnicalEngine('NVDA', { fetchImpl: async (url) => mockYahoo(url) })
   assert.equal(result.producer, 'vincent-stock-decision-dashboard')
