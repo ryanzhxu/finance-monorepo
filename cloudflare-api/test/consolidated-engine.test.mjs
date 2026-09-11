@@ -9,7 +9,7 @@ import {
   seriesChange,
   validateNativeFourHour,
 } from '../src/consolidated/market-data.js'
-import { decideTechnical, runTechnicalEngine } from '../src/consolidated/technical-engine.js'
+import { decideTechnical, horizonSummary, runTechnicalEngine } from '../src/consolidated/technical-engine.js'
 import { runConsolidated } from '../src/consolidated/pipeline.js'
 import { verdictFromExternal } from '../src/technical-provider.js'
 
@@ -180,6 +180,24 @@ test('the technical engine exposes a compact technical-details subset per horizo
   assert.ok(['very_low', 'low', 'normal', 'elevated', 'high', 'extreme'].includes(result.marketStructure.relative_volume.state))
   assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.high))
   assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.low))
+})
+
+test("a horizon his engine did not populate reports unavailable with no fake price landscape, not a crash", () => {
+  // decision.horizons can legitimately be missing a key (insufficient data for
+  // just that horizon) without decideTechnical throwing - this is the branch
+  // final-decision.js's composeHorizon relies on to add a `technical_unavailable`
+  // adjustment and hold, so it must degrade cleanly rather than assume `value`.
+  const decision = { horizons: { short: { action: 'hold', confidence: 50, priceLandscape: {}, debug: { priceState: 'NEUTRAL_ZONE' }, reasons: { supporting: [] } } } }
+  const summary = horizonSummary(decision, 'mid', 123.45)
+  assert.equal(summary.available, false)
+  assert.equal(summary.action, null)
+  assert.equal(summary.confidence, null)
+  assert.equal(summary.price_state, 'INVALID_LANDSCAPE')
+  assert.equal(summary.opportunity_range, null)
+  assert.equal(summary.reduce_range, null)
+  assert.equal(summary.invalidation, null)
+  assert.equal(summary.current_price, 123.45)
+  assert.deepEqual(summary.reasons, ['Horizon unavailable'])
 })
 
 test("a leveraged/inverse ETF feeds Vincent's engine its underlying's technical features and price", async () => {
