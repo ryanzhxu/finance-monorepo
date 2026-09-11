@@ -11,6 +11,8 @@ import type {
   TrackRecordPerformance,
   TrackRecordTimeline,
 } from '../api/types'
+import { formatDirection, formatEntryAssessment } from '../formatters'
+import type { Locale } from '../i18n'
 import { useI18n } from '../i18n'
 
 function formatDate(value: string | null | undefined, locale: string): string {
@@ -77,17 +79,19 @@ function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBu
   )
 }
 
-function TimelineRow({ entry, locale }: { entry: TrackRecordEntry; locale: string }) {
+function TimelineRow({ entry, locale }: { entry: TrackRecordEntry; locale: Locale }) {
   const { t } = useI18n()
   return (
     <tr className="border-t border-slate-100 dark:border-slate-800">
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
         {formatDate(entry.generated_at, locale)}
       </td>
-      <td className="py-2 pr-3 font-medium text-slate-900 dark:text-slate-100">{entry.direction}</td>
+      <td className="py-2 pr-3 font-medium text-slate-900 dark:text-slate-100">
+        {formatDirection(entry.direction, locale)}
+      </td>
       <td className="py-2 pr-3 tabular-nums">{formatPercent(entry.confidence)}</td>
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-        {entry.entry_assessment ?? '—'}
+        {formatEntryAssessment(entry.entry_assessment, locale)}
       </td>
       <td className="py-2 pr-3 tabular-nums">{formatPrice(entry.price_at_call)}</td>
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{entry.target_window}</td>

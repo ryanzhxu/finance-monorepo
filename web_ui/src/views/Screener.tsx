@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchDemandShockScreen, fetchTrendingScreen, fetchUndervaluedScreen } from '../api/client'
 import type { ScreenResultItem, TrendingResultItem } from '../api/types'
-import { formatDirection } from '../formatters'
+import { formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n } from '../i18n'
 
 type ScreenerProps = {
@@ -196,7 +196,9 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                         {row.confidence == null ? '—' : `${(row.confidence * 100).toFixed(1)}%`}
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        {row.heldByIndexHurdle ? t('screenerHeldByHurdle') : row.entryAssessment ?? '—'}
+                        {row.heldByIndexHurdle
+                          ? t('screenerHeldByHurdle')
+                          : formatEntryAssessment(row.entryAssessment, locale)}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{row.dataQuality ?? '—'}</td>
                       <td className="px-4 py-3">
