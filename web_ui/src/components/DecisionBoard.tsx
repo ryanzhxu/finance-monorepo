@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { fetchDecisions } from '../api/client'
 import type { ConsolidatedHorizon, DecisionRow } from '../api/types'
 import { useI18n, type MessageKey } from '../i18n'
@@ -50,6 +50,34 @@ const STATUS_TONE: Record<string, string> = {
   fail: 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-200',
   not_applicable: NEUTRAL_TONE,
   unavailable: NEUTRAL_TONE,
+}
+
+// Sort order for the Decision Board: final buys first, then hold, then
+// trim/sell/avoid. A row still loading or with no final action yet sorts
+// after every resolved action but before an outright fetch error, so it does
+// not jump ahead of a row we already know is a hold or worse.
+const BUY_ACTIONS = new Set(['strong_buy', 'buy', 'accumulate'])
+const TRIM_OR_WORSE_ACTIONS = new Set(['trim', 'sell', 'avoid'])
+const RANK_UNRESOLVED = 3
+const RANK_ERROR = 4
+
+function actionRank(row: DecisionRow | undefined): number {
+  if (!row) return RANK_UNRESOLVED
+  if (row.error) return RANK_ERROR
+  const action = row.consolidated_decision.horizons.mid.final_action
+  if (action == null) return RANK_UNRESOLVED
+  if (BUY_ACTIONS.has(action)) return 0
+  if (TRIM_OR_WORSE_ACTIONS.has(action)) return 2
+  return 1 // hold
+}
+
+// A row still loading passes the filter provisionally so it does not vanish
+// and reappear once its data arrives.
+function passesIndexHurdle(row: DecisionRow | undefined): boolean {
+  if (!row) return true
+  if (row.error) return false
+  const status = row.consolidated_decision.index_hurdle?.status ?? 'unavailable'
+  return status === 'pass' || status === 'not_applicable'
 }
 
 const money = (value: number | null | undefined): string =>
@@ -162,12 +190,22 @@ function DecisionRowView({ row, onSelectSymbol }: { row: DecisionRow; onSelectSy
  * action (Vincent's own action struck through when the final one differs),
  * the index hurdle chip, and the fundamentals stance. Fetches `/decisions` in
  * chunks of CHUNK_SIZE symbols, matching the Worker's subrequest budget, and
- * renders each row as soon as its chunk resolves.
+ * renders each row as soon as its chunk resolves. Rows sort buy-first, then
+ * hold, then trim/sell/avoid (by the mid horizon's final action), with an
+ * optional toggle to show only rows that pass the index hurdle.
  */
 export function DecisionBoard({ symbols, onSelectSymbol }: DecisionBoardProps) {
   const { t } = useI18n()
   const [rows, setRows] = useState<Record<string, DecisionRow>>({})
+  const [hurdleOnly, setHurdleOnly] = useState(false)
   const key = symbols.join('|')
+
+  // Stable sort: ties keep the input order, so a symbol's position only moves
+  // once its own chunk resolves, not because some other row's data arrived.
+  const orderedSymbols = useMemo(() => {
+    const visible = hurdleOnly ? symbols.filter((symbol) => passesIndexHurdle(rows[symbol])) : symbols
+    return [...visible].sort((a, b) => actionRank(rows[a]) - actionRank(rows[b]))
+  }, [symbols, rows, hurdleOnly])
 
   useEffect(() => {
     setRows({})
@@ -206,39 +244,58 @@ export function DecisionBoard({ symbols, onSelectSymbol }: DecisionBoardProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0d0f14]">
-      <table className="w-full min-w-[720px] text-left text-[12px]">
-        <thead className="text-slate-500 dark:text-slate-400">
-          <tr>
-            <th className="px-3 py-2 font-medium">{t('symbol')}</th>
-            <th className="px-3 py-2 font-medium">{t('currentPrice')}</th>
-            {HORIZONS.map(({ key: horizonKey, title }) => (
-              <th key={horizonKey} className="px-3 py-2 font-medium">
-                {t(title)}
-              </th>
-            ))}
-            <th className="px-3 py-2 font-medium">{t('indexHurdle')}</th>
-            <th className="px-3 py-2 font-medium">{t('fundamentals')}</th>
-            <th className="px-3 py-2 font-medium">{t('actions')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-          {symbols.map((symbol) => {
-            const row = rows[symbol]
-            if (!row) {
-              return (
-                <tr key={symbol}>
-                  <td className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">{symbol}</td>
-                  <td colSpan={7} className="px-3 py-2 text-[11px] text-slate-400 dark:text-slate-500">
-                    {t('decisionBoardLoading')}
-                  </td>
-                </tr>
-              )
-            }
-            return <DecisionRowView key={symbol} row={row} onSelectSymbol={onSelectSymbol} />
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-2">
+      <label className="flex w-fit items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+        <input
+          type="checkbox"
+          checked={hurdleOnly}
+          onChange={(event) => setHurdleOnly(event.target.checked)}
+          className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-600"
+        />
+        {t('decisionBoardHurdleFilter')}
+      </label>
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0d0f14]">
+        <table className="w-full min-w-[720px] text-left text-[12px]">
+          <thead className="text-slate-500 dark:text-slate-400">
+            <tr>
+              <th className="px-3 py-2 font-medium">{t('symbol')}</th>
+              <th className="px-3 py-2 font-medium">{t('currentPrice')}</th>
+              {HORIZONS.map(({ key: horizonKey, title }) => (
+                <th key={horizonKey} className="px-3 py-2 font-medium">
+                  {t(title)}
+                </th>
+              ))}
+              <th className="px-3 py-2 font-medium">{t('indexHurdle')}</th>
+              <th className="px-3 py-2 font-medium">{t('fundamentals')}</th>
+              <th className="px-3 py-2 font-medium">{t('actions')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {orderedSymbols.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-2 text-[11px] text-slate-400 dark:text-slate-500">
+                  {t('decisionBoardEmpty')}
+                </td>
+              </tr>
+            ) : (
+              orderedSymbols.map((symbol) => {
+                const row = rows[symbol]
+                if (!row) {
+                  return (
+                    <tr key={symbol}>
+                      <td className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">{symbol}</td>
+                      <td colSpan={7} className="px-3 py-2 text-[11px] text-slate-400 dark:text-slate-500">
+                        {t('decisionBoardLoading')}
+                      </td>
+                    </tr>
+                  )
+                }
+                return <DecisionRowView key={symbol} row={row} onSelectSymbol={onSelectSymbol} />
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
