@@ -3,6 +3,13 @@ import { useI18n, type MessageKey } from '../i18n'
 
 type TechnicalSourceBadgeProps = {
   recommendation: Recommendation
+  /**
+   * When a consolidated decision is present, `technical_agreement` compares
+   * Vincent's verdict against Ryan's retired local technicals — a comparison
+   * that no longer means anything under spec D1, so the agreement badge is
+   * hidden rather than shown as confusing noise.
+   */
+  hideAgreement?: boolean
 }
 
 const PRICE_STATE_KEYS: Record<string, MessageKey> = {
@@ -24,7 +31,7 @@ const PRICE_STATE_KEYS: Record<string, MessageKey> = {
  * what makes it believable. This surfaces that, rather than leaving it buried in
  * the response body.
  */
-export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgeProps) {
+export function TechnicalSourceBadge({ recommendation, hideAgreement }: TechnicalSourceBadgeProps) {
   const { t } = useI18n()
   const source = recommendation.technical_source
   const rejected = recommendation.risk_flags.includes('external_technical_rejected')
@@ -85,9 +92,11 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
         {t('technicalsLabel')}: {producer}
         {priceState ? ` · ${PRICE_STATE_KEYS[priceState] ? t(PRICE_STATE_KEYS[priceState]) : priceState.toLowerCase().replace(/_/g, ' ')}` : ''}
       </span>
-      <span className={`rounded-full px-3 py-1 text-sm font-semibold ${agreementTone}`}>
-        {agreementLabel}
-      </span>
+      {hideAgreement ? null : (
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${agreementTone}`}>
+          {agreementLabel}
+        </span>
+      )}
     </span>
   )
 }

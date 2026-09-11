@@ -1133,7 +1133,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     >
                       {formatDirection(analysis!.recommendation.direction, locale)}
                     </span>
-                    <TechnicalSourceBadge recommendation={analysis!.recommendation} />
+                    <TechnicalSourceBadge
+                      recommendation={analysis!.recommendation}
+                      hideAgreement={Boolean(analysis!.consolidated_decision)}
+                    />
                     <button
                       type="button"
                       disabled={isInWatchlist}
