@@ -55,7 +55,17 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBucket[] }) {
+function BucketTable({
+  title,
+  buckets,
+  locale,
+  formatLabel,
+}: {
+  title: string
+  buckets: PerformanceBucket[]
+  locale: Locale
+  formatLabel?: (label: string, locale: Locale) => string
+}) {
   const { t } = useI18n()
   if (buckets.length === 0) return null
   return (
@@ -67,7 +77,9 @@ function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBu
             key={bucket.label}
             className="flex items-center justify-between gap-4 text-sm text-slate-700 dark:text-slate-300"
           >
-            <span className="font-medium">{bucket.label}</span>
+            <span className="font-medium">
+              {formatLabel ? formatLabel(bucket.label, locale) : bucket.label}
+            </span>
             <span className="tabular-nums text-slate-500 dark:text-slate-400">
               {formatPercent(bucket.hit_rate)} · {bucket.evaluated_count}/{bucket.decision_count}{' '}
               {t('evaluatedCount').toLowerCase()}
@@ -289,9 +301,19 @@ export default function TrackRecord() {
                 value={formatPercent(performance.average_benchmark_relative_return)}
               />
             </div>
-            <BucketTable title={t('byDirection')} buckets={performance.by_direction} />
-            <BucketTable title={t('byConfidence')} buckets={performance.by_confidence} />
-            <BucketTable title={t('byEntryAssessment')} buckets={performance.by_entry_assessment} />
+            <BucketTable
+              title={t('byDirection')}
+              buckets={performance.by_direction}
+              locale={locale}
+              formatLabel={formatDirection}
+            />
+            <BucketTable title={t('byConfidence')} buckets={performance.by_confidence} locale={locale} />
+            <BucketTable
+              title={t('byEntryAssessment')}
+              buckets={performance.by_entry_assessment}
+              locale={locale}
+              formatLabel={formatEntryAssessment}
+            />
             {performance.advisory.length > 0 ? (
               <div>
                 <p className={labelClass}>{t('advisoryLabel')}</p>
