@@ -1,5 +1,5 @@
 import type { Recommendation } from '../api/types'
-import { formatDirection } from '../formatters'
+import { formatDimension, formatDirection } from '../formatters'
 import { useI18n } from '../i18n'
 
 type SupportingContextPanelProps = {
@@ -50,7 +50,7 @@ export function SupportingContextPanel({ recommendation }: SupportingContextPane
             key={signal.dimension}
             className="flex items-center justify-between gap-3 text-[12px] text-slate-700 dark:text-slate-300"
           >
-            <span className="truncate">{signal.dimension}</span>
+            <span className="truncate">{formatDimension(signal.dimension, locale)}</span>
             <span className="shrink-0 tabular-nums">
               {formatDirection(signal.signal, locale)} · {signal.note}
             </span>
