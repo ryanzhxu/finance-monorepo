@@ -28,6 +28,7 @@ def assess_buyability(
             confidence=round(trend_result.confidence * 0.85, 4),
             reason="Analyst unavailable; trend and sentiment available but technical confirmation is missing.",
             risk_flags=sorted(set([*trend_result.risk_flags, "low_data_quality"])),
+            master_direction=None,
         )
 
     technical_state = _technical_state(analysis)
@@ -47,6 +48,11 @@ def assess_buyability(
         confidence=round(min(trend_result.confidence, analysis.confidence), 4),
         reason=reason,
         risk_flags=sorted(set([*trend_result.risk_flags, *analysis.recommendation.risk_flags])),
+        # The master algorithm's own call — Vincent's technical engine plus
+        # Ryan's other layers — carried through unchanged. technical_state
+        # above stays a local read of raw indicators for the entry-assessment
+        # table; this is the one place that reports what the full engine said.
+        master_direction=analysis.recommendation.direction,
     )
 
 

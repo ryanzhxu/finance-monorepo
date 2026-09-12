@@ -80,6 +80,39 @@ def test_assess_buyability_returns_none_assessment_when_analyst_is_missing() -> 
     assert result.entry_assessment is None
     assert result.technical_state == TechnicalState.NEUTRAL
     assert "Analyst unavailable" in result.reason
+    assert result.master_direction is None
+
+
+def test_assess_buyability_carries_the_master_algorithms_own_direction() -> None:
+    trend = TrendingResultItem(
+        symbol="NVDA",
+        mention_count_24h=8,
+        mention_count_3d=15,
+        mention_count_5d=20,
+        mention_growth_3d_pct=100.0,
+        mention_growth_5d_pct=80.0,
+        baseline_daily_mentions_30d=2.0,
+        acceleration=3.0,
+        sentiment_score=0.3,
+        sentiment_change=0.1,
+        pos_neu_neg_ratio=[0.6, 0.3, 0.1],
+        retail_fomo_risk=15.0,
+        news_catalyst="analyst_upgrade",
+        trend_quality=TrendQuality.NEWS_DRIVEN,
+        institutional_account_participation=0.3,
+        data_freshness={"news": Freshness.DELAYED.value},
+        data_quality_score=80,
+        confidence=0.7,
+        risk_flags=[],
+        reason="trend",
+        score_breakdown={"trend_score": 72.0},
+    )
+
+    result = assess_buyability("NVDA", trend, None, _analysis(entry_assessment=EntryAssessment.BUY_NOW))
+
+    # _technical_state() reads raw indicators for the entry-assessment table;
+    # master_direction is the separate, unmodified call the full engine made.
+    assert result.master_direction == Direction.BUY
 
 
 def _analysis(entry_assessment: EntryAssessment) -> AnalyzeResponse:
