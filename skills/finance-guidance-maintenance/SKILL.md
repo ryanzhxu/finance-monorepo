@@ -1,6 +1,6 @@
 ---
 name: finance-guidance-maintenance
-description: Use when refreshing AGENTS.md, repo skills, README guidance, or other agent-facing docs in finance-monorepo. Covers inspecting current repo state, verifying documented commands, and keeping AGENTS concise while moving repeatable workflows into skills.
+description: Use when refreshing CLAUDE.md, repo skills, README guidance, or other agent-facing docs in finance-monorepo. Covers inspecting current repo state, verifying documented commands, and keeping CLAUDE.md concise while moving repeatable workflows into skills.
 ---
 
 # Finance Guidance Maintenance
@@ -10,9 +10,9 @@ Use this skill when the task is to refresh repo guidance for future Codex sessio
 ## Workflow
 
 1. Inspect current repo state before editing docs: `git status`, current branch, recent commits, manifests, `cloudflare-api/wrangler.toml`, active app directories, tests, and existing skills.
-2. Read `AGENTS.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, relevant package manifests, and any Claude guidance as secondary context.
+2. Read `CLAUDE.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, relevant package manifests, and any other Claude guidance as secondary context.
 3. Trust current code and deploy wiring over older docs. Call out mismatches instead of copying stale text forward.
-4. Keep `AGENTS.md` short. Put repeatable workflows and caveats into `skills/*/SKILL.md`.
+4. Keep `CLAUDE.md` focused. Put repeatable workflows and caveats into `skills/*/SKILL.md`.
 5. Update only the docs future sessions will realistically read first: root guidance, relevant skills, and clearly misleading feature README or agent files.
 6. Verify the commands you document. If a command is blocked by sandbox, auth, or network, record the caveat instead of presenting it as reliable.
 7. Avoid product code changes unless they are truly required to validate or clarify the guidance.

@@ -63,9 +63,9 @@ Vincent's test-fixture fix; CI running Vincent's tests.
    `TECHNICAL_ENGINE` binding at the `decision-v1` Worker. Switch the top-level
    config to `CONSOLIDATED_DECISION = "on"` and drop the binding, so a future
    merge serves the consolidated decision. Update the tests that pin the config.
-7. **Docs for the one-repo layout**: README, AGENTS.md, CLAUDE.md (its test count
-   is stale), and a short `technical_engine/README` note that the directory is
-   Vincent's app imported with history from the local clone.
+7. **Docs for the one-repo layout**: README, CLAUDE.md (AGENTS.md is now merged
+   into it; its test count is stale), and a short `technical_engine/README` note
+   that the directory is Vincent's app imported with history from the local clone.
 8. **UI quality** on the Final Decision panel: mobile layout, a readable "why"
    line per horizon (Vincent's top reasons), empty and error states.
 9. Fix a reproducible correctness bug, with a failing test written first.
