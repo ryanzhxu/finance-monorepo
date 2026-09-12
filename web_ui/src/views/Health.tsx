@@ -175,14 +175,12 @@ function Health() {
   const analystQuery = useQuery({
     queryKey: ['health', 'analyst'],
     queryFn: fetchAnalystHealth,
-    refetchInterval: 30000,
     refetchOnWindowFocus: false,
   })
 
   const screenerQuery = useQuery({
     queryKey: ['health', 'screener'],
     queryFn: fetchScreenerHealth,
-    refetchInterval: 30000,
     refetchOnWindowFocus: false,
   })
 
