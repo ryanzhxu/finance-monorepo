@@ -2,11 +2,14 @@ name: CI
 
 # Runs on every pull request and on pushes to main. This is the check the
 # branch ruleset requires, so a pull request cannot merge until it is green.
+# Also callable as a reusable workflow (workflow_call) - promote-to-prod.yml
+# re-runs this same check before cutting a release branch.
 on:
   pull_request:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

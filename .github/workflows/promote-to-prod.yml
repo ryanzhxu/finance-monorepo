@@ -1,0 +1,79 @@
+name: Promote to Production
+
+# One-click release cut: re-runs CI against main, and only if it passes,
+# creates release/YYYYMMDD from main's current tip and dispatches
+# deploy-prod.yml against that branch. deploy-prod.yml still requires manual
+# approval on the "production" environment before anything actually ships -
+# this workflow only prepares and queues that run. See docs/release-process.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  cut-release:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      branch: ${{ steps.cut.outputs.branch }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create or reuse release branch
+        id: cut
+        run: |
+          set -euo pipefail
+          branch="release/$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            existing_sha=$(git rev-parse "origin/$branch" 2>/dev/null || git ls-remote origin "$branch" | cut -f1)
+            main_sha=$(git rev-parse HEAD)
+            if [ "$existing_sha" = "$main_sha" ]; then
+              echo "::notice title=Release branch::$branch already exists and matches main's tip - reusing it."
+            else
+              echo "::error title=Release branch conflict::$branch already exists and points at a different commit ($existing_sha, main is at $main_sha). Delete or rename it, then re-run this workflow."
+              exit 1
+            fi
+          else
+            git switch -c "$branch"
+            git push origin "$branch"
+          fi
+
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+  trigger-deploy:
+    needs: cut-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch Deploy Production
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ needs.cut-release.outputs.branch }}
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-prod.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          {
+            echo "### Release $BRANCH queued for production"
+            echo
+            echo "CI passed and \`$BRANCH\` was cut from main. \"Deploy Production\" has been"
+            echo "dispatched against it and is waiting on the \`production\` environment's"
+            echo "manual approval - approve it here:"
+            echo
+            echo "https://github.com/$GITHUB_REPOSITORY/actions/workflows/deploy-prod.yml"
+          } >> "$GITHUB_STEP_SUMMARY"
