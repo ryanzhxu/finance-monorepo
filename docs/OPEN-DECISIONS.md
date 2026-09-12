@@ -102,5 +102,28 @@ evaluation is `1M`. If the shared use case is "hold at least a quarter", the def
 horizon should probably be `3-6M`, and the track-record report should lead with the
 3M column rather than 1M.
 
+---
+
+## 5. Real options-chain data sits unused in Vincent's repo
+
+**Status: open, not yet raised with Vincent.**
+
+Sourced from a 2026-09-11 code audit of his local fork, not the WeChat thread — flag
+this to him before acting on it.
+
+Vincent's `server.py` computes real options-chain analytics: gamma exposure,
+expected move, and IV sampled near moneyness (`fetch_us_options_market`,
+`_aggregate_option_metrics`, `_build_options_expected_move_payload`). None of it
+feeds his `decision.v1` verdict — his own rule that fundamental, valuation, options,
+and news data must never enter a recommendation keeps it display-only on his side.
+
+Ryan's side (`analyst_service/core/sentiment.py`) only approximates IV rank from
+historical volatility (`iv_rank_approx`), already flagged in this repo's own
+CLAUDE.md as "HV-based approximation only." Real options data would retire that gap.
+
+The same audit checked his news scoring, macro/FOMC summary, and earnings countdown;
+each already has a Ryan-side equivalent from a different provider, so options data is
+the one thing here worth raising with him.
+
 Cheap to change, but it changes what every past recommendation is scored against, so
 it should be a decision rather than a drive-by edit.

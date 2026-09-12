@@ -1656,7 +1656,41 @@ async function applyScreenerHurdle(results, quoteFor = (row) => row.components?.
   }
 }
 
-async function buildScreenResponse(screenType, requestBody) {
+// The master algorithm's own call for a screener row — Vincent's technical
+// engine plus Ryan's other layers, the same recommendation Analyze shows —
+// mirroring analyst_service's `_attach_buyability` (which pulls it from
+// `/analyze` for the same screen type and flag). Costs roughly what one
+// `/decisions` symbol costs (~7-18 fetches per DECISIONS_MAX_SYMBOLS above),
+// so it stays opt-in (`include_analysis`), opportunities-only, and capped to
+// a small top slice rather than the full result set.
+const SCREENER_MASTER_ALGORITHM_LIMIT = 3
+
+async function applyMasterAlgorithm(results, screenType, requestBody, env) {
+  const shouldRun = screenType === 'opportunities' && requestBody?.include_analysis === true
+  const candidates = shouldRun ? results.slice(0, SCREENER_MASTER_ALGORITHM_LIMIT) : []
+  await Promise.all(
+    candidates.map(async (row) => {
+      try {
+        const analysis = await buildAnalyze(row.symbol, { includeNarrative: false, env })
+        row.master_direction = analysis.recommendation.direction
+        row.master_confirms = row.master_direction === row.recommendation
+      } catch {
+        row.master_direction = null
+        row.master_confirms = null
+      }
+    }),
+  )
+  // Beyond the evaluation cap, or when not run at all: report unavailable
+  // rather than omitting the field, matching analyst_service's Recommendation
+  // fields (always present, null when not applicable).
+  for (const row of results) {
+    if (row.master_direction !== undefined) continue
+    row.master_direction = null
+    row.master_confirms = null
+  }
+}
+
+async function buildScreenResponse(screenType, requestBody, env = {}) {
   const universeName = normalizeUniverse(requestBody?.universe)
   const tickers = Array.isArray(requestBody?.tickers) && requestBody.tickers.length > 0
     ? requestBody.tickers.map(normalizeSymbol)
@@ -1680,6 +1714,7 @@ async function buildScreenResponse(screenType, requestBody) {
     .map((result, index) => ({ ...result, rank: index + 1 }))
 
   await applyScreenerHurdle(results)
+  await applyMasterAlgorithm(results, screenType, requestBody, env)
 
   const averageConfidence =
     results.length === 0 ? 0.5 : round(results.reduce((sum, item) => sum + item.confidence, 0) / results.length, 2)
@@ -1925,7 +1960,7 @@ async function handleScreenRoute(pathname, request, env = {}) {
             : pathname === '/screen/custom'
               ? 'custom'
               : 'undervalued'
-    return jsonCors(await buildScreenResponse(screenType, body))
+    return jsonCors(await buildScreenResponse(screenType, body, env))
   }
   if (pathname === '/screen/trending') {
     return jsonCors(await buildTrendingResponse(body))
@@ -2534,6 +2569,8 @@ export const __testOnly = {
   buildRecommendation,
   buildFundamentalSignals,
   applyScreenerHurdle,
+  applyMasterAlgorithm,
+  buildScreenResponse,
   normalizeSymbol,
 }
 

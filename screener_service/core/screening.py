@@ -148,6 +148,10 @@ async def _attach_buyability(results: list[ScreenResultItem], trend_map: dict[st
         item.risk_flags = sorted(set([*item.risk_flags, *buyability.risk_flags]))
         item.reason = f"{item.reason} {buyability.reason}"
         item.summary = item.reason
+        item.master_direction = buyability.master_direction
+        item.master_confirms = (
+            item.master_direction == item.recommendation if item.master_direction is not None else None
+        )
 
 
 async def _attach_trending_buyability(results: list[object], request: TrendingScreenRequest) -> None:

@@ -422,6 +422,12 @@ export interface ScreenResultItem {
   recommendation?: Direction | null
   entry_assessment?: string | null
   ideal_buy_zone?: [number, number] | null
+  // The master algorithm's own call for this symbol — Vincent's technical
+  // engine plus Ryan's other layers, the same recommendation Analyze shows.
+  // Only populated for the opportunities screen with include_analysis on a
+  // small top slice (subrequest budget); null everywhere else.
+  master_direction?: Direction | null
+  master_confirms?: boolean | null
   summary?: string | null
   revenue_accel_pct?: number | null
   analyst_upgrades_30d?: number | null

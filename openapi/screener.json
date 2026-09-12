@@ -60,6 +60,16 @@
             ],
             "title": "Ideal Buy Zone"
           },
+          "master_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -544,6 +554,27 @@
               }
             ],
             "title": "Margin Expansion Bps"
+          },
+          "master_confirms": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Master Confirms"
+          },
+          "master_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "momentum_score": {
             "maximum": 100.0,
