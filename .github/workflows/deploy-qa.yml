@@ -1,11 +1,14 @@
 name: Deploy QA
 
-# The consolidation branch deploys to QA only: the finance-api-qa Worker and the
-# finance-web-ui-qa site at https://stock.qa.ryanxu.dev. It never runs for main
-# and never touches the production Worker or Pages project.
+# main is the trunk: every merge to main deploys straight to QA (the
+# finance-api-qa Worker and the finance-web-ui-qa site at
+# https://stock.qa.ryanxu.dev), so QA always reflects the tip of main. It
+# never touches the production Worker or Pages project - production only
+# ships from deploy-prod.yml, run manually against a release/* branch cut
+# from main. See docs/release-process.md.
 on:
   push:
-    branches: [consolidation/master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
