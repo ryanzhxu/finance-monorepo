@@ -9,7 +9,7 @@ Use this skill for feature work, refactors, and bug fixes in this repo.
 
 ## Workflow
 
-1. Read the source of truth first: `AGENTS.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, `cloudflare-api/wrangler.toml`, the relevant `pyproject.toml`, and the files in the area you are touching.
+1. Read the source of truth first: `CLAUDE.md`, `README.md`, `MARKET_OPPORTUNITY_SYSTEM_SPEC.md`, `cloudflare-api/wrangler.toml`, the relevant `pyproject.toml`, and the files in the area you are touching.
 2. Confirm whether the change belongs in `shared/`, `analyst_service/`, `screener_service/`, `web_ui/`, `backtesting/`, or repo wiring. `execution_engine/` and `portfolio_dashboard/` are still placeholders.
 3. Keep deterministic backend logic in `core/` modules and avoid hardcoded weights or thresholds when a YAML config already exists.
 4. Keep the analyst/screener boundary intact. `screener_service` may call `analyst_service`; analyst should not call screener, UI, or placeholder directories.
