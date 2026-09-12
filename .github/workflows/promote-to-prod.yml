@@ -1,10 +1,11 @@
 name: Promote to Production
 
 # One-click release cut: re-runs CI against main, and only if it passes,
-# creates release/YYYYMMDD from main's current tip and dispatches
-# deploy-prod.yml against that branch. deploy-prod.yml still requires manual
-# approval on the "production" environment before anything actually ships -
-# this workflow only prepares and queues that run. See docs/release-process.md.
+# creates release/YYYYMMDD (America/Los_Angeles calendar date) from main's
+# current tip and dispatches deploy-prod.yml against that branch.
+# deploy-prod.yml still requires manual approval on the "production"
+# environment before anything actually ships - this workflow only prepares
+# and queues that run. See docs/release-process.md.
 on:
   workflow_dispatch:
 
@@ -32,9 +33,11 @@ jobs:
 
       - name: Create or reuse release branch
         id: cut
+        env:
+          TZ: America/Los_Angeles
         run: |
           set -euo pipefail
-          branch="release/$(date -u +%Y%m%d)"
+          branch="release/$(date +%Y%m%d)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 

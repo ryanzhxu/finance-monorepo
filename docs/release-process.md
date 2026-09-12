@@ -18,17 +18,18 @@ Trunk-based development with a cut release branch. Three stages:
 
 Run **Promote to Production** (`promote-to-prod.yml`) from the Actions tab.
 It re-runs CI against main, and only if that passes, creates
-`release/YYYYMMDD` (UTC date) from main's current tip and dispatches
-**Deploy Production** against it. Approve the `production` environment gate
-when GitHub prompts - that's the only manual step.
+`release/YYYYMMDD` (America/Los_Angeles calendar date) from main's current
+tip and dispatches **Deploy Production** against it. Approve the
+`production` environment gate when GitHub prompts - that's the only manual
+step.
 
 To cut a release branch by hand instead (e.g. CI already ran and you just
 want the branch):
 
 ```
 git fetch origin main
-git switch -c release/$(date -u +%Y%m%d) origin/main
-git push -u origin release/$(date -u +%Y%m%d)
+git switch -c release/$(TZ=America/Los_Angeles date +%Y%m%d) origin/main
+git push -u origin release/$(TZ=America/Los_Angeles date +%Y%m%d)
 ```
 
 Then, in GitHub Actions, run "Deploy Production" with that branch selected
