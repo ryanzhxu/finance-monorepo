@@ -1505,6 +1505,38 @@
             "title": "Conflict Detected",
             "type": "boolean"
           },
+          "conflict_fundamental_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conflict_fundamental_supporters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Fundamental Supporters"
+          },
+          "conflict_fundamental_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Fundamental Total"
+          },
           "conflict_summary": {
             "anyOf": [
               {
@@ -1515,6 +1547,38 @@
               }
             ],
             "title": "Conflict Summary"
+          },
+          "conflict_technical_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conflict_technical_supporters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Technical Supporters"
+          },
+          "conflict_technical_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Technical Total"
           },
           "direction": {
             "$ref": "#/components/schemas/Direction"

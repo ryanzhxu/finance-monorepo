@@ -385,7 +385,22 @@ class Recommendation(BaseModel):
         default_factory=lambda: {Direction.BUY: 0.0, Direction.HOLD: 0.0, Direction.SELL: 0.0}
     )
     conflict_detected: bool = False
+    # English fact string for the LLM narrative prompt only — never render this
+    # directly in the UI. The UI must build its own sentence from the
+    # conflict_* fields below (blended path) or direction/supporting_context
+    # (external path), through the frontend's i18n system.
     conflict_summary: str | None = None
+    # Populated only for the blended (non-external) conflict path, so the UI
+    # can localize "Technicals lean X (n/m signals) but fundamentals lean Y
+    # (n/m signals)." without parsing conflict_summary's English text. The
+    # external path reuses `direction` and `supporting_context.direction`
+    # instead, since those already carry the same information.
+    conflict_technical_direction: Direction | None = None
+    conflict_technical_supporters: int | None = None
+    conflict_technical_total: int | None = None
+    conflict_fundamental_direction: Direction | None = None
+    conflict_fundamental_supporters: int | None = None
+    conflict_fundamental_total: int | None = None
     weighted_score: float
     technical_target_high: float | None = None
     technical_target_low: float | None = None

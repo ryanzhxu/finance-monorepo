@@ -1034,14 +1034,33 @@ function blendedConflict(votingSignals, categoryVotes) {
   const technicalDirection = dominantDirection(categoryVotes.technical)
   const fundamentalDirection = dominantDirection(categoryVotes.fundamental)
   const detected = technical.length >= 2 && fundamental.length >= 2 && technicalDirection !== fundamentalDirection
-  if (!detected) return { conflictDetected: false, conflictSummary: null }
+  if (!detected) {
+    return {
+      conflictDetected: false,
+      conflictSummary: null,
+      conflictTechnicalDirection: null,
+      conflictTechnicalSupporters: null,
+      conflictTechnicalTotal: null,
+      conflictFundamentalDirection: null,
+      conflictFundamentalSupporters: null,
+      conflictFundamentalTotal: null,
+    }
+  }
   const technicalSupporters = technical.filter((signal) => signal.signal === technicalDirection).length
   const fundamentalSupporters = fundamental.filter((signal) => signal.signal === fundamentalDirection).length
   return {
     conflictDetected: true,
+    // English only, for the (currently unused) narrative path. The UI
+    // localizes its own sentence from the conflict* fields below.
     conflictSummary:
       `Technicals lean ${technicalDirection} (${technicalSupporters}/${technical.length} signals) ` +
       `but fundamentals lean ${fundamentalDirection} (${fundamentalSupporters}/${fundamental.length} signals).`,
+    conflictTechnicalDirection: technicalDirection,
+    conflictTechnicalSupporters: technicalSupporters,
+    conflictTechnicalTotal: technical.length,
+    conflictFundamentalDirection: fundamentalDirection,
+    conflictFundamentalSupporters: fundamentalSupporters,
+    conflictFundamentalTotal: fundamental.length,
   }
 }
 
@@ -1107,13 +1126,31 @@ function buildRecommendation(
   // Python runs, instead of the old unconditional false.
   let conflictDetected
   let conflictSummary
+  let conflictTechnicalDirection = null
+  let conflictTechnicalSupporters = null
+  let conflictTechnicalTotal = null
+  let conflictFundamentalDirection = null
+  let conflictFundamentalSupporters = null
+  let conflictFundamentalTotal = null
   if (external) {
     conflictDetected = supportingContext != null && !supportingContext.agrees_with_action
+    // English only, for the (currently unused) narrative path. The UI names
+    // this tension itself from `direction` and `supporting_context.direction`,
+    // which already carry the same information.
     conflictSummary = conflictDetected
       ? `Vincent's technical engine calls ${direction}, but Ryan's fundamental, sentiment and macro context leans ${supportingContext.direction}.`
       : null
   } else {
-    ;({ conflictDetected, conflictSummary } = blendedConflict(votingSignals, categoryVotes))
+    ;({
+      conflictDetected,
+      conflictSummary,
+      conflictTechnicalDirection,
+      conflictTechnicalSupporters,
+      conflictTechnicalTotal,
+      conflictFundamentalDirection,
+      conflictFundamentalSupporters,
+      conflictFundamentalTotal,
+    } = blendedConflict(votingSignals, categoryVotes))
   }
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
   // The consolidated decision (Vincent's mid-horizon action, stepped down by
@@ -1158,6 +1195,12 @@ function buildRecommendation(
     macro_vote: categoryVotes.macro,
     conflict_detected: conflictDetected,
     conflict_summary: conflictSummary,
+    conflict_technical_direction: conflictTechnicalDirection,
+    conflict_technical_supporters: conflictTechnicalSupporters,
+    conflict_technical_total: conflictTechnicalTotal,
+    conflict_fundamental_direction: conflictFundamentalDirection,
+    conflict_fundamental_supporters: conflictFundamentalSupporters,
+    conflict_fundamental_total: conflictFundamentalTotal,
     weighted_score: round(score, 3),
     technical_target_high: round((snapshot.resistanceLevels[0] ?? snapshot.currentPrice ?? 0) * 1.05, 2),
     technical_target_low: round((snapshot.supportLevels[0] ?? snapshot.currentPrice ?? 0) * 0.97, 2),
