@@ -214,7 +214,7 @@ function useReason() {
 }
 
 // Renders composeHorizonSummary's parts into one plain-language line, e.g.
-// "Vincent: accumulate (in opportunity zone) · Fundamentals supportive ·
+// "Technical: accumulate (in opportunity zone) · Fundamentals supportive ·
 // beats SPY, QQQ, XLV → Accumulate", reusing the same label vocabulary shown
 // elsewhere in this panel so the line never introduces new wording.
 function useHorizonSummaryLine() {
@@ -225,7 +225,7 @@ function useHorizonSummaryLine() {
         case 'unavailable':
           return t('reasonTechnicalUnavailable')
         case 'technical':
-          return t('summaryVincent', { action: actionLabel(t, part.action), priceState: priceStateLabel(t, part.priceState) })
+          return t('summaryTechnical', { action: actionLabel(t, part.action), priceState: priceStateLabel(t, part.priceState) })
         case 'fundamentals':
           return t('fundamentalsStance', { stance: t(STANCE_KEYS[part.stance]) })
         case 'hurdle_beats':
