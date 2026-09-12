@@ -43,6 +43,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Technical engine tests (Vincent)
+        run: node --test technical_engine/tests/*.test.js
+
       - name: Worker tests
         working-directory: cloudflare-api
         run: npm test

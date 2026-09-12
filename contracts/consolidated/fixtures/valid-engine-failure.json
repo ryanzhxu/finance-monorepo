@@ -1,0 +1,66 @@
+{
+  "version": "consolidated.v1",
+  "producer": null,
+  "generated_at": "2026-09-11T14:10:00Z",
+  "current_price": null,
+  "horizons": {
+    "short": {
+      "technical": null,
+      "fundamentals": { "stance": "unavailable", "applied": false },
+      "final_action": null,
+      "adjustments": [
+        {
+          "layer": "technical",
+          "from": null,
+          "to": null,
+          "reason": "technical_unavailable",
+          "detail": "Technical engine failed to load quote data."
+        }
+      ]
+    },
+    "mid": {
+      "technical": null,
+      "fundamentals": { "stance": "unavailable", "applied": false },
+      "final_action": null,
+      "adjustments": [
+        {
+          "layer": "technical",
+          "from": null,
+          "to": null,
+          "reason": "technical_unavailable",
+          "detail": "Technical engine failed to load quote data."
+        }
+      ]
+    },
+    "long": {
+      "technical": null,
+      "fundamentals": { "stance": "unavailable", "applied": false },
+      "final_action": null,
+      "adjustments": [
+        {
+          "layer": "technical",
+          "from": null,
+          "to": null,
+          "reason": "technical_unavailable",
+          "detail": "Technical engine failed to load quote data."
+        }
+      ]
+    }
+  },
+  "index_hurdle": null,
+  "fundamentals": null,
+  "data_quality": {
+    "daily": "unavailable",
+    "four_hour": "unavailable",
+    "one_hour": "unavailable",
+    "market": null
+  },
+  "market_structure": {
+    "relative_volume": { "state": "unknown", "displayed_rvol": null },
+    "fifty_two_week": null
+  },
+  "errors": {
+    "technical": "Yahoo chart request timed out after 3 retries"
+  },
+  "earnings": null
+}

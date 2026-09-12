@@ -5,6 +5,7 @@ import { SupportingContextPanel } from '../components/SupportingContextPanel'
 import { ConflictBanner } from '../components/ConflictBanner'
 import { TechnicalByHorizonPanel } from '../components/TechnicalByHorizonPanel'
 import { CategoryVotesPanel } from '../components/CategoryVotesPanel'
+import { FinalDecisionPanel } from '../components/FinalDecisionPanel'
 import type {
   AnalysisResponse,
   ConfluenceZone,
@@ -14,8 +15,16 @@ import type {
   FibonacciLevels,
   Signal,
 } from '../api/types'
-import { formatDirection } from '../formatters'
+import { formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n, type MessageKey } from '../i18n'
+import {
+  CLOSED_SUGGESTIONS,
+  isStaleSuggestionResponse,
+  suggestionsAfterArrow,
+  suggestionsAfterSearch,
+  type SuggestionsSnapshot,
+  type SymbolSuggestion,
+} from '../symbolSuggestions'
 
 type AnalyzeProps = {
   requestedSymbol: {
@@ -50,11 +59,6 @@ type AnalyzeMutationInput =
 type AnalyzeBundle = {
   analysis: AnalysisResponse
   confluence: EntryConfluenceResponse
-}
-
-type SymbolSuggestion = {
-  symbol: string
-  name: string
 }
 
 type AnalyzeViewState =
@@ -536,7 +540,7 @@ function ResultsPanel({
     vix?: number | null
   }
 }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const nextFomc =
     macro.next_fomc_date && macro.days_to_next_fomc != null
       ? `${formatDateLabel(macro.next_fomc_date)} · ${macro.days_to_next_fomc}d`
@@ -646,7 +650,7 @@ function ResultsPanel({
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-950 dark:text-amber-400">
-              {entry.entry_assessment}
+              {formatEntryAssessment(entry.entry_assessment, locale)}
             </span>
             <span className="text-[12px] leading-5 text-slate-500 dark:text-slate-400">{entry.reason}</span>
           </div>
@@ -705,11 +709,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
   const abortedRef = useRef<boolean>(false)
   const fetchIdRef = useRef<number>(0)
   const controllerRef = useRef<AbortController | null>(null)
-  const [suggestions, setSuggestions] = useState<SymbolSuggestion[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
+  const [suggestionsState, setSuggestionsState] = useState<SuggestionsSnapshot>(CLOSED_SUGGESTIONS)
+  const { suggestions, showSuggestions, activeSuggestionIndex } = suggestionsState
   const [companyNameCache, setCompanyNameCache] = useState<Record<string, string>>({})
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRequestIdRef = useRef(0)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const [viewState, setViewState] = useState<AnalyzeViewState>(() =>
     requestedSymbol?.cachedBundle
@@ -753,21 +757,32 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
     })
   }, [])
 
+  const closeSuggestions = useCallback(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+      searchDebounceRef.current = null
+    }
+    searchRequestIdRef.current += 1
+    setSuggestionsState(CLOSED_SUGGESTIONS)
+  }, [])
+
   const handleSymbolChange = (value: string) => {
     setSymbolInput(value.toUpperCase())
-    setActiveSuggestionIndex(-1)
+    setSuggestionsState((current) => ({ ...current, activeSuggestionIndex: -1 }))
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     if (value.trim().length < 1) {
-      setSuggestions([])
-      setShowSuggestions(false)
+      searchRequestIdRef.current += 1
+      setSuggestionsState(CLOSED_SUGGESTIONS)
       return
     }
+    const requestId = ++searchRequestIdRef.current
     searchDebounceRef.current = setTimeout(async () => {
       const results = await fetchSymbolSearch(value.trim())
+      if (isStaleSuggestionResponse(requestId, searchRequestIdRef.current)) {
+        return
+      }
       rememberSuggestionNames(results)
-      setSuggestions(results)
-      setActiveSuggestionIndex(results.length > 0 ? 0 : -1)
-      setShowSuggestions(results.length > 0)
+      setSuggestionsState(suggestionsAfterSearch(results))
     }, 300)
   }
 
@@ -925,12 +940,12 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
         suggestionsRef.current &&
         !suggestionsRef.current.contains(e.target as Node)
       ) {
-        setShowSuggestions(false)
+        closeSuggestions()
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [closeSuggestions])
 
   useEffect(() => {
     if (!analysis?.symbol || analysis.company_name || companyNameCache[normalizeSymbol(analysis.symbol)]) {
@@ -967,6 +982,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
   }
 
   const handlePrimaryAction = () => {
+    closeSuggestions()
     if (showLoader) {
       stopAnalysis()
       return
@@ -980,9 +996,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
   const applySuggestion = (suggestion: SymbolSuggestion) => {
     setSymbolInput(suggestion.symbol)
-    setSuggestions([])
-    setActiveSuggestionIndex(-1)
-    setShowSuggestions(false)
+    closeSuggestions()
   }
 
   return (
@@ -999,22 +1013,17 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
               onChange={(event) => handleSymbolChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
-                  setShowSuggestions(false)
-                  setActiveSuggestionIndex(-1)
+                  closeSuggestions()
                   return
                 }
                 if (event.key === 'ArrowDown' && suggestions.length > 0) {
                   event.preventDefault()
-                  setShowSuggestions(true)
-                  setActiveSuggestionIndex((current) => (current + 1) % suggestions.length)
+                  setSuggestionsState((current) => suggestionsAfterArrow(current, 1))
                   return
                 }
                 if (event.key === 'ArrowUp' && suggestions.length > 0) {
                   event.preventDefault()
-                  setShowSuggestions(true)
-                  setActiveSuggestionIndex((current) =>
-                    current <= 0 ? suggestions.length - 1 : current - 1,
-                  )
+                  setSuggestionsState((current) => suggestionsAfterArrow(current, -1))
                   return
                 }
                 if (event.key === 'Enter') {
@@ -1023,15 +1032,16 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     applySuggestion(suggestions[activeSuggestionIndex])
                     return
                   }
-                  setShowSuggestions(false)
-                  setActiveSuggestionIndex(-1)
                   handlePrimaryAction()
                 }
               }}
               onFocus={() => {
                 if (suggestions.length > 0) {
-                  setShowSuggestions(true)
-                  setActiveSuggestionIndex((current) => (current >= 0 ? current : 0))
+                  setSuggestionsState((current) => ({
+                    ...current,
+                    showSuggestions: true,
+                    activeSuggestionIndex: current.activeSuggestionIndex >= 0 ? current.activeSuggestionIndex : 0,
+                  }))
                 }
               }}
               placeholder="NVDA"
@@ -1046,7 +1056,9 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                   <button
                     key={s.symbol}
                     type="button"
-                    onMouseEnter={() => setActiveSuggestionIndex(index)}
+                    onMouseEnter={() =>
+                      setSuggestionsState((current) => ({ ...current, activeSuggestionIndex: index }))
+                    }
                     onClick={() => applySuggestion(s)}
                     className={[
                       'flex w-full items-center gap-3 px-4 py-2.5 text-left transition',
@@ -1132,7 +1144,10 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     >
                       {formatDirection(analysis!.recommendation.direction, locale)}
                     </span>
-                    <TechnicalSourceBadge recommendation={analysis!.recommendation} />
+                    <TechnicalSourceBadge
+                      recommendation={analysis!.recommendation}
+                      hideAgreement={Boolean(analysis!.consolidated_decision)}
+                    />
                     <button
                       type="button"
                       disabled={isInWatchlist}
@@ -1182,7 +1197,11 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
 
               <ConflictBanner recommendation={analysis!.recommendation} />
               <SupportingContextPanel recommendation={analysis!.recommendation} />
-              <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
+              {analysis!.consolidated_decision ? (
+                <FinalDecisionPanel decision={analysis!.consolidated_decision} />
+              ) : (
+                <TechnicalByHorizonPanel recommendation={analysis!.recommendation} />
+              )}
               <CategoryVotesPanel recommendation={analysis!.recommendation} />
 
               <div className="flex flex-wrap gap-2">

@@ -1,5 +1,13 @@
-import { ENTRY_RULES, SCORING_WEIGHTS, SCREENER_THRESHOLDS, SIGNAL_WEIGHTS, UNIVERSES } from './data.js'
 import {
+  ENTRY_RULES,
+  FUNDAMENTAL_SIGNAL_THRESHOLDS,
+  SCORING_WEIGHTS,
+  SCREENER_THRESHOLDS,
+  SIGNAL_WEIGHTS,
+  UNIVERSES,
+} from './data.js'
+import {
+  ACTION_TO_DIRECTION,
   EXTERNAL_TECHNICAL_DIMENSION,
   SHORT_MID_LONG_HORIZONS,
   resolveTechnicalVerdict,
@@ -7,6 +15,10 @@ import {
   substituteTechnicalSignals,
 } from './technical-provider.js'
 import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
+import { consolidatedEnabled, runConsolidated } from './consolidated/pipeline.js'
+import { runIndexHurdle, seriesFromBars } from './consolidated/index-hurdle.js'
+import { loadDailyBars, loadMarketContext } from './consolidated/market-data.js'
+import { classificationFor } from './consolidated/technical-engine.js'
 import {
   atr,
   clamp,
@@ -23,6 +35,7 @@ import {
   lowest,
 } from './indicators.js'
 import { handleResearchRoute, ResearchJob, ResearchRateLimiter } from './research.js'
+import config from '../config/consolidation.json' with { type: 'json' }
 
 const FINANCE_QUERY_BASE = 'https://finance-query.com/v2'
 const DEFAULT_HEADERS = {
@@ -50,6 +63,8 @@ const ALLOWED_CORS_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://finance-web-ui.pages.dev',
+  'https://stock.qa.ryanxu.dev',
+  'https://finance-web-ui-qa.rxlab.workers.dev',
 ])
 
 function corsHeaders(request = null) {
@@ -83,11 +98,36 @@ function jsonCors(data, status = 200, extraHeaders = {}) {
   return withCors(json(data, status, extraHeaders))
 }
 
+// Class-share dots become dashes (BRK.B -> BRK-B), but an exchange suffix dot
+// (0700.HK, 9988.HK) must survive: finance-query.com and Yahoo's chart API
+// both 404 on a dashed exchange suffix, and the index hurdle's
+// localIndexBySuffix lookup (config/consolidation.json) matches on the dot.
+const EXCHANGE_SUFFIXES = Object.keys(config.indexHurdle.localIndexBySuffix)
+
 function normalizeSymbol(value) {
-  return String(value ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, '-')
+  const upper = String(value ?? '').trim().toUpperCase()
+  const suffix = EXCHANGE_SUFFIXES.find((candidate) => upper.endsWith(candidate))
+  if (suffix) {
+    return `${upper.slice(0, -suffix.length).replace(/\./g, '-')}${suffix}`
+  }
+  return upper.replace(/\./g, '-')
+}
+
+const SHARED_SPACE_SYMBOL_PATTERN = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/
+
+// Runs `worker` over `items` with at most `limit` in flight at once, preserving
+// input order in the returned array. One item's rejection never sinks another.
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let cursor = 0
+  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index], index)
+    }
+  })
+  await Promise.all(lanes)
+  return results
 }
 
 function normalizeUniverse(value) {
@@ -580,6 +620,45 @@ function signalDirectionFromValue(value, buyBelow, sellAbove) {
   return 'HOLD'
 }
 
+// Ryan's fundamental signals, mirroring analyst_service/core/signals.py: each
+// votes only when its data exists, with the thresholds from
+// analyst_service/config/signal_thresholds.yaml. The Worker used to emit only
+// PE, and voted it HOLD even with no PE, so fundamentals barely counted.
+function buildFundamentalSignals(fundamentals) {
+  const thresholds = FUNDAMENTAL_SIGNAL_THRESHOLDS
+  const signals = []
+  const epsSurprise = fundamentals.eps_surprise_pct
+  if (epsSurprise != null) {
+    signals.push({
+      dimension: 'EPS_Surprise',
+      signal: epsSurprise >= thresholds.epsBuyAbove ? 'BUY' : epsSurprise <= thresholds.epsSellBelow ? 'SELL' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.EPS_Surprise,
+      note: `EPS surprise ${epsSurprise.toFixed(1)}%`,
+    })
+  }
+  const pePercentile = fundamentals.pe_percentile_5y
+  if (pePercentile != null) {
+    signals.push({
+      dimension: 'PE_Percentile',
+      signal: pePercentile > thresholds.peSellAbove ? 'SELL' : pePercentile < thresholds.peBuyBelow ? 'BUY' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.PE_Percentile,
+      note: `PE percentile ${Math.round(pePercentile)}th`,
+    })
+  }
+  const upgrades = fundamentals.analyst_upgrades_30d
+  const downgrades = fundamentals.analyst_downgrades_30d
+  if (upgrades != null && downgrades != null) {
+    const net = upgrades - downgrades
+    signals.push({
+      dimension: 'Analyst_Ratings',
+      signal: net > thresholds.analystNetBuyAbove ? 'BUY' : net < 0 ? 'SELL' : 'HOLD',
+      weight: SIGNAL_WEIGHTS.Analyst_Ratings,
+      note: `Net revisions ${net} over 30D`,
+    })
+  }
+  return signals
+}
+
 function buildSignals(snapshot, entry, fundamentals, sentiment, macro) {
   const signals = []
   const pushSignal = (dimension, direction, weight, note) => {
@@ -649,19 +728,7 @@ function buildSignals(snapshot, entry, fundamentals, sentiment, macro) {
     entry.reason,
   )
 
-  const pePercentile = fundamentals.pe_percentile_5y
-  pushSignal(
-    'PE_Percentile',
-    pePercentile == null
-      ? 'HOLD'
-      : pePercentile <= 40
-        ? 'BUY'
-        : pePercentile >= 70
-          ? 'SELL'
-          : 'HOLD',
-    SIGNAL_WEIGHTS.PE_Percentile,
-    pePercentile == null ? 'PE percentile unavailable' : `PE percentile ${Math.round(pePercentile)}th`,
-  )
+  signals.push(...buildFundamentalSignals(fundamentals))
 
   const shortInterest = sentiment.short_interest_pct
   pushSignal(
@@ -1013,6 +1080,7 @@ function buildRecommendation(
   technicalVerdict = null,
   displaced = null,
   technicalByHorizon = [],
+  consolidatedDecision = null,
 ) {
   const score = computeWeightedScore(votingSignals)
   const external = technicalVerdict != null && technicalVerdict.source === 'external'
@@ -1048,10 +1116,38 @@ function buildRecommendation(
     ;({ conflictDetected, conflictSummary } = blendedConflict(votingSignals, categoryVotes))
   }
   const riskFlags = buildRiskFlags(snapshot, entry, regime)
-  const reviewAction =
-    direction === 'BUY' ? 'BUY' : direction === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
+  // The consolidated decision (Vincent's mid-horizon action, stepped down by
+  // Ryan's fundamentals and capped by the index hurdle) is the one final
+  // answer the app is allowed to show as a buy - never his pre-hurdle call.
+  // Everything that reads as "the recommendation" (direction, review_action,
+  // technical_action) must follow it; his raw call stays visible unchanged in
+  // consolidated_decision.horizons.mid.technical and technical_by_horizon.
+  const midHorizon = consolidatedDecision?.horizons?.mid ?? null
+  const finalAction = midHorizon?.final_action ?? null
+  // In consolidated mode his mid action is the only legal source of "the"
+  // direction (spec D1). If his engine failed for this symbol (finalAction
+  // null), Ryan's blended local technicals must never surface as a stand-in
+  // BUY/SELL with no hurdle behind it - hold, and flag it as unavailable.
+  const technicalEngineUnavailable = consolidatedDecision != null && finalAction == null
+  const outputDirection = consolidatedDecision != null
+    ? (finalAction != null ? ACTION_TO_DIRECTION[finalAction] ?? 'HOLD' : 'HOLD')
+    : direction
+  for (const adjustment of midHorizon?.adjustments ?? []) {
+    if (adjustment.layer === 'index_hurdle' && !riskFlags.includes('index_hurdle_held')) {
+      riskFlags.push('index_hurdle_held')
+    }
+    if (adjustment.layer === 'fundamentals' && !riskFlags.includes('fundamentals_stepped_down')) {
+      riskFlags.push('fundamentals_stepped_down')
+    }
+  }
+  if (technicalEngineUnavailable && !riskFlags.includes('technical_engine_unavailable')) {
+    riskFlags.push('technical_engine_unavailable')
+  }
+  const reviewAction = technicalEngineUnavailable
+    ? 'HOLD'
+    : outputDirection === 'BUY' ? 'BUY' : outputDirection === 'SELL' ? 'AVOID' : entry.entry_assessment === 'wait_for_breakout_confirmation' ? 'WATCH' : 'HOLD'
   return {
-    direction,
+    direction: outputDirection,
     // Each branch above already carries its final precision: the blended path is
     // rounded to 2 dp, the external path preserves his 6 dp verbatim.
     confidence,
@@ -1072,7 +1168,7 @@ function buildRecommendation(
     technical_source: technicalVerdict != null ? technicalVerdict.source : 'local',
     technical_producer: technicalVerdict != null ? technicalVerdict.producer : null,
     technical_price_state: technicalVerdict != null ? (technicalVerdict.price_state ?? null) : null,
-    technical_action: technicalVerdict != null ? (technicalVerdict.action ?? null) : null,
+    technical_action: finalAction ?? (technicalVerdict != null ? (technicalVerdict.action ?? null) : null),
     technical_execution_intent: technicalVerdict != null ? (technicalVerdict.execution_intent ?? null) : null,
     local_technical_direction: displaced != null ? displaced.direction : null,
     technical_agreement:
@@ -1082,7 +1178,7 @@ function buildRecommendation(
   }
 }
 
-function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence, fundamentals, sentiment, macro, signals, recommendation, includeNarrative = false }) {
+function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence, fundamentals, sentiment, macro, signals, recommendation, includeNarrative = false, consolidatedDecision = null }) {
   const dataFreshness = {
     price: 'live',
     technicals: 'live',
@@ -1135,6 +1231,9 @@ function buildAnalysisResponse({ symbol, snapshot, entry, fibonacci, confluence,
     signals,
     entry,
     recommendation,
+    // Present only when CONSOLIDATED_DECISION is on (QA). Vincent's per-horizon
+    // action, Ryan's fundamentals, the index hurdle, and the final action.
+    consolidated_decision: consolidatedDecision,
     narrative,
   }
 }
@@ -1230,7 +1329,26 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   // same seam as a pushed one, so it is trusted no more than a pushed verdict.
   let byHorizonPayloads = {}
   let technicalPayload = technical
-  if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
+  let consolidatedDecision = null
+  if (technicalPayload == null && consolidatedEnabled(env)) {
+    // One repo, one engine: Vincent's engine runs inside this Worker with no
+    // network hop, and its verdicts still pass through the same decision.v1
+    // seam as a pulled or pushed one. The consolidated decision adds Ryan's
+    // fundamentals and the index hurdle on top, per horizon.
+    const consolidated = await runConsolidated(normalized, {
+      quote,
+      fundamentalSignals: localSignals.filter((signal) => SIGNAL_CATEGORIES[signal.dimension] === 'fundamental'),
+      earnings: {
+        epsSurprisePct: fundamentals.eps_surprise_pct,
+        upgrades30d: fundamentals.analyst_upgrades_30d,
+        downgrades30d: fundamentals.analyst_downgrades_30d,
+        recommendationTrend: quote?.recommendationTrend ?? null,
+      },
+    })
+    consolidatedDecision = consolidated.consolidated
+    byHorizonPayloads = consolidated.decisionV1ByHorizon
+    technicalPayload = byHorizonPayloads['2-4W'] ?? null
+  } else if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
     byHorizonPayloads = await fetchExternalTechnicalVerdicts(normalized, SHORT_MID_LONG_HORIZONS, env)
     technicalPayload = byHorizonPayloads['2-4W'] ?? null
   }
@@ -1254,6 +1372,7 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     technicalVerdict,
     displaced,
     technicalByHorizon,
+    consolidatedDecision,
   )
   for (const flag of technicalRiskFlags) {
     if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
@@ -1270,6 +1389,7 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     signals,
     recommendation,
     includeNarrative,
+    consolidatedDecision,
   })
 }
 
@@ -1418,6 +1538,81 @@ function buildScreenResult(snapshot, marketRegime, screenType, rank) {
   }
 }
 
+// Worker subrequest budget: one /decisions symbol costs ~15-18 fetches for the
+// first symbol and ~7-9 for each later one even with market data cached, so a
+// batch of 6 could exceed the Free plan's 50-fetch cap and fail the later rows.
+const DECISIONS_MAX_SYMBOLS = 3
+const SCREENER_HURDLE_LIMIT = 10
+const SCREENER_HURDLE_NOT_EVALUATED = {
+  status: 'not_evaluated',
+  benchmarks: [],
+  lagging: [],
+  earnings_guard: { status: 'unavailable', eps_surprise_pct: null, analysts_deteriorating: null },
+}
+
+// A screen result flags a buy through `recommendation`, through the separate
+// `entry_assessment` field (undervalued/opportunities/etc rows carry both), or
+// through `buyability.entry_assessment` (trending rows). Any one must respect
+// the index hurdle.
+function isScreenerBuyFlagged(row) {
+  return row.recommendation === 'BUY' || row.entry_assessment === 'buy_now' || row.buyability?.entry_assessment === 'buy_now'
+}
+
+// Spec backlog 7: a screen result flagged as a buy must carry the index hurdle
+// status, and never present as a buy when the hurdle fails or was not
+// evaluated. Evaluated only for the top buy candidates (Worker subrequest
+// budget); the rest fail closed to HOLD rather than a false pass.
+// loadDailyBars caches per symbol, so a shared benchmark (SPY, QQQ, a sector
+// ETF) is only fetched once.
+// `quoteFor` defaults to the `components.quote` shape screen rows carry.
+// Trending rows have no `components` in their public response (it would
+// bloat every trending result with a full quote object), so
+// `buildTrendingResponse` passes a lookup keyed by row identity instead of
+// putting the quote on the row itself.
+async function applyScreenerHurdle(results, quoteFor = (row) => row.components?.quote ?? null) {
+  const buyRows = results.filter(isScreenerBuyFlagged).slice(0, SCREENER_HURDLE_LIMIT)
+  await Promise.all(
+    buyRows.map(async (row) => {
+      try {
+        const quote = quoteFor(row) ?? null
+        const latestEarnings = extractLatestEarningsSurprise(quote)
+        const recentRecommendations = extractRecentRecommendationCounts(quote)
+        const traits = classificationFor(row.symbol, { quoteType: quote?.quoteType }).companyTraits ?? []
+        const hurdle = await runIndexHurdle(row.symbol, {
+          sector: quote?.sector ?? null,
+          industry: quote?.industry ?? null,
+          traits,
+          earnings: {
+            epsSurprisePct: latestEarnings.surprisePct,
+            upgrades30d: recentRecommendations.upgrades,
+            downgrades30d: recentRecommendations.downgrades,
+            recommendationTrend: quote?.recommendationTrend ?? null,
+          },
+          loadSeries: (symbol) => loadDailyBars(symbol).then(({ bars }) => seriesFromBars(bars)),
+        })
+        row.index_hurdle = hurdle
+        if (hurdle.status !== 'pass' && hurdle.status !== 'not_applicable') {
+          row.recommendation = 'HOLD'
+          row.held_by_index_hurdle = true
+        }
+      } catch {
+        row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+        row.recommendation = 'HOLD'
+        row.held_by_index_hurdle = true
+      }
+    }),
+  )
+  for (const row of results) {
+    if (row.index_hurdle) continue
+    row.index_hurdle = SCREENER_HURDLE_NOT_EVALUATED
+    // Beyond the evaluation cap: fail closed rather than implying a pass.
+    if (isScreenerBuyFlagged(row)) {
+      row.recommendation = 'HOLD'
+      row.held_by_index_hurdle = true
+    }
+  }
+}
+
 async function buildScreenResponse(screenType, requestBody) {
   const universeName = normalizeUniverse(requestBody?.universe)
   const tickers = Array.isArray(requestBody?.tickers) && requestBody.tickers.length > 0
@@ -1440,6 +1635,8 @@ async function buildScreenResponse(screenType, requestBody) {
     .sort((left, right) => right.opportunity_score - left.opportunity_score)
     .slice(0, requestBody?.limit ?? 25)
     .map((result, index) => ({ ...result, rank: index + 1 }))
+
+  await applyScreenerHurdle(results)
 
   const averageConfidence =
     results.length === 0 ? 0.5 : round(results.reduce((sum, item) => sum + item.confidence, 0) / results.length, 2)
@@ -1483,8 +1680,14 @@ async function buildTrendingResponse(requestBody) {
     }
   }
 
+  // Trending rows have no `components.quote` in their public shape (unlike
+  // screen rows), so the hurdle's sector/industry lookup would otherwise only
+  // ever see SPY/QQQ. Keep the quote out of the response and hand it to
+  // applyScreenerHurdle by symbol instead.
+  const trendingQuoteBySymbol = new Map()
   const results = snapshots
     .map((snapshot) => {
+      trendingQuoteBySymbol.set(snapshot.symbol, snapshot.quote)
       const mention24h = Math.max(1, Math.round((snapshot.volumeRatio90d ?? 1) * 4 + Math.abs(snapshot.recentGapPct ?? 0)))
       const mention3d = Math.max(mention24h + 2, Math.round(mention24h * 1.6))
       const mention5d = Math.max(mention3d + 2, Math.round(mention3d * 1.3))
@@ -1561,6 +1764,8 @@ async function buildTrendingResponse(requestBody) {
     .sort((left, right) => right.score_breakdown.trend_score - left.score_breakdown.trend_score)
     .slice(0, limit)
 
+  await applyScreenerHurdle(results, (row) => trendingQuoteBySymbol.get(row.symbol) ?? null)
+
   return {
     screen_type: 'trending',
     generated_at: new Date().toISOString(),
@@ -1586,11 +1791,19 @@ async function buildHealthResponse(serviceName, sharedSpacesState = 'disabled') 
   const cached = cacheGet(healthCache, key)
   if (cached) return cached
 
-  const [lookup, quote, chart] = await Promise.all([
+  const [lookup, quote, chart, marketContext] = await Promise.all([
     financeQueryGet('/lookup', { q: 'NVDA' }).catch(() => null),
     getQuote('NVDA').catch(() => null),
     getChart('NVDA').catch(() => null),
+    // loadMarketContext caches itself for 15 minutes and is already called by
+    // the consolidated pipeline, so this is a cached probe, not a fetch on
+    // every health check.
+    loadMarketContext().catch(() => null),
   ])
+
+  const technicalEngineVersion = globalThis.DecisionEngine?.config?.version ?? 'unknown'
+  const yahooChartReachable = marketContext?.market_context?.equity_trend?.spy?.value != null
+  const fearGreedReachable = marketContext?.market_context?.fear_greed?.value != null
 
   const providers = {
     finance_query: quote && chart ? 'ok' : 'degraded',
@@ -1598,6 +1811,11 @@ async function buildHealthResponse(serviceName, sharedSpacesState = 'disabled') 
     alpha_vantage: 'not_configured',
     redis: 'not_available',
     shared_spaces: sharedSpacesState,
+    // Vincent's engine runs in process (technical_engine/, spec D1) — its
+    // version comes straight from his own config, not duplicated here.
+    technical_engine: technicalEngineVersion,
+    yahoo_chart: yahooChartReachable ? 'reachable' : 'unreachable',
+    fear_greed: fearGreedReachable ? 'reachable' : 'unreachable',
   }
 
   const result = {
@@ -1728,6 +1946,29 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
       }
     }
     return jsonCors(responses)
+  }
+  if (pathname === '/decisions' && request.method === 'POST') {
+    if (!consolidatedEnabled(env)) {
+      return jsonCors({ detail: 'consolidated decision is not enabled' }, 404)
+    }
+    const body = await readJson(request)
+    const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
+    if (!symbols.length) return badRequest('symbols is required')
+    const limited = symbols.slice(0, DECISIONS_MAX_SYMBOLS)
+    const results = await runWithConcurrency(limited, 2, async (symbol) => {
+      try {
+        const response = await buildAnalyze(symbol, { includeNarrative: false, includeEntry: true, env })
+        return {
+          symbol,
+          company_name: response.company_name,
+          current_price: response.entry?.current_price ?? response.consolidated_decision?.current_price ?? null,
+          consolidated_decision: response.consolidated_decision,
+        }
+      } catch (error) {
+        return { symbol, error: serializeBatchError(error) }
+      }
+    })
+    return jsonCors({ results, max_symbols: DECISIONS_MAX_SYMBOLS })
   }
   if (pathname === '/entry' && request.method === 'POST') {
     const body = await readJson(request)
@@ -2214,13 +2455,22 @@ export class SharedWatchlistSpace {
       if (!symbol) {
         return json({ detail: 'symbol is required' }, 400)
       }
+      if (!SHARED_SPACE_SYMBOL_PATTERN.test(symbol)) {
+        return json({ detail: `Invalid symbol: ${symbol}` }, 400)
+      }
       const next = normalizeSharedSpaceSymbols([...await readSharedSpaceSymbols(this.state), symbol])
       await this.state.storage.put('symbols', next)
       return sharedSpaceWatchlistResponse(config, this.state)
     }
 
     if (pathname.startsWith('/watchlist/') && request.method === 'DELETE') {
-      const symbol = normalizeSymbol(pathname.split('/').at(-1))
+      let rawSymbol
+      try {
+        rawSymbol = decodeURIComponent(pathname.split('/').at(-1))
+      } catch {
+        return json({ detail: 'Malformed symbol' }, 400)
+      }
+      const symbol = normalizeSymbol(rawSymbol)
       if (!symbol) {
         return json({ detail: 'symbol is required' }, 400)
       }
@@ -2239,6 +2489,9 @@ export const __testOnly = {
     healthCache.clear()
   },
   buildRecommendation,
+  buildFundamentalSignals,
+  applyScreenerHurdle,
+  normalizeSymbol,
 }
 
 export default {
@@ -2264,6 +2517,7 @@ export default {
         pathname === '/search' ||
         pathname === '/analyze' ||
         pathname === '/batch' ||
+        pathname === '/decisions' ||
         pathname === '/entry' ||
         pathname === '/entry/confluence' ||
         pathname.startsWith('/entry/confluence/')

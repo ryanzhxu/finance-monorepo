@@ -1,8 +1,26 @@
 import type { Recommendation } from '../api/types'
-import { useI18n } from '../i18n'
+import { useI18n, type MessageKey } from '../i18n'
 
 type TechnicalSourceBadgeProps = {
   recommendation: Recommendation
+  /**
+   * When a consolidated decision is present, `technical_agreement` compares
+   * Vincent's verdict against Ryan's retired local technicals — a comparison
+   * that no longer means anything under spec D1, so the agreement badge is
+   * hidden rather than shown as confusing noise.
+   */
+  hideAgreement?: boolean
+}
+
+const PRICE_STATE_KEYS: Record<string, MessageKey> = {
+  IN_OPPORTUNITY_ZONE: 'priceStateInOpportunity',
+  NEAR_OPPORTUNITY_ZONE: 'priceStateNearOpportunity',
+  NEUTRAL_ZONE: 'priceStateNeutral',
+  NEAR_REDUCE_ZONE: 'priceStateNearReduce',
+  IN_REDUCE_ZONE: 'priceStateInReduce',
+  BEYOND_REDUCE_ZONE: 'priceStateBeyondReduce',
+  BREAKDOWN_ZONE: 'priceStateBreakdown',
+  INVALID_LANDSCAPE: 'priceStateInvalidLandscape',
 }
 
 /**
@@ -13,7 +31,7 @@ type TechnicalSourceBadgeProps = {
  * what makes it believable. This surfaces that, rather than leaving it buried in
  * the response body.
  */
-export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgeProps) {
+export function TechnicalSourceBadge({ recommendation, hideAgreement }: TechnicalSourceBadgeProps) {
   const { t } = useI18n()
   const source = recommendation.technical_source
   const rejected = recommendation.risk_flags.includes('external_technical_rejected')
@@ -56,9 +74,8 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
         ? 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-200'
         : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
 
-  // `producer` and `direction`/`price_state` are engine-emitted vocabulary, left
-  // untranslated on the same boundary the other panels draw. Only the client
-  // chrome around them is localized.
+  // `producer` is engine-emitted vocabulary, left untranslated. `price_state`
+  // is localized against the same PRICE_STATE_KEYS map as the other panels.
   const agreementLabel =
     agreement === true
       ? t('bothEnginesAgree')
@@ -73,11 +90,13 @@ export function TechnicalSourceBadge({ recommendation }: TechnicalSourceBadgePro
         className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-900 dark:bg-indigo-500/20 dark:text-indigo-200"
       >
         {t('technicalsLabel')}: {producer}
-        {priceState ? ` · ${priceState.toLowerCase().replace(/_/g, ' ')}` : ''}
+        {priceState ? ` · ${PRICE_STATE_KEYS[priceState] ? t(PRICE_STATE_KEYS[priceState]) : priceState.toLowerCase().replace(/_/g, ' ')}` : ''}
       </span>
-      <span className={`rounded-full px-3 py-1 text-sm font-semibold ${agreementTone}`}>
-        {agreementLabel}
-      </span>
+      {hideAgreement ? null : (
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${agreementTone}`}>
+          {agreementLabel}
+        </span>
+      )}
     </span>
   )
 }

@@ -11,6 +11,7 @@ import {
 } from '../api/client'
 import type { AnalysisResponse, EntryConfluenceResponse, SharedSpaceSessionResponse } from '../api/types'
 import Watchlist from '../components/Watchlist'
+import { DecisionBoard } from '../components/DecisionBoard'
 import {
   isStale,
   loadSharedSpaceSessionToken,
@@ -30,6 +31,8 @@ import { useI18n, cycleLocale } from '../i18n'
 type SharedSpaceProps = {
   slug: string
 }
+
+type MainView = 'analyze' | 'decisions'
 
 type AnalyzeSelection = {
   value: string
@@ -69,6 +72,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
   const [passcode, setPasscode] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [requestedSymbol, setRequestedSymbol] = useState<AnalyzeSelection | null>(null)
+  const [mainView, setMainView] = useState<MainView>('analyze')
   const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>(() =>
     loadWatchlist(storageKey).map(withFreshness),
   )
@@ -337,6 +341,7 @@ function SharedSpace({ slug }: SharedSpaceProps) {
       nonce: Date.now(),
       cachedBundle: entry?.freshness === 'live' ? entry.cachedBundle : null,
     })
+    setMainView('analyze')
   }
 
   if (session == null) {
@@ -413,15 +418,40 @@ function SharedSpace({ slug }: SharedSpaceProps) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 self-start lg:self-end">
-              <button type="button" onClick={() => setLocale(cycleLocale(locale))} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100"
-              >
-                {t('logout')}
-              </button>
+            <div className="flex flex-col gap-3 lg:items-end">
+              <div className="flex items-center gap-2 self-start lg:self-end">
+                <button type="button" onClick={() => setLocale(cycleLocale(locale))} aria-label={t('switchLanguage')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100">{t('localeButton')}</button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100"
+                >
+                  {t('logout')}
+                </button>
+              </div>
+              <nav className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] self-start lg:self-end">
+                {([
+                  { key: 'analyze', label: t('analyze') },
+                  { key: 'decisions', label: t('decisionBoard') },
+                ] as const).map((tab) => {
+                  const isActive = mainView === tab.key
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setMainView(tab.key)}
+                      className={[
+                        'shrink-0 border-b-2 px-1 pb-2 text-sm font-medium transition',
+                        isActive
+                          ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                          : 'border-transparent text-slate-500 dark:text-slate-400',
+                      ].join(' ')}
+                    >
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </nav>
             </div>
           </div>
           {sessionError ? (
@@ -442,12 +472,19 @@ function SharedSpace({ slug }: SharedSpaceProps) {
             />
           </aside>
           <main className="min-w-0 flex-1 p-4 transition-colors duration-150 sm:p-6 lg:overflow-y-auto lg:p-8">
-            <Analyze
-              key={requestedSymbol?.nonce ?? 'shared-analyze-default'}
-              requestedSymbol={requestedSymbol}
-              onAddToWatchlist={handleAddToWatchlist}
-              watchlistSymbols={watchlistEntries.map((entry) => entry.symbol)}
-            />
+            {mainView === 'decisions' ? (
+              <DecisionBoard
+                symbols={watchlistEntries.map((entry) => entry.symbol)}
+                onSelectSymbol={handleWatchlistAnalyze}
+              />
+            ) : (
+              <Analyze
+                key={requestedSymbol?.nonce ?? 'shared-analyze-default'}
+                requestedSymbol={requestedSymbol}
+                onAddToWatchlist={handleAddToWatchlist}
+                watchlistSymbols={watchlistEntries.map((entry) => entry.symbol)}
+              />
+            )}
           </main>
         </div>
       </div>

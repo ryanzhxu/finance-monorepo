@@ -4,7 +4,8 @@
 
 This is a market-analysis monorepo with two implementation surfaces:
 
-- `cloudflare-api/` is the production `finance-api` Worker. It serves the public analysis, screener, health, batch, entry/confluence, shared-space, and research-job route contracts.
+- `cloudflare-api/` is the production `finance-api` Worker. It serves the public analysis, screener, health, batch, entry/confluence, shared-space, decisions, and research-job route contracts. `cloudflare-api/src/consolidated/` runs `technical_engine/` in-process as the sole technical layer and applies the index hurdle; when `CONSOLIDATED_DECISION` is on, its verdict replaces the local technical vote and Ryan's fundamentals become a minority layer that can only step a buy down, never up.
+- `technical_engine/` is Vincent's technical-analysis engine, imported into this repo with its git history. Protected: read and import it freely, never edit it here — porting changes into it is a human decision.
 - `web_ui/` is the production React 19/Vite/Tailwind single-page app on Cloudflare Pages (`finance-web-ui`). Its production build uses `VITE_API_BASE_URL=https://finance-api.rxlab.workers.dev`.
 
 The Worker owns public runtime behavior. It calls its configured market-data upstreams and stores shared watchlist membership in the `SharedWatchlistSpace` Durable Object. The public UI has its normal console route and a passcode-protected shared watchlist route at `/drama`.

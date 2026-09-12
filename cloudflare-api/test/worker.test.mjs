@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import worker, { __testOnly, ResearchRateLimiter, SharedWatchlistSpace } from '../src/index.js'
 import { __researchTestOnly } from '../src/research.js'
 import { verdictFromExternal } from '../src/technical-provider.js'
+import { clearMarketDataCache } from '../src/consolidated/market-data.js'
 
 test.beforeEach(() => {
   __testOnly.clearCaches()
+  clearMarketDataCache()
 })
 
 function buildCandles(start = 100, step = 1, count = 240) {
@@ -182,6 +184,57 @@ test('health endpoint returns worker status', async () => {
     assert.equal(payload.status, 'ok')
     assert.equal(payload.service, 'finance_api_worker')
     assert.equal(payload.providers.finance_query, 'ok')
+    // The technical engine is compiled into this Worker, so its row always
+    // reports Vincent's own config version, regardless of Yahoo/CNN reachability.
+    assert.equal(payload.providers.technical_engine, 'decision-engine-v1')
+    // mockFinanceQueryFetch does not answer Yahoo or CNN, so both cached
+    // probes fail closed rather than throwing or hanging the response.
+    assert.equal(payload.providers.yahoo_chart, 'unreachable')
+    assert.equal(payload.providers.fear_greed, 'unreachable')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+function mockHealthMarketProbesFetch(input) {
+  const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : (input?.url ?? String(input))
+  const url = new URL(rawUrl)
+  if (url.hostname.includes('cnn.io')) {
+    return Promise.resolve(new Response(JSON.stringify({ fear_and_greed: { score: 55, previous_close: 50 } })))
+  }
+  if (url.hostname.includes('finance.yahoo.com')) {
+    const closes = Array.from({ length: 30 }, (_, index) => 400 + index)
+    const stamps = closes.map((_, index) => 1_700_000_000 + index * 86_400)
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          chart: {
+            result: [
+              {
+                meta: { regularMarketPrice: closes.at(-1), instrumentType: 'INDEX', currency: 'USD' },
+                timestamp: stamps,
+                indicators: {
+                  quote: [{ open: closes, high: closes, low: closes, close: closes, volume: closes.map(() => 1_000_000) }],
+                  adjclose: [{ adjclose: closes }],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    )
+  }
+  return mockFinanceQueryFetch(input)
+}
+
+test('health endpoint reports Yahoo chart and Fear & Greed as reachable when the cached probe succeeds', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockHealthMarketProbesFetch
+  try {
+    const response = await worker.fetch(new Request('https://example.com/health'))
+    const payload = await response.json()
+    assert.equal(payload.providers.yahoo_chart, 'reachable')
+    assert.equal(payload.providers.fear_greed, 'reachable')
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -624,6 +677,140 @@ test('blended path reports no conflict with only one technical signal', () => {
   assert.equal(recommendation.conflict_summary, null)
 })
 
+// Supervisor 01:40 note: the watchlist sidebar cards, the Analyze header badge
+// and the track record all read recommendation.direction, but it used to map
+// Vincent's pre-hurdle mid action straight to BUY, so a symbol the index
+// hurdle held still read as a buy everywhere except the Decision Board. This
+// mirrors the AMZN case found live on QA: technical accumulate, hurdle fail.
+test('direction follows the consolidated final action, not his pre-hurdle call, when the hurdle holds it', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'accumulate',
+    confidence: 70,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: 'hold',
+        adjustments: [
+          { layer: 'index_hurdle', from: 'accumulate', to: 'hold', reason: 'index_hurdle_failed', detail: 'does not beat SPY, QQQ' },
+        ],
+      },
+    },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'HOLD')
+  assert.equal(recommendation.review_action, 'HOLD')
+  assert.equal(recommendation.technical_action, 'hold')
+  assert.ok(recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
+test('direction follows the consolidated final action when fundamentals step it down', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'strong_buy',
+    confidence: 85,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: 'buy',
+        adjustments: [
+          { layer: 'fundamentals', from: 'strong_buy', to: 'buy', reason: 'fundamentals_weak', detail: null },
+        ],
+      },
+    },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'BUY')
+  assert.equal(recommendation.technical_action, 'buy')
+  assert.ok(recommendation.risk_flags.includes('fundamentals_stepped_down'))
+  assert.ok(!recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
+test('direction stays his pre-hurdle call when there is no consolidated decision', () => {
+  const verdict = verdictFromExternal({
+    producer: 'vincent-stock-decision-dashboard',
+    action: 'buy',
+    confidence: 80,
+    priceState: 'IN_OPPORTUNITY_ZONE',
+  })
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    [],
+    {},
+    'risk_on',
+    verdict,
+  )
+
+  assert.equal(recommendation.direction, 'BUY')
+  assert.equal(recommendation.technical_action, 'buy')
+  assert.ok(!recommendation.risk_flags.includes('index_hurdle_held'))
+})
+
+// Supervisor 01:57 note: buildRecommendation fell back to the blended local
+// technicals whenever consolidatedDecision existed but the mid final_action
+// was null (his engine failed for this symbol - Yahoo outage, subrequest
+// cap). That let a stale local BUY vote surface with no hurdle behind it,
+// the opposite of spec D1 (his engine is the only technical opinion once
+// consolidated mode is on). It must hold and say so instead.
+test('direction holds and flags technical_engine_unavailable when consolidated mode is on but his mid action is null', () => {
+  const signals = [
+    { dimension: 'RSI_14', signal: 'BUY', weight: 1.0, note: 'oversold' },
+    { dimension: 'MACD', signal: 'BUY', weight: 1.0, note: 'histogram positive' },
+    { dimension: 'MA_50_200', signal: 'BUY', weight: 1.0, note: 'golden cross' },
+  ]
+  const consolidatedDecision = {
+    horizons: {
+      mid: {
+        final_action: null,
+        adjustments: [],
+      },
+    },
+    errors: { technical: 'technical engine threw: fetch failed' },
+  }
+
+  const recommendation = __testOnly.buildRecommendation(
+    { resistanceLevels: [], supportLevels: [], currentPrice: 100 },
+    signals,
+    { entry_assessment: 'wait_for_breakout_confirmation' },
+    'risk_on',
+    null,
+    null,
+    [],
+    consolidatedDecision,
+  )
+
+  assert.equal(recommendation.direction, 'HOLD')
+  assert.equal(recommendation.review_action, 'HOLD')
+  assert.ok(recommendation.risk_flags.includes('technical_engine_unavailable'))
+})
+
 test('worker never reports price/volume proxies as Reddit data', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch
@@ -947,6 +1134,87 @@ test('shared watchlist routes support session, login, add, and remove', async ()
   )
   assert.equal(cookieSession.status, 200)
   assert.equal((await cookieSession.json()).authenticated, true)
+})
+
+async function loginToSharedSpace(env) {
+  const loginResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: 'swordfish' }),
+    }),
+    env,
+  )
+  return (await loginResponse.json()).session_token
+}
+
+test('shared watchlist POST rejects an invalid symbol instead of saving it verbatim', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const rejected = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ symbol: 'AAPL MSFT' }),
+    }),
+    env,
+  )
+  assert.equal(rejected.status, 400)
+
+  const watchlist = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.deepEqual((await watchlist.json()).symbols, [])
+})
+
+test('shared watchlist DELETE decodes the symbol path segment before removing', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const addResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ symbol: '^VIX' }),
+    }),
+    env,
+  )
+  assert.equal(addResponse.status, 200)
+  assert.deepEqual((await addResponse.json()).symbols, ['^VIX'])
+
+  const removeResponse = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist/%5EVIX', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.equal(removeResponse.status, 200)
+  assert.deepEqual((await removeResponse.json()).symbols, [])
+})
+
+test('shared watchlist DELETE rejects a malformed percent-encoded symbol', async () => {
+  const env = createSharedWatchlistEnv()
+  const sessionToken = await loginToSharedSpace(env)
+
+  const malformed = await worker.fetch(
+    new Request('https://example.com/shared-spaces/drama/watchlist/%zz', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }),
+    env,
+  )
+  assert.equal(malformed.status, 400)
 })
 
 // The Worker persists no analyses, so `/history/*` must mirror analyst_service

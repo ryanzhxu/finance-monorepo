@@ -154,6 +154,164 @@ export interface Recommendation {
   technical_by_horizon?: HorizonTechnicalVerdict[]
 }
 
+/** One compact indicator feature: unavailable, or its picked fields. */
+export interface TechnicalIndicator {
+  available: boolean
+  value?: number | null
+  state?: string | null
+  macd_line?: number | null
+  signal_line?: number | null
+  histogram?: number | null
+  crossover_state?: string | null
+  k?: number | null
+  d?: number | null
+  j?: number | null
+  adx?: number | null
+  plus_di?: number | null
+  minus_di?: number | null
+  trend_strength?: string | null
+  directional_bias?: string | null
+  atr_pct?: number | null
+  volatility_regime?: string | null
+  upper_band?: number | null
+  middle_band?: number | null
+  lower_band?: number | null
+  price_position?: string | null
+  squeeze_state?: string | null
+  trend?: string | null
+  divergence?: string | null
+}
+
+/** A compact, read-only subset of Vincent's canonical technical features for one horizon. */
+export interface ConsolidatedTechnicalDetails {
+  moving_averages: { alignment: string; compression_state: string }
+  rsi: TechnicalIndicator
+  macd: TechnicalIndicator
+  kdj: TechnicalIndicator
+  adx: TechnicalIndicator
+  atr: TechnicalIndicator
+  bollinger: TechnicalIndicator
+  obv: TechnicalIndicator
+  relative_strength: { state: string; vs_spy: number | null; vs_qqq: number | null } | null
+  fibonacci: {
+    availability: string
+    direction: string | null
+    fib_zone: string
+    nearest_fib_level: number | null
+    distance_to_nearest_fib_pct: number | null
+  } | null
+}
+
+/** Symbol-level technical context that does not vary by horizon. */
+export interface ConsolidatedMarketStructure {
+  relative_volume: { state: string; displayed_rvol: number | null }
+  fifty_two_week: {
+    high: number | null
+    low: number | null
+    position_pct: number | null
+    distance_to_high_pct: number | null
+    distance_to_low_pct: number | null
+  } | null
+}
+
+/** Vincent's engine output for one horizon, as the consolidated pipeline reports it. */
+export interface ConsolidatedTechnical {
+  available: boolean
+  action: string | null
+  // Vincent's own 0-100 scale.
+  confidence: number | null
+  price_state: string
+  execution_intent: string | null
+  opportunity_range: PriceRange | null
+  reduce_range: PriceRange | null
+  invalidation: number | null
+  current_price: number | null
+  reasons: string[]
+  data_quality: number | null
+  technical_details: ConsolidatedTechnicalDetails | null
+}
+
+export type FundamentalStance = 'supportive' | 'neutral' | 'weak' | 'unavailable'
+
+export interface ConsolidatedAdjustment {
+  layer: 'technical' | 'fundamentals' | 'index_hurdle'
+  from: string | null
+  to: string | null
+  reason: 'technical_unavailable' | 'fundamentals_weak' | 'index_hurdle_failed' | 'index_hurdle_unavailable'
+  detail: string | null
+}
+
+export interface ConsolidatedHorizon {
+  technical: ConsolidatedTechnical | null
+  fundamentals: { stance: FundamentalStance; applied: boolean }
+  final_action: string | null
+  adjustments: ConsolidatedAdjustment[]
+}
+
+export interface HurdleBenchmarkRow {
+  symbol: string
+  role: 'index' | 'sector' | 'industry' | 'local_index'
+  label: string
+  rel_12_1_pct: number | null
+  rel_6m_pct: number | null
+  ratio_above_200d: boolean | null
+  evidence_true: number
+  evidence_known: number
+  sessions: number
+  result: 'beats' | 'lags' | 'mixed' | 'insufficient_data'
+}
+
+export interface IndexHurdle {
+  status: 'pass' | 'fail' | 'not_applicable' | 'unavailable'
+  benchmarks: HurdleBenchmarkRow[]
+  lagging: string[]
+  earnings_guard: {
+    status: 'clear' | 'fired' | 'unavailable'
+    eps_surprise_pct: number | null
+    analysts_deteriorating: boolean | null
+  }
+}
+
+/** Technical (Vincent) → fundamentals (Ryan) → index hurdle, per horizon. */
+export interface ConsolidatedDecision {
+  version: string
+  producer: string | null
+  generated_at: string
+  current_price: number | null
+  horizons: Record<'short' | 'mid' | 'long', ConsolidatedHorizon>
+  index_hurdle: IndexHurdle | null
+  fundamentals: { stance: FundamentalStance; vote: Partial<Record<Direction, number>>; signal_count: number } | null
+  data_quality: { daily?: string; four_hour?: string; one_hour?: string; market?: number } | null
+  market_structure: ConsolidatedMarketStructure | null
+  // Short, no-stack reasons the technical engine and/or index hurdle could
+  // not run (e.g. a subrequest budget error), null when both succeeded.
+  errors: { technical?: string; index_hurdle?: string } | null
+  // The next earnings date already fed into Vincent's engine as risk input;
+  // near reuses his own near-earnings window. Null when the quote has no date.
+  earnings: { date: string; days_to_earnings: number; near: boolean } | null
+}
+
+/** One `/decisions` board row: a successful consolidated decision or a per-symbol failure. */
+export interface DecisionRowOk {
+  symbol: string
+  company_name?: string | null
+  current_price: number | null
+  consolidated_decision: ConsolidatedDecision
+  error?: undefined
+}
+
+export interface DecisionRowError {
+  symbol: string
+  error: { code: string; message: string; status?: number }
+}
+
+export type DecisionRow = DecisionRowOk | DecisionRowError
+
+export interface DecisionsResponse {
+  results: DecisionRow[]
+  max_symbols: number
+}
+
 export interface AnalysisResponse {
   symbol: string
   company_name?: string | null
@@ -168,6 +326,8 @@ export interface AnalysisResponse {
   signals: Signal[]
   entry: EntryBlock | null
   recommendation: Recommendation
+  // Present only when the Worker runs the consolidated pipeline (QA today).
+  consolidated_decision?: ConsolidatedDecision | null
   narrative: string | null
 }
 
@@ -256,6 +416,8 @@ export interface ScreenResultItem {
   analyst_upgrades_30d?: number | null
   margin_expansion_bps?: number | null
   components?: Record<string, unknown>
+  index_hurdle?: IndexHurdle | null
+  held_by_index_hurdle?: boolean
 }
 
 export interface ScreenResponse {
@@ -309,6 +471,9 @@ export interface TrendingResultItem {
   reason: string
   score_breakdown: Record<string, unknown>
   buyability?: BuyabilityResult | null
+  recommendation?: Direction | null
+  index_hurdle?: IndexHurdle | null
+  held_by_index_hurdle?: boolean
 }
 
 export interface TrendingScreenResponse {

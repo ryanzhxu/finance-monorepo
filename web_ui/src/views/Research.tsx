@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { cancelResearchJob, fetchResearchJob, startResearchJob } from '../api/client'
 import type { ResearchDecisionSupport, ResearchJobRequest, ResearchPoint } from '../api/types'
 import { useI18n } from '../i18n'
+import { formatResearchStage, formatReviewVerdict } from '../formatters'
 
 const terminalStatuses = new Set(['completed', 'failed', 'cancelled'])
 const researchUniverses = [
@@ -46,7 +47,7 @@ function PointList({ title, points }: { title: string; points: ResearchPoint[] }
 }
 
 function DecisionCard({ decision }: { decision: ResearchDecisionSupport }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0d0f14]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -59,7 +60,7 @@ function DecisionCard({ decision }: { decision: ResearchDecisionSupport }) {
           </h3>
         </div>
         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          {decision.review_verdict.replaceAll('_', ' ')}
+          {formatReviewVerdict(decision.review_verdict, locale)}
         </span>
       </div>
 
@@ -130,7 +131,7 @@ function DecisionCard({ decision }: { decision: ResearchDecisionSupport }) {
 }
 
 function Research() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [jobId, setJobId] = useState<string | null>(null)
   const [question, setQuestion] = useState('Find companies with durable demand growth and explain what could invalidate the thesis.')
   const [universe, setUniverse] = useState('US-listed common stocks')
@@ -274,9 +275,9 @@ function Research() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{t('job')} {job.id}</p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{job.current_stage.replaceAll('_', ' ')}</p>
+              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{formatResearchStage(job.current_stage, locale)}</p>
             </div>
-            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{job.progress}% · {job.status}</span>
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{job.progress}% · {formatResearchStage(job.status, locale)}</span>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
             <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${job.progress}%` }} />

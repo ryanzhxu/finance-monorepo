@@ -1,0 +1,311 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  clearMarketDataCache,
+  fearGreedLabel,
+  fetchYahooChart,
+  loadMarketContext,
+  loadQuoteInputs,
+  seriesChange,
+  validateNativeFourHour,
+} from '../src/consolidated/market-data.js'
+import { decideTechnical, horizonSummary, runTechnicalEngine } from '../src/consolidated/technical-engine.js'
+import { earningsProximityFrom, runConsolidated } from '../src/consolidated/pipeline.js'
+import { verdictFromExternal } from '../src/technical-provider.js'
+
+const LEGAL_ACTIONS = ['strong_buy', 'buy', 'accumulate', 'hold', 'trim', 'sell', 'avoid']
+
+test.beforeEach(() => clearMarketDataCache())
+
+// Weekdays from 2026-03-16 onward are all in US daylight time, so 13:30 UTC is
+// 09:30 ET and 17:30 UTC is 13:30 ET.
+function weekdays(count, start = Date.UTC(2026, 2, 16)) {
+  const days = []
+  for (let day = start; days.length < count; day += 86_400_000) {
+    const weekday = new Date(day).getUTCDay()
+    if (weekday !== 0 && weekday !== 6) days.push(day)
+  }
+  return days
+}
+
+function chart(stamps, closeAt, meta = {}) {
+  const closes = stamps.map((_, index) => closeAt(index))
+  return {
+    chart: {
+      result: [
+        {
+          meta: { regularMarketPrice: closes.at(-1), instrumentType: 'EQUITY', currency: 'USD', exchangeTimezoneName: 'America/New_York', ...meta },
+          timestamp: stamps,
+          indicators: {
+            quote: [
+              {
+                open: closes.map((close) => close * 0.998),
+                high: closes.map((close) => close * 1.01),
+                low: closes.map((close) => close * 0.99),
+                close: closes,
+                volume: closes.map((_, index) => 1_000_000 + (index % 7) * 50_000),
+              },
+            ],
+            adjclose: [{ adjclose: closes }],
+          },
+        },
+      ],
+    },
+  }
+}
+
+const wave = (base, drift) => (index) => base * (1 + drift) ** index * (1 + 0.04 * Math.sin(index / 6))
+
+function mockYahoo(url) {
+  const parsed = new URL(url)
+  if (parsed.hostname.includes('cnn.io')) return new Response('blocked', { status: 418 })
+  const symbol = decodeURIComponent(parsed.pathname.split('/').pop())
+  const interval = parsed.searchParams.get('interval')
+  const drift = { SPY: 0.0004, QQQ: 0.0005, '^VIX': 0, '^TNX': 0 }[symbol] ?? 0.0009
+  const base = { '^VIX': 16, '^TNX': 4.3 }[symbol] ?? 100
+  if (interval === '1d') {
+    const days = weekdays(504, Date.UTC(2024, 8, 2)).map((day) => day / 1000 + 13.5 * 3600)
+    return new Response(JSON.stringify(chart(days, wave(base, drift))))
+  }
+  const days = weekdays(84)
+  if (interval === '4h') {
+    const stamps = days.flatMap((day) => [day / 1000 + 13.5 * 3600, day / 1000 + 17.5 * 3600])
+    return new Response(JSON.stringify(chart(stamps, wave(base, drift / 2), { dataGranularity: '4h' })))
+  }
+  const stamps = days.flatMap((day) => [0, 1, 2, 3, 4, 5, 6].map((hour) => day / 1000 + (13.5 + hour) * 3600))
+  return new Response(JSON.stringify(chart(stamps, wave(base, drift / 7), { dataGranularity: '1h' })))
+}
+
+test('native 4h validation keeps 09:30/13:30 sessions and drops malformed days', () => {
+  const [monday, tuesday, wednesday] = weekdays(3).map((day) => day / 1000)
+  const stamps = [
+    monday + 13.5 * 3600, monday + 17.5 * 3600, // normal session
+    tuesday + 13.5 * 3600, tuesday + 15.5 * 3600, // 11:30 ET is not a native session bar, so all of Tuesday is dropped
+    wednesday + 13.5 * 3600, // 09:30-only early close is kept
+  ]
+  const payload = chart(stamps, () => 100, { dataGranularity: '4h' }).chart.result[0]
+  const result = validateNativeFourHour(payload)
+  assert.equal(result.normalSessionDays, 1)
+  assert.equal(result.singleSessionDays, 1)
+  assert.equal(result.invalidSessionDays, 1)
+  assert.equal(result.bars.closes.length, 3)
+
+  const resampled = validateNativeFourHour({ ...payload, meta: { ...payload.meta, dataGranularity: '1h' } })
+  assert.equal(resampled.bars.available, false)
+  assert.equal(resampled.unavailableReason, 'invalid_source_data')
+})
+
+test('series change and fear/greed labels match server.py', () => {
+  assert.equal(seriesChange([10, 11, 12, 13, 14, 15, 16], 5), 5)
+  assert.equal(seriesChange([1], 5), null)
+  assert.equal(
+    seriesChange([null, null, null, 10], 1),
+    null,
+    'no non-null value between the anchor and the start of the series is still null, not a stale delta',
+  )
+  assert.equal(fearGreedLabel(25), 'Extreme Fear')
+  assert.equal(fearGreedLabel(50), 'Neutral')
+  assert.equal(fearGreedLabel(80), 'Extreme Greed')
+})
+
+test('Yahoo chart requests use a bare Mozilla/5.0 UA, not a full Chrome string that Yahoo 429s', async () => {
+  let seenHeaders
+  await fetchYahooChart('SPY', {
+    fetchImpl: async (url, init) => {
+      seenHeaders = init.headers
+      return mockYahoo(url)
+    },
+  })
+  assert.equal(seenHeaders['user-agent'], 'Mozilla/5.0')
+})
+
+test('market context carries VIX, 10Y, SPY and QQQ, and a blocked fear/greed stays unavailable', async () => {
+  const { market_context: context } = await loadMarketContext({ fetchImpl: async (url) => mockYahoo(url) })
+  assert.ok(Number.isFinite(context.vix.value))
+  assert.ok(Number.isFinite(context.ten_year_yield.value))
+  assert.ok(context.ten_year_yield.value < 20, 'yield is in percent, not tenths')
+  assert.ok(Number.isFinite(context.equity_trend.spy.change_120d_pct))
+  assert.equal(context.fear_greed.value, null)
+})
+
+test('fear/greed reports its score, label and trend when CNN succeeds, matching server.py', async () => {
+  const fetchImpl = async (url) => {
+    const parsed = new URL(url)
+    if (parsed.hostname.includes('cnn.io')) {
+      return new Response(JSON.stringify({ fear_and_greed: { score: 62, previous_close: 55 } }))
+    }
+    return mockYahoo(url)
+  }
+  const { market_context: context } = await loadMarketContext({ fetchImpl })
+  assert.equal(context.fear_greed.value, 62)
+  assert.equal(context.fear_greed.label, 'Greed')
+  assert.equal(context.fear_greed.trend, 'rising', 'a 7-point rise over the previous close is a rising trend')
+})
+
+test("Vincent's engine runs in process and decides all three horizons from native 4h, 1h and daily bars", async () => {
+  const result = await runTechnicalEngine('NVDA', { fetchImpl: async (url) => mockYahoo(url) })
+  assert.equal(result.producer, 'vincent-stock-decision-dashboard')
+  assert.equal(result.dataQuality.four_hour, 'available')
+  assert.equal(result.dataQuality.one_hour, 'available')
+  for (const horizon of ['short', 'mid', 'long']) {
+    const summary = result.horizons[horizon]
+    assert.equal(summary.available, true, `${horizon} is decided`)
+    assert.ok(LEGAL_ACTIONS.includes(summary.action), `${horizon} action ${summary.action} is legal`)
+  }
+  // The in-process verdicts go through the same decision.v1 seam as a pulled one.
+  assert.deepEqual(Object.keys(result.decisionV1).sort(), ['1W', '2-4W', '3-6M'])
+  for (const payload of Object.values(result.decisionV1)) {
+    const verdict = verdictFromExternal(payload)
+    assert.equal(verdict.source, 'external')
+  }
+})
+
+test('the technical engine exposes a compact technical-details subset per horizon, computed once', async () => {
+  const result = await runTechnicalEngine('NVDA', { fetchImpl: async (url) => mockYahoo(url) })
+  for (const horizon of ['short', 'mid', 'long']) {
+    const details = result.horizons[horizon].technical_details
+    assert.ok(details, `${horizon} carries technical_details`)
+    assert.ok(['unavailable', 'strong_bullish', 'bullish', 'strong_bearish', 'bearish', 'mixed'].includes(details.moving_averages.alignment))
+    assert.equal(details.rsi.available, true)
+    assert.ok(Number.isFinite(details.rsi.value))
+    assert.equal(details.macd.available, true)
+    assert.ok(Number.isFinite(details.macd.macd_line))
+    assert.equal(details.adx.available, true)
+    assert.ok(Number.isFinite(details.adx.adx))
+    assert.equal(details.bollinger.available, true)
+    assert.ok(Number.isFinite(details.bollinger.upper_band))
+    assert.ok(details.relative_strength, `${horizon} carries relative_strength`)
+    assert.ok(details.fibonacci, `${horizon} carries fibonacci`)
+  }
+  assert.ok(['very_low', 'low', 'normal', 'elevated', 'high', 'extreme'].includes(result.marketStructure.relative_volume.state))
+  assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.high))
+  assert.ok(Number.isFinite(result.marketStructure.fifty_two_week.low))
+})
+
+test("a horizon his engine did not populate reports unavailable with no fake price landscape, not a crash", () => {
+  // decision.horizons can legitimately be missing a key (insufficient data for
+  // just that horizon) without decideTechnical throwing - this is the branch
+  // final-decision.js's composeHorizon relies on to add a `technical_unavailable`
+  // adjustment and hold, so it must degrade cleanly rather than assume `value`.
+  const decision = { horizons: { short: { action: 'hold', confidence: 50, priceLandscape: {}, debug: { priceState: 'NEUTRAL_ZONE' }, reasons: { supporting: [] } } } }
+  const summary = horizonSummary(decision, 'mid', 123.45)
+  assert.equal(summary.available, false)
+  assert.equal(summary.action, null)
+  assert.equal(summary.confidence, null)
+  assert.equal(summary.price_state, 'INVALID_LANDSCAPE')
+  assert.equal(summary.opportunity_range, null)
+  assert.equal(summary.reduce_range, null)
+  assert.equal(summary.invalidation, null)
+  assert.equal(summary.current_price, 123.45)
+  assert.deepEqual(summary.reasons, ['Horizon unavailable'])
+})
+
+test("a leveraged/inverse ETF feeds Vincent's engine its underlying's technical features and price", async () => {
+  const requested = []
+  const fetchImpl = async (url) => {
+    requested.push(decodeURIComponent(new URL(url).pathname))
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const soxlQuote = await loadQuoteInputs('SOXL', { fetchImpl })
+  requested.length = 0
+  const { decision } = await decideTechnical({ ticker: 'SOXL', quote: soxlQuote, market, fetchImpl })
+  assert.ok(requested.some((path) => path.includes('SOXX')), "SOXL's profile names SOXX as its underlying, so decideTechnical loads SOXX bars")
+  assert.ok(decision.horizons.mid, 'still decides normally with the extra underlying input')
+})
+
+test('a plain equity, and an ETF whose own ticker is its underlying, never fetch a duplicate underlying series', async () => {
+  const requested = []
+  const fetchImpl = async (url) => {
+    requested.push(decodeURIComponent(new URL(url).pathname))
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const nvdaQuote = await loadQuoteInputs('NVDA', { fetchImpl })
+  requested.length = 0
+  await decideTechnical({ ticker: 'NVDA', quote: nvdaQuote, market, fetchImpl })
+  assert.equal(requested.length, 0, 'NVDA is not an ETF, so decideTechnical fetches nothing extra')
+
+  const qqqQuote = await loadQuoteInputs('QQQ', { fetchImpl })
+  requested.length = 0
+  await decideTechnical({ ticker: 'QQQ', quote: qqqQuote, market, fetchImpl })
+  assert.equal(requested.length, 0, "QQQ's own profile names QQQ as its underlying, which decideTechnical must not re-fetch")
+})
+
+test("a leveraged/inverse ETF still decides normally when its underlying's quote fails to load", async () => {
+  // decideTechnical's underlying fetch is wrapped in .catch(() => null) so a
+  // transient failure on the underlying (SOXX down, rate limited, etc.) must
+  // not sink SOXL's own decision - it just loses the extra confirmation input.
+  const fetchImpl = async (url) => {
+    if (decodeURIComponent(new URL(url).pathname).includes('SOXX')) throw new Error('network down')
+    return mockYahoo(url)
+  }
+  const market = await loadMarketContext({ fetchImpl })
+  const soxlQuote = await loadQuoteInputs('SOXL', { fetchImpl })
+  const { decision } = await decideTechnical({ ticker: 'SOXL', quote: soxlQuote, market, fetchImpl })
+  assert.ok(decision.horizons.mid, "SOXL still decides normally when SOXX's quote fetch throws")
+})
+
+test('the consolidated pipeline composes technical, fundamentals and the hurdle', async () => {
+  const quote = { sector: 'Technology', industry: 'Semiconductors', quoteType: 'EQUITY' }
+  const { consolidated, decisionV1ByHorizon } = await runConsolidated('NVDA', {
+    quote,
+    fundamentalSignals: [
+      { signal: 'BUY', weight: 2 },
+      { signal: 'HOLD', weight: 1 },
+    ],
+    fetchImpl: async (url) => mockYahoo(url),
+  })
+  assert.equal(consolidated.version, 'consolidated.v1')
+  assert.equal(consolidated.fundamentals.stance, 'supportive')
+  assert.deepEqual(consolidated.index_hurdle.benchmarks.map((row) => row.symbol), ['SPY', 'QQQ', 'XLK', 'SMH'])
+  assert.equal(consolidated.errors, null, 'no failures happened, so errors stays null rather than an empty object')
+  assert.equal(consolidated.earnings, null, 'quote carries no calendarEvents, so earnings proximity is null, not a fabricated date')
+  for (const horizon of ['short', 'mid', 'long']) {
+    const entry = consolidated.horizons[horizon]
+    assert.ok(LEGAL_ACTIONS.includes(entry.final_action))
+    assert.ok(entry.technical.technical_details, `${horizon} technical carries technical_details`)
+    if (['strong_buy', 'buy', 'accumulate'].includes(entry.final_action)) {
+      assert.equal(consolidated.index_hurdle.status, 'pass', 'a final buy implies the hurdle passed')
+    }
+  }
+  assert.ok(consolidated.market_structure, 'consolidated_decision carries market_structure')
+  assert.ok(decisionV1ByHorizon['2-4W'])
+})
+
+test('the consolidated pipeline reports a short, no-stack reason instead of silently swallowing a technical-engine failure', async () => {
+  const quote = { sector: 'Technology', industry: 'Semiconductors', quoteType: 'EQUITY' }
+  const failingFetch = async () => {
+    throw new Error('simulated network failure')
+  }
+  const { consolidated } = await runConsolidated('NVDA', { quote, fetchImpl: failingFetch })
+  assert.ok(consolidated.errors, 'errors is populated instead of null')
+  assert.equal(consolidated.errors.technical, 'simulated network failure')
+  assert.doesNotMatch(consolidated.errors.technical, /\n\s+at /, 'a message, not a stack trace')
+  for (const horizon of ['short', 'mid', 'long']) {
+    assert.equal(consolidated.horizons[horizon].final_action, null)
+  }
+})
+
+test('earningsProximityFrom reports days-to-earnings and Vincent\'s own near-earnings window, not a second threshold', () => {
+  assert.equal(earningsProximityFrom(null), null, 'no date, no proximity')
+  assert.equal(earningsProximityFrom('not-a-date'), null, 'an unparseable date degrades to null rather than NaN days')
+  const now = new Date('2026-09-11T14:00:00Z')
+  assert.deepEqual(earningsProximityFrom('2026-09-15', now), { date: '2026-09-15', days_to_earnings: 4, near: true }, '4 days out is inside the engine\'s 7-day nearDays window')
+  assert.deepEqual(earningsProximityFrom('2026-10-01', now), { date: '2026-10-01', days_to_earnings: 20, near: false }, '20 days out is outside the window')
+  assert.deepEqual(earningsProximityFrom('2026-09-01', now), { date: '2026-09-01', days_to_earnings: -10, near: false }, 'a past date reports negative days rather than clamping to zero')
+})
+
+test('the consolidated pipeline threads the quote earnings date into consolidated_decision.earnings', async () => {
+  const earningsDate = Math.floor(Date.UTC(2026, 8, 15) / 1000)
+  const quote = {
+    sector: 'Technology',
+    industry: 'Semiconductors',
+    quoteType: 'EQUITY',
+    calendarEvents: { earnings: { earningsDate: [earningsDate] } },
+  }
+  const { consolidated } = await runConsolidated('NVDA', { quote, fetchImpl: async (url) => mockYahoo(url) })
+  assert.equal(consolidated.earnings.date, '2026-09-15')
+  assert.equal(typeof consolidated.earnings.days_to_earnings, 'number')
+  assert.equal(typeof consolidated.earnings.near, 'boolean')
+})

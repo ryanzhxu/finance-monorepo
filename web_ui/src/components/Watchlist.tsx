@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { WatchlistEntry } from '../watchlist'
-import { formatDirection } from '../formatters'
+import { formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n } from '../i18n'
 
 type WatchlistProps = {
@@ -140,7 +140,7 @@ function Watchlist({ entries, refreshingSymbol, onAdd, onRemove, onAnalyze }: Wa
                 </p>
                 {entry.entryAssessment ? (
                   <p className="mt-1 truncate text-[10px] italic text-slate-500 dark:text-slate-400">
-                    {entry.entryAssessment}
+                    {formatEntryAssessment(entry.entryAssessment, locale)}
                   </p>
                 ) : null}
               </div>

@@ -1,0 +1,362 @@
+{
+  "version": "consolidated.v1",
+  "producer": "vincent-stock-decision-dashboard",
+  "generated_at": "2026-09-11T14:05:00Z",
+  "current_price": 310.1,
+  "horizons": {
+    "short": {
+      "technical": {
+        "available": true,
+        "action": "hold",
+        "confidence": 50,
+        "price_state": "NEUTRAL_ZONE",
+        "execution_intent": "hold",
+        "opportunity_range": {
+          "low": 295.0,
+          "high": 302.0
+        },
+        "reduce_range": {
+          "low": 330.0,
+          "high": 340.0
+        },
+        "invalidation": 280.0,
+        "current_price": 310.1,
+        "reasons": [
+          "Price sits between the opportunity and reduce zones on the 4h chart."
+        ],
+        "data_quality": 87,
+        "technical_details": {
+          "moving_averages": {
+            "alignment": "mixed",
+            "compression_state": "neutral"
+          },
+          "rsi": {
+            "available": true,
+            "value": 49.0,
+            "state": "neutral"
+          },
+          "macd": {
+            "available": true,
+            "line": -0.1,
+            "signal": 0.0,
+            "histogram": -0.1,
+            "crossover_state": "none"
+          },
+          "kdj": {
+            "available": true,
+            "k": 48,
+            "d": 50,
+            "j": 44
+          },
+          "adx": {
+            "available": true,
+            "adx": 16.0,
+            "plus_di": 18.0,
+            "minus_di": 19.5
+          },
+          "atr": {
+            "available": true,
+            "value": 5.2,
+            "pct": 1.7,
+            "regime": "normal"
+          },
+          "bollinger": {
+            "available": true,
+            "upper": 318.0,
+            "lower": 300.0,
+            "squeeze_state": "none"
+          },
+          "obv": {
+            "available": true,
+            "trend": "flat",
+            "divergence": "none"
+          },
+          "relative_strength": {
+            "state": "in_line",
+            "vs_spy": -0.3,
+            "vs_qqq": -0.5
+          },
+          "fibonacci": {
+            "availability": "available",
+            "direction": "up",
+            "fib_zone": "Between 38.2% and 50.0%",
+            "nearest_fib_level": "50.0%",
+            "distance_to_nearest_fib_pct": 1.1
+          }
+        }
+      },
+      "fundamentals": {
+        "stance": "neutral",
+        "applied": false
+      },
+      "final_action": "hold",
+      "adjustments": []
+    },
+    "mid": {
+      "technical": {
+        "available": true,
+        "action": "buy",
+        "confidence": 68,
+        "price_state": "IN_OPPORTUNITY_ZONE",
+        "execution_intent": "enter",
+        "opportunity_range": {
+          "low": 290.0,
+          "high": 300.0
+        },
+        "reduce_range": {
+          "low": 350.0,
+          "high": 365.0
+        },
+        "invalidation": 275.0,
+        "current_price": 310.1,
+        "reasons": [
+          "Price inside the multi-timeframe opportunity zone.",
+          "Weekly trend remains up."
+        ],
+        "data_quality": 90,
+        "technical_details": {
+          "moving_averages": {
+            "alignment": "bullish_stack",
+            "compression_state": "expanding"
+          },
+          "rsi": {
+            "available": true,
+            "value": 60.1,
+            "state": "neutral"
+          },
+          "macd": {
+            "available": true,
+            "line": 1.5,
+            "signal": 1.0,
+            "histogram": 0.5,
+            "crossover_state": "bullish_cross"
+          },
+          "kdj": {
+            "available": true,
+            "k": 70,
+            "d": 60,
+            "j": 90
+          },
+          "adx": {
+            "available": true,
+            "adx": 26.0,
+            "plus_di": 29.0,
+            "minus_di": 14.0
+          },
+          "atr": {
+            "available": true,
+            "value": 6.0,
+            "pct": 1.9,
+            "regime": "normal"
+          },
+          "bollinger": {
+            "available": true,
+            "upper": 320.0,
+            "lower": 295.0,
+            "squeeze_state": "none"
+          },
+          "obv": {
+            "available": true,
+            "trend": "rising",
+            "divergence": "none"
+          },
+          "relative_strength": {
+            "state": "underperforming",
+            "vs_spy": -3.8,
+            "vs_qqq": -2.1
+          },
+          "fibonacci": {
+            "availability": "available",
+            "direction": "up",
+            "fib_zone": "Between 61.8% and 78.6%",
+            "nearest_fib_level": "61.8%",
+            "distance_to_nearest_fib_pct": 0.8
+          }
+        }
+      },
+      "fundamentals": {
+        "stance": "neutral",
+        "applied": true
+      },
+      "final_action": "buy",
+      "adjustments": [
+        {
+          "layer": "index_hurdle",
+          "from": "buy",
+          "to": "hold",
+          "reason": "index_hurdle_failed",
+          "detail": "does not beat SPY, QQQ"
+        }
+      ]
+    },
+    "long": {
+      "technical": {
+        "available": true,
+        "action": "hold",
+        "confidence": 58,
+        "price_state": "NEAR_OPPORTUNITY_ZONE",
+        "execution_intent": "hold",
+        "opportunity_range": {
+          "low": 280.0,
+          "high": 295.0
+        },
+        "reduce_range": {
+          "low": 380.0,
+          "high": 400.0
+        },
+        "invalidation": 260.0,
+        "current_price": 310.1,
+        "reasons": [
+          "Weekly structure is approaching, but not yet inside, the opportunity band."
+        ],
+        "data_quality": 83,
+        "technical_details": {
+          "moving_averages": {
+            "alignment": "bullish_stack",
+            "compression_state": "neutral"
+          },
+          "rsi": {
+            "available": true,
+            "value": 53.0,
+            "state": "neutral"
+          },
+          "macd": {
+            "available": true,
+            "line": 0.7,
+            "signal": 0.6,
+            "histogram": 0.1,
+            "crossover_state": "none"
+          },
+          "kdj": {
+            "available": true,
+            "k": 55,
+            "d": 54,
+            "j": 57
+          },
+          "adx": {
+            "available": true,
+            "adx": 19.0,
+            "plus_di": 22.0,
+            "minus_di": 18.0
+          },
+          "atr": {
+            "available": true,
+            "value": 7.5,
+            "pct": 2.4,
+            "regime": "normal"
+          },
+          "bollinger": {
+            "available": true,
+            "upper": 325.0,
+            "lower": 292.0,
+            "squeeze_state": "none"
+          },
+          "obv": {
+            "available": true,
+            "trend": "flat",
+            "divergence": "none"
+          },
+          "relative_strength": {
+            "state": "underperforming",
+            "vs_spy": -1.5,
+            "vs_qqq": -0.9
+          },
+          "fibonacci": {
+            "availability": "available",
+            "direction": "up",
+            "fib_zone": "Between 50.0% and 61.8%",
+            "nearest_fib_level": "50.0%",
+            "distance_to_nearest_fib_pct": 1.9
+          }
+        }
+      },
+      "fundamentals": {
+        "stance": "neutral",
+        "applied": true
+      },
+      "final_action": "hold",
+      "adjustments": []
+    }
+  },
+  "index_hurdle": {
+    "status": "fail",
+    "benchmarks": [
+      {
+        "symbol": "SPY",
+        "role": "index",
+        "label": "S&P 500",
+        "rel_12_1_pct": -4.2,
+        "rel_6m_pct": -2.1,
+        "ratio_above_200d": false,
+        "evidence_true": 0,
+        "evidence_known": 3,
+        "sessions": 252,
+        "result": "lags"
+      },
+      {
+        "symbol": "QQQ",
+        "role": "index",
+        "label": "Nasdaq 100",
+        "rel_12_1_pct": -3.0,
+        "rel_6m_pct": -1.6,
+        "ratio_above_200d": false,
+        "evidence_true": 1,
+        "evidence_known": 3,
+        "sessions": 252,
+        "result": "lags"
+      },
+      {
+        "symbol": "XLY",
+        "role": "sector",
+        "label": "Consumer Discretionary Select Sector",
+        "rel_12_1_pct": -1.1,
+        "rel_6m_pct": 0.4,
+        "ratio_above_200d": true,
+        "evidence_true": 1,
+        "evidence_known": 3,
+        "sessions": 252,
+        "result": "lags"
+      }
+    ],
+    "lagging": [
+      "SPY",
+      "QQQ",
+      "XLY"
+    ],
+    "earnings_guard": {
+      "status": "clear",
+      "eps_surprise_pct": -1.2,
+      "analysts_deteriorating": false
+    }
+  },
+  "fundamentals": {
+    "stance": "neutral",
+    "vote": {
+      "BUY": 1,
+      "HOLD": 2,
+      "SELL": 0
+    },
+    "signal_count": 3
+  },
+  "data_quality": {
+    "daily": "available",
+    "four_hour": "available",
+    "one_hour": "available",
+    "market": 100
+  },
+  "market_structure": {
+    "relative_volume": {
+      "state": "normal",
+      "displayed_rvol": 0.9
+    },
+    "fifty_two_week": {
+      "high": 380.2,
+      "low": 260.5,
+      "position_pct": 41.2,
+      "distance_to_high_pct": -18.4,
+      "distance_to_low_pct": 19.0
+    }
+  },
+  "errors": null,
+  "earnings": null
+}

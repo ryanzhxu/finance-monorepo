@@ -11,6 +11,8 @@ import type {
   TrackRecordPerformance,
   TrackRecordTimeline,
 } from '../api/types'
+import { formatDirection, formatEntryAssessment } from '../formatters'
+import type { Locale } from '../i18n'
 import { useI18n } from '../i18n'
 
 function formatDate(value: string | null | undefined, locale: string): string {
@@ -53,7 +55,17 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBucket[] }) {
+function BucketTable({
+  title,
+  buckets,
+  locale,
+  formatLabel,
+}: {
+  title: string
+  buckets: PerformanceBucket[]
+  locale: Locale
+  formatLabel?: (label: string, locale: Locale) => string
+}) {
   const { t } = useI18n()
   if (buckets.length === 0) return null
   return (
@@ -65,7 +77,9 @@ function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBu
             key={bucket.label}
             className="flex items-center justify-between gap-4 text-sm text-slate-700 dark:text-slate-300"
           >
-            <span className="font-medium">{bucket.label}</span>
+            <span className="font-medium">
+              {formatLabel ? formatLabel(bucket.label, locale) : bucket.label}
+            </span>
             <span className="tabular-nums text-slate-500 dark:text-slate-400">
               {formatPercent(bucket.hit_rate)} · {bucket.evaluated_count}/{bucket.decision_count}{' '}
               {t('evaluatedCount').toLowerCase()}
@@ -77,17 +91,19 @@ function BucketTable({ title, buckets }: { title: string; buckets: PerformanceBu
   )
 }
 
-function TimelineRow({ entry, locale }: { entry: TrackRecordEntry; locale: string }) {
+function TimelineRow({ entry, locale }: { entry: TrackRecordEntry; locale: Locale }) {
   const { t } = useI18n()
   return (
     <tr className="border-t border-slate-100 dark:border-slate-800">
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
         {formatDate(entry.generated_at, locale)}
       </td>
-      <td className="py-2 pr-3 font-medium text-slate-900 dark:text-slate-100">{entry.direction}</td>
+      <td className="py-2 pr-3 font-medium text-slate-900 dark:text-slate-100">
+        {formatDirection(entry.direction, locale)}
+      </td>
       <td className="py-2 pr-3 tabular-nums">{formatPercent(entry.confidence)}</td>
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-        {entry.entry_assessment ?? '—'}
+        {formatEntryAssessment(entry.entry_assessment, locale)}
       </td>
       <td className="py-2 pr-3 tabular-nums">{formatPrice(entry.price_at_call)}</td>
       <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{entry.target_window}</td>
@@ -285,9 +301,19 @@ export default function TrackRecord() {
                 value={formatPercent(performance.average_benchmark_relative_return)}
               />
             </div>
-            <BucketTable title={t('byDirection')} buckets={performance.by_direction} />
-            <BucketTable title={t('byConfidence')} buckets={performance.by_confidence} />
-            <BucketTable title={t('byEntryAssessment')} buckets={performance.by_entry_assessment} />
+            <BucketTable
+              title={t('byDirection')}
+              buckets={performance.by_direction}
+              locale={locale}
+              formatLabel={formatDirection}
+            />
+            <BucketTable title={t('byConfidence')} buckets={performance.by_confidence} locale={locale} />
+            <BucketTable
+              title={t('byEntryAssessment')}
+              buckets={performance.by_entry_assessment}
+              locale={locale}
+              formatLabel={formatEntryAssessment}
+            />
             {performance.advisory.length > 0 ? (
               <div>
                 <p className={labelClass}>{t('advisoryLabel')}</p>

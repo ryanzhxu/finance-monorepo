@@ -75,6 +75,15 @@ export const SIGNAL_WEIGHTS = {
   News_Sentiment: 0.5,
 }
 
+// Mirrors the fundamental rows of analyst_service/config/signal_thresholds.yaml.
+export const FUNDAMENTAL_SIGNAL_THRESHOLDS = {
+  epsBuyAbove: 5,
+  epsSellBelow: -5,
+  peSellAbove: 70,
+  peBuyBelow: 40,
+  analystNetBuyAbove: 0,
+}
+
 export const SCORING_WEIGHTS = {
   opportunity: {
     valuation: 0.22,

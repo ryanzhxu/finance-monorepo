@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Decision Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=20260813-decision-ui-v3" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <button class="icon-btn" aria-label="Open menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div>
+            <h1 id="appTitle">Stock Decision Dashboard</h1>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="lang-switch" role="tablist" aria-label="Language">
+            <button class="lang-btn active" type="button" data-lang="en">English</button>
+            <button class="lang-btn" type="button" data-lang="zh">中文</button>
+          </div>
+          <div class="refresh-controls">
+            <div class="chip refresh-chip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7a5 5 0 1 1-4.9 6H5.02A7 7 0 1 0 17.65 6.35Z"/></svg>
+              <span>Auto refresh every 1 hour</span>
+            </div>
+            <span id="lastRefreshLabel" class="last-refresh-label" aria-live="polite">Last refresh: —</span>
+            <button id="manualRefreshButton" class="manual-refresh-btn" type="button">Refresh Now</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="grid-card rail-card stock-picker-card">
+          <div class="rail-head">
+            <h2 id="stocksTitle">Stocks</h2>
+            <p id="sharedWatchlistHint" class="shared-watchlist-hint">Shared Watchlist: everyone viewing this Dashboard sees the same stock list.</p>
+            <p id="watchlistSyncWarning" class="watchlist-sync-warning" hidden>Shared list sync failed. Showing cached data.</p>
+            <form id="watchlistForm" class="watchlist-form stock-picker-form">
+              <label class="watchlist-input">
+                <span id="tickerInputLabel">Search</span>
+                <input id="tickerInput" type="text" placeholder="e.g. SHOP / QQQ" maxlength="48" autocomplete="off" />
+                <div id="symbolSearchMenu" class="symbol-search-menu" hidden></div>
+                <div id="symbolSearchHint" class="symbol-search-hint"></div>
+              </label>
+              <button id="addStockButton" type="submit" class="watchlist-submit" disabled>Add Selected</button>
+            </form>
+            <div class="sort-rail" role="tablist" aria-label="Sort stocks">
+              <button class="sort-btn" type="button" data-sort-key="ticker" aria-label="Sort by ticker">
+                <span id="sortTickerLabel">Ticker</span><span class="sort-indicator">↕</span>
+              </button>
+              <button class="sort-btn" type="button" data-sort-key="type" aria-label="Sort by stock type">
+                <span id="sortTypeLabel">Stock Type</span><span class="sort-indicator">↕</span>
+              </button>
+              <button class="sort-btn" type="button" data-sort-key="change" aria-label="Sort by day move">
+                <span id="sortChangeLabel">Day Move</span><span class="sort-indicator">↕</span>
+              </button>
+            </div>
+            <div class="filter-rail" role="tablist" aria-label="Filter stocks by market">
+              <button class="filter-btn active" type="button" data-market-filter="all">All</button>
+              <button class="filter-btn" type="button" data-market-filter="us">US</button>
+              <button class="filter-btn" type="button" data-market-filter="megaCap">Mega Cap</button>
+              <button class="filter-btn" type="button" data-market-filter="growth">Growth</button>
+              <button class="filter-btn" type="button" data-market-filter="speculative">Speculative</button>
+              <button class="filter-btn" type="button" data-market-filter="dividend">Dividend</button>
+              <button class="filter-btn" type="button" data-market-filter="value">Value</button>
+            </div>
+          </div>
+          <div id="stockList" class="stock-list stock-list-top" aria-label="Stocks in dashboard"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="detailModal" class="detail-modal" hidden>
+      <div class="detail-backdrop" data-close-modal="true"></div>
+      <section class="detail-sheet" role="dialog" aria-modal="true"></section>
+    </div>
+
+    <script src="./technical-features.js?v=20260813-canonical-v3"></script>
+    <script src="./profile-definitions.js?v=20260815-profile-v1"></script>
+    <script src="./decision-engine/config.js?v=20260815-price-landscape-v1"></script>
+    <script src="./decision-engine/technical-engine.js?v=20260813-v3"></script>
+    <script src="./decision-engine/exhaustion-engine.js?v=20260813-v3"></script>
+    <script src="./decision-engine/market-engine.js?v=20260813-v3"></script>
+    <script src="./decision-engine/etf-profile.js?v=20260815-price-landscape-v1"></script>
+    <script src="./decision-engine/company-profile.js?v=20260815-price-landscape-v1"></script>
+    <script src="./decision-engine/execution-engine.js?v=20260817-strict-price-state-v1"></script>
+    <script src="./decision-engine/confidence-engine.js?v=20260817-strict-price-state-v1"></script>
+    <script src="./decision-engine/stability-engine.js?v=20260813-v3"></script>
+    <script src="./decision-engine/decision-engine.js?v=20260815-price-landscape-v1"></script>
+    <script src="./decision-presentation.js?v=20260817-strict-price-state-v1"></script>
+    <script src="./main.js?v=20260817-refresh-auto-et-v1"></script>
+  </body>
+</html>

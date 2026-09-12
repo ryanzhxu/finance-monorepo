@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAnalystHealth, fetchScreenerHealth } from '../api/client'
 import type { AnalystHealthResponse, ScreenerHealthResponse } from '../api/types'
-import { useI18n } from '../i18n'
+import { useI18n, type MessageKey } from '../i18n'
 
 function providerDot(value: string): string {
   const v = value.toLowerCase()
@@ -51,7 +51,31 @@ function providerIcon(label: string): ReactNode {
   return icon(<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>)
 }
 
-function ProviderRow({ label, value }: { label: string; value: string }) {
+// Labels/values for the raw provider keys `buildHealthResponse` (cloudflare-api)
+// added for the in-process consolidated pipeline. Every other provider key
+// (finance_query, yahoo_lookup, alpha_vantage, redis, shared_spaces) stays
+// rendered as its raw backend string, matching the rest of this view.
+//
+// The technical engine is compiled into this Worker, so its row is always
+// 'ok' (there is no separate process to be unreachable). yahoo_chart/fear_greed
+// report the cached probe's reachability from `buildHealthResponse`.
+function providerDisplay(
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  provider: string,
+  rawValue: string,
+): { label: string; value: string; statusKey: string } {
+  if (provider === 'technical_engine') {
+    return { label: t('healthTechnicalEngine'), value: t('healthTechnicalEngineValue', { version: rawValue }), statusKey: 'ok' }
+  }
+  if (provider === 'yahoo_chart' || provider === 'fear_greed') {
+    const reachable = rawValue === 'reachable'
+    const labelKey: MessageKey = provider === 'yahoo_chart' ? 'healthYahooChart' : 'healthFearGreed'
+    return { label: t(labelKey), value: reachable ? t('reachable') : t('unreachable'), statusKey: reachable ? 'ok' : 'error' }
+  }
+  return { label: provider, value: rawValue, statusKey: rawValue }
+}
+
+function ProviderRow({ label, value, statusKey }: { label: string; value: string; statusKey?: string }) {
   return (
     <div className="flex items-center justify-between py-[5px]">
       <span className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -59,7 +83,7 @@ function ProviderRow({ label, value }: { label: string; value: string }) {
         {label}
       </span>
       <span className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-        <span className={['h-2 w-2 flex-shrink-0 rounded-full', providerDot(value)].join(' ')} />
+        <span className={['h-2 w-2 flex-shrink-0 rounded-full', providerDot(statusKey ?? value)].join(' ')} />
         {value}
       </span>
     </div>
@@ -127,9 +151,10 @@ function ServiceCard({
           <p className="mb-1 mt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
             {t('dataProviders')}
           </p>
-          {Object.entries(data.providers).map(([provider, status]) => (
-            <ProviderRow key={provider} label={provider} value={status} />
-          ))}
+          {Object.entries(data.providers).map(([provider, status]) => {
+            const display = providerDisplay(t, provider, status)
+            return <ProviderRow key={provider} label={display.label} value={display.value} statusKey={display.statusKey} />
+          })}
         </>
       ) : null}
 
@@ -150,14 +175,12 @@ function Health() {
   const analystQuery = useQuery({
     queryKey: ['health', 'analyst'],
     queryFn: fetchAnalystHealth,
-    refetchInterval: 30000,
     refetchOnWindowFocus: false,
   })
 
   const screenerQuery = useQuery({
     queryKey: ['health', 'screener'],
     queryFn: fetchScreenerHealth,
-    refetchInterval: 30000,
     refetchOnWindowFocus: false,
   })
 

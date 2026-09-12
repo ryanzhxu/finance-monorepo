@@ -7,8 +7,13 @@ Market opportunity monorepo with FastAPI analyst/screener service code, a Cloudf
 - `analyst_service/` single-symbol analysis, entry/confluence, provider health, and ticker search
 - `screener_service/` undervalued/opportunity/trending screens, watchlist/custom screens, regime, and screener health
 - `cloudflare-api/` production Worker API and shared-watchlist endpoints
+- `technical_engine/` Vincent's technical-analysis engine, imported into this repo
+  with its git history. The Worker runs it in-process as the sole technical layer
+  (`cloudflare-api/src/consolidated/`); protected — read and import it freely,
+  never edit it here
 - `shared/` cross-service models, enums, freshness/config helpers
-- `web_ui/` production frontend for Analyze, Screener, Health, and Watchlist views
+- `web_ui/` production frontend for Analyze, Screener, Health, Watchlist, and
+  Decision Board views
 - `backtesting/store.py` append-only logging helpers
 
 `execution_engine/` and `portfolio_dashboard/` are still placeholders.
