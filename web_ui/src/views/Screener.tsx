@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchDemandShockScreen, fetchTrendingScreen, fetchUndervaluedScreen } from '../api/client'
+import {
+  fetchDemandShockScreen,
+  fetchOpportunitiesScreen,
+  fetchTrendingScreen,
+  fetchUndervaluedScreen,
+} from '../api/client'
 import type { ScreenResultItem, TrendingResultItem } from '../api/types'
 import { formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n } from '../i18n'
@@ -9,7 +14,7 @@ type ScreenerProps = {
   onAnalyzeSymbol: (symbol: string) => void
 }
 
-type TabKey = 'undervalued' | 'demand_shock' | 'trending'
+type TabKey = 'undervalued' | 'demand_shock' | 'trending' | 'opportunities'
 
 type ScreenerRow = {
   symbol: string
@@ -19,6 +24,8 @@ type ScreenerRow = {
   entryAssessment: string | null
   dataQuality: number | null
   heldByIndexHurdle: boolean
+  masterDirection: string | null
+  masterConfirms: boolean | null
 }
 
 function formatScore(value: number | null | undefined): string {
@@ -40,6 +47,8 @@ function mapUndervaluedRow(item: ScreenResultItem): ScreenerRow {
     entryAssessment: item.entry_assessment ?? null,
     dataQuality: item.data_quality_score,
     heldByIndexHurdle: item.held_by_index_hurdle ?? false,
+    masterDirection: null,
+    masterConfirms: null,
   }
 }
 
@@ -53,6 +62,16 @@ function mapTrendingRow(item: TrendingResultItem): ScreenerRow {
     entryAssessment: item.buyability?.entry_assessment ?? null,
     dataQuality: item.data_quality_score,
     heldByIndexHurdle: item.held_by_index_hurdle ?? false,
+    masterDirection: null,
+    masterConfirms: null,
+  }
+}
+
+function mapOpportunitiesRow(item: ScreenResultItem): ScreenerRow {
+  return {
+    ...mapUndervaluedRow(item),
+    masterDirection: item.master_direction ?? null,
+    masterConfirms: item.master_confirms ?? null,
   }
 }
 
@@ -63,6 +82,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
     { key: 'undervalued', label: t('undervalued') },
     { key: 'demand_shock', label: t('demandShock') },
     { key: 'trending', label: t('trending') },
+    { key: 'opportunities', label: t('opportunities') },
   ]
 
   const undervaluedQuery = useQuery({
@@ -83,18 +103,28 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
     enabled: false,
   })
 
+  const opportunitiesQuery = useQuery({
+    queryKey: ['screen', 'opportunities'],
+    queryFn: fetchOpportunitiesScreen,
+    enabled: false,
+  })
+
   const activeQuery =
     activeTab === 'undervalued'
       ? undervaluedQuery
       : activeTab === 'demand_shock'
         ? demandShockQuery
-        : trendingQuery
+        : activeTab === 'trending'
+          ? trendingQuery
+          : opportunitiesQuery
   const rows =
     activeTab === 'undervalued'
       ? undervaluedQuery.data?.results.map(mapUndervaluedRow) ?? []
       : activeTab === 'demand_shock'
         ? demandShockQuery.data?.results.map(mapUndervaluedRow) ?? []
-      : trendingQuery.data?.results.map(mapTrendingRow) ?? []
+        : activeTab === 'trending'
+          ? trendingQuery.data?.results.map(mapTrendingRow) ?? []
+          : opportunitiesQuery.data?.results.map(mapOpportunitiesRow) ?? []
   const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? t('screener')
 
   return (
@@ -183,6 +213,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                     <th className="px-4 py-3 font-medium">{t('confidence')}</th>
                     <th className="px-4 py-3 font-medium">{t('entryAssessment')}</th>
                     <th className="px-4 py-3 font-medium">{t('dataQuality')}</th>
+                    <th className="px-4 py-3 font-medium">{t('masterVerdict')}</th>
                     <th className="px-4 py-3 font-medium">{t('actions')}</th>
                   </tr>
                 </thead>
@@ -201,6 +232,24 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
                           : formatEntryAssessment(row.entryAssessment, locale)}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{row.dataQuality ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {row.masterDirection == null ? (
+                          '—'
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <span>{formatDirection(row.masterDirection, locale)}</span>
+                            {row.masterConfirms === true ? (
+                              <span className="text-emerald-600" title={t('masterVerdictConfirms')}>
+                                ✓
+                              </span>
+                            ) : row.masterConfirms === false ? (
+                              <span className="text-amber-600" title={t('masterVerdictDiffers')}>
+                                ⚠
+                              </span>
+                            ) : null}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           type="button"

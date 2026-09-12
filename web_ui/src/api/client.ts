@@ -148,6 +148,20 @@ export async function fetchUndervaluedScreen(): Promise<ScreenResponse> {
   }
 }
 
+export async function fetchOpportunitiesScreen(): Promise<ScreenResponse> {
+  try {
+    const response = await screenerClient.post<ScreenResponse>('/screen/opportunities', {
+      universe: 'SP500',
+      limit: 25,
+      include_analysis: true,
+      include_narrative: false,
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(toErrorMessage(error), { cause: error })
+  }
+}
+
 export async function fetchTrendingScreen(): Promise<TrendingScreenResponse> {
   try {
     const response = await screenerClient.post<TrendingScreenResponse>('/screen/trending', {
