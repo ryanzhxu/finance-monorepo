@@ -134,7 +134,18 @@ export interface Recommendation {
   // True when the technical action and Ryan's other layers point different
   // ways — computed whether or not an external verdict is present.
   conflict_detected?: boolean
+  // English-only fact string for the backend's LLM narrative prompt — never
+  // render this directly. Build the sentence from conflict_technical_* /
+  // conflict_fundamental_* (blended path) or direction / supporting_context
+  // (external path) through the i18n system instead.
   conflict_summary?: string | null
+  // Populated only for the blended (non-external) conflict path.
+  conflict_technical_direction?: Direction | null
+  conflict_technical_supporters?: number | null
+  conflict_technical_total?: number | null
+  conflict_fundamental_direction?: Direction | null
+  conflict_fundamental_supporters?: number | null
+  conflict_fundamental_total?: number | null
   technical_target_high: number | null
   technical_target_low: number | null
   stop_loss_suggestion: number | null

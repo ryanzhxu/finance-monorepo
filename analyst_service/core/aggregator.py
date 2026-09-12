@@ -78,16 +78,18 @@ def _dominant_direction(weighted_vote: dict[Direction, float]) -> Direction:
 
 
 def _conflict_summary(
-    technical_signals: list[Signal],
-    fundamental_signals: list[Signal],
     technical_direction: Direction,
+    technical_supporters: int,
+    technical_total: int,
     fundamental_direction: Direction,
+    fundamental_supporters: int,
+    fundamental_total: int,
 ) -> str:
-    technical_supporters = sum(1 for signal in technical_signals if signal.signal == technical_direction)
-    fundamental_supporters = sum(1 for signal in fundamental_signals if signal.signal == fundamental_direction)
+    # English only, for the LLM narrative prompt (analyst_service/core/narrator.py).
+    # The UI localizes this itself from the conflict_* fields on Recommendation.
     return (
-        f"Technicals lean {technical_direction.value} ({technical_supporters}/{len(technical_signals)} signals) "
-        f"but fundamentals lean {fundamental_direction.value} ({fundamental_supporters}/{len(fundamental_signals)} signals)."
+        f"Technicals lean {technical_direction.value} ({technical_supporters}/{technical_total} signals) "
+        f"but fundamentals lean {fundamental_direction.value} ({fundamental_supporters}/{fundamental_total} signals)."
     )
 
 
@@ -216,16 +218,27 @@ def aggregate_recommendation(
         and fundamental_signal_count >= 2
         and technical_direction != fundamental_direction
     )
+    technical_supporters = sum(
+        1 for signal in category_signals["technical"] if signal.signal == technical_direction
+    )
+    fundamental_supporters = sum(
+        1 for signal in category_signals["fundamental"] if signal.signal == fundamental_direction
+    )
     conflict_summary = (
         _conflict_summary(
-            category_signals["technical"],
-            category_signals["fundamental"],
             technical_direction,
+            technical_supporters,
+            technical_signal_count,
             fundamental_direction,
+            fundamental_supporters,
+            fundamental_signal_count,
         )
         if conflict_detected
         else None
     )
+    # Captured before the external branch can overwrite conflict_detected, so
+    # the blended conflict_* fields below only ever describe the blended path.
+    blended_conflict_detected = conflict_detected
     confidence = round(max(0.0, min(1.0, majority_fraction * (data_quality_score / 100))), 4)
     risk_flags: list[str] = []
     if data_quality_score < 50:
@@ -285,6 +298,12 @@ def aggregate_recommendation(
         macro_vote=category_votes["macro"],
         conflict_detected=conflict_detected,
         conflict_summary=conflict_summary,
+        conflict_technical_direction=technical_direction if blended_conflict_detected else None,
+        conflict_technical_supporters=technical_supporters if blended_conflict_detected else None,
+        conflict_technical_total=technical_signal_count if blended_conflict_detected else None,
+        conflict_fundamental_direction=fundamental_direction if blended_conflict_detected else None,
+        conflict_fundamental_supporters=fundamental_supporters if blended_conflict_detected else None,
+        conflict_fundamental_total=fundamental_signal_count if blended_conflict_detected else None,
         weighted_score=round(weighted_score, 4),
         technical_target_high=max(entry.resistance_levels) if entry and entry.resistance_levels else None,
         technical_target_low=max(entry.support_levels) if entry and entry.support_levels else None,
