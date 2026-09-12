@@ -631,6 +631,14 @@ class ScreenResultItem(BaseModel):
     recommendation: Direction | None = None
     entry_assessment: EntryAssessment | None = None
     ideal_buy_zone: tuple[float, float] | None = None
+    # The master algorithm's own verdict for this symbol — Vincent's technical
+    # engine plus Ryan's fundamentals/sentiment/macro, the same recommendation
+    # Analyze shows — populated only when include_analysis pulled it. None
+    # when unavailable, not a claim that it agrees or disagrees.
+    master_direction: Direction | None = None
+    # Whether the master algorithm's direction matches this screen's own
+    # `recommendation` above. None when master_direction is unavailable.
+    master_confirms: bool | None = None
     summary: str | None = None
     revenue_accel_pct: float | None = None
     analyst_upgrades_30d: int | None = None
@@ -680,6 +688,7 @@ class BuyabilityResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
     risk_flags: list[RiskFlag] = Field(default_factory=list)
+    master_direction: Direction | None = None
 
 
 class TrendingResultItem(BaseModel):
