@@ -1,0 +1,90 @@
+name: Deploy QA
+
+# main is the trunk: every merge to main deploys straight to QA (the
+# finance-api-qa Worker and the finance-web-ui-qa site at
+# https://stock.qa.ryanxu.dev), so QA always reflects the tip of main. It
+# never touches the production Worker or Pages project - production only
+# ships from deploy-prod.yml, run manually against a release/* branch cut
+# from main. See docs/release-process.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-qa
+  cancel-in-progress: false
+
+env:
+  QA_API_BASE_URL: https://finance-api-qa.rxlab.workers.dev
+
+jobs:
+  deploy-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Python tests
+        run: uv run pytest -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Technical engine tests (Vincent)
+        run: node --test technical_engine/tests/*.test.js
+
+      - name: Worker tests
+        working-directory: cloudflare-api
+        run: npm test
+
+      - name: Frontend install
+        working-directory: web_ui
+        run: npm ci
+
+      - name: Frontend locale checks
+        working-directory: web_ui
+        run: npm test
+
+      - name: Frontend build (QA API)
+        working-directory: web_ui
+        env:
+          VITE_API_BASE_URL: ${{ env.QA_API_BASE_URL }}
+        run: npm run build
+
+      - name: Deploy QA Worker
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: cloudflare-api
+        run: npx --yes wrangler@4 deploy --env qa
+
+      - name: Deploy QA site
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: web_ui
+        run: npx --yes wrangler@4 deploy --config wrangler.qa.toml
+
+      - name: Smoke check QA
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          set -euo pipefail
+          curl -fsS "$QA_API_BASE_URL/health" >/dev/null
+          curl -fsS -o /dev/null https://stock.qa.ryanxu.dev/ || echo "::warning title=QA domain::stock.qa.ryanxu.dev did not answer yet"
