@@ -15,7 +15,7 @@ import type {
   FibonacciLevels,
   Signal,
 } from '../api/types'
-import { formatDirection, formatEntryAssessment } from '../formatters'
+import { formatDimension, formatDirection, formatEntryAssessment } from '../formatters'
 import { useI18n, type MessageKey } from '../i18n'
 import {
   CLOSED_SUGGESTIONS,
@@ -1274,7 +1274,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
                     {analysis!.signals.map((signal) => (
                       <tr key={`${signal.dimension}-${signal.note}`}>
                         <td className="py-3 pr-4 font-medium text-slate-900 dark:text-slate-100">
-                          {signal.dimension}
+                          {formatDimension(signal.dimension, locale)}
                         </td>
                         <td className="py-3 pr-4">
                           <span

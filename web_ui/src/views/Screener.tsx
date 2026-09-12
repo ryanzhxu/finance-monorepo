@@ -142,7 +142,7 @@ function Screener({ onAnalyzeSymbol }: ScreenerProps) {
               {t('screenerDescription')}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 rounded-full border border-slate-200 bg-stone-50 p-1">
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-stone-50 p-1">
             {tabs.map((tab) => {
               const isActive = tab.key === activeTab
               return (

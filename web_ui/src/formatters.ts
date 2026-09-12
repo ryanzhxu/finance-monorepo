@@ -11,6 +11,75 @@ export function formatDirection(direction: string | null | undefined, locale: Lo
   return table[direction ?? ''] ?? direction ?? '—'
 }
 
+// Keyed by both the human-readable dimension text this repo's signals.py
+// emits ("EPS Surprise") and the raw signal_weights.yaml-style key a signal
+// can also arrive as ("EPS_Surprise", "Technical_External") — the deployed
+// API has been observed returning the underscore form, so both must resolve
+// to the same translation.
+const DIMENSIONS: Partial<Record<Locale, Record<string, string>>> = {
+  en: {
+    RSI_14: 'RSI(14)',
+    MA_50_200: 'MA 50/200',
+    Bollinger_Bands: 'Bollinger Bands',
+    RSI_Weekly: 'RSI Weekly',
+    Support_Resistance: 'Support/Resistance',
+    EPS_Surprise: 'EPS Surprise',
+    PE_Percentile: 'PE Percentile',
+    Analyst_Ratings: 'Analyst Ratings',
+    Put_Call_Ratio: 'Put/Call Ratio',
+    IV_Rank: 'IV Rank',
+    Short_Interest: 'Short Interest',
+    Institutional_13F: 'Institutional 13F',
+    News_Sentiment: 'News Sentiment',
+    FOMC_Proximity: 'Macro (FOMC)',
+    Technical_External: 'Technical (external)',
+  },
+  'zh-Hans': {
+    'RSI(14)': 'RSI(14)', RSI_14: 'RSI(14)',
+    MACD: 'MACD',
+    'MA 50/200': 'MA 50/200', MA_50_200: 'MA 50/200',
+    'Bollinger Bands': '布林带', Bollinger_Bands: '布林带',
+    Volume: '成交量',
+    'RSI Weekly': '周线 RSI', RSI_Weekly: '周线 RSI',
+    'Support/Resistance': '支撑/阻力', Support_Resistance: '支撑/阻力',
+    'EPS Surprise': '每股收益超预期', EPS_Surprise: '每股收益超预期',
+    'PE Percentile': '市盈率分位', PE_Percentile: '市盈率分位',
+    'Analyst Ratings': '分析师评级', Analyst_Ratings: '分析师评级',
+    'Put/Call Ratio': '看跌／看涨期权比率', Put_Call_Ratio: '看跌／看涨期权比率',
+    'IV Rank': '隐含波动率分位', IV_Rank: '隐含波动率分位',
+    'Short Interest': '卖空比例', Short_Interest: '卖空比例',
+    'Institutional 13F': '机构 13F', Institutional_13F: '机构 13F',
+    'News Sentiment': '新闻情绪', News_Sentiment: '新闻情绪',
+    'Macro (FOMC)': '宏观（FOMC）', FOMC_Proximity: '宏观（FOMC）',
+    'Technical (external)': '技术面（外部）', Technical_External: '技术面（外部）',
+  },
+  'zh-Hant-HK': {
+    'RSI(14)': 'RSI(14)', RSI_14: 'RSI(14)',
+    MACD: 'MACD',
+    'MA 50/200': 'MA 50/200', MA_50_200: 'MA 50/200',
+    'Bollinger Bands': '布林通道', Bollinger_Bands: '布林通道',
+    Volume: '成交量',
+    'RSI Weekly': '週線 RSI', RSI_Weekly: '週線 RSI',
+    'Support/Resistance': '支持/阻力', Support_Resistance: '支持/阻力',
+    'EPS Surprise': '每股盈利驚喜', EPS_Surprise: '每股盈利驚喜',
+    'PE Percentile': '市盈率百分位', PE_Percentile: '市盈率百分位',
+    'Analyst Ratings': '分析師評級', Analyst_Ratings: '分析師評級',
+    'Put/Call Ratio': '認沽／認購比率', Put_Call_Ratio: '認沽／認購比率',
+    'IV Rank': '隱含波動率排名', IV_Rank: '隱含波動率排名',
+    'Short Interest': '沽空比率', Short_Interest: '沽空比率',
+    'Institutional 13F': '機構 13F', Institutional_13F: '機構 13F',
+    'News Sentiment': '新聞情緒', News_Sentiment: '新聞情緒',
+    'Macro (FOMC)': '宏觀（FOMC）', FOMC_Proximity: '宏觀（FOMC）',
+    'Technical (external)': '技術面（外部）', Technical_External: '技術面（外部）',
+  },
+}
+
+export function formatDimension(dimension: string | null | undefined, locale: Locale): string {
+  const table = DIMENSIONS[locale]
+  if (!table) return dimension ?? '—'
+  return table[dimension ?? ''] ?? dimension ?? '—'
+}
+
 const ENTRY_ASSESSMENTS: Record<Locale, Record<string, string>> = {
   en: {
     buy_now: 'Buy now',
