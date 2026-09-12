@@ -210,6 +210,11 @@ def test_conflict_detected_when_supporting_context_disagrees_with_his_action() -
     assert recommendation.conflict_summary is not None
     assert "buy" in recommendation.conflict_summary.lower()
     assert "sell" in recommendation.conflict_summary.lower()
+    # The external path names the tension via `direction` and
+    # `supporting_context.direction`, which already carry it — the blended
+    # conflict_* fields stay unset so the UI doesn't localize from both places.
+    assert recommendation.conflict_technical_direction is None
+    assert recommendation.conflict_fundamental_direction is None
 
 
 def test_conflict_not_detected_when_supporting_context_agrees_with_his_action() -> None:

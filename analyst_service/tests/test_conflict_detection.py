@@ -23,6 +23,12 @@ def test_conflict_detected_when_technicals_and_fundamentals_disagree() -> None:
 
     assert recommendation.conflict_detected is True
     assert recommendation.conflict_summary == "Technicals lean BUY (3/3 signals) but fundamentals lean SELL (3/3 signals)."
+    assert recommendation.conflict_technical_direction == Direction.BUY
+    assert recommendation.conflict_technical_supporters == 3
+    assert recommendation.conflict_technical_total == 3
+    assert recommendation.conflict_fundamental_direction == Direction.SELL
+    assert recommendation.conflict_fundamental_supporters == 3
+    assert recommendation.conflict_fundamental_total == 3
 
 
 def test_conflict_not_detected_when_technicals_and_fundamentals_align() -> None:

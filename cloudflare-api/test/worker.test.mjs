@@ -581,6 +581,11 @@ test('conflict is detected when supporting context disagrees with his action', (
   assert.ok(recommendation.conflict_summary)
   assert.ok(recommendation.conflict_summary.toLowerCase().includes('buy'))
   assert.ok(recommendation.conflict_summary.toLowerCase().includes('sell'))
+  // The external path names the tension via direction/supporting_context,
+  // which already carry it - the blended conflict fields stay null so the
+  // UI doesn't localize from both places.
+  assert.equal(recommendation.conflict_technical_direction, null)
+  assert.equal(recommendation.conflict_fundamental_direction, null)
 })
 
 test('conflict is not detected when supporting context agrees with his action', () => {
@@ -635,6 +640,14 @@ test('blended path reports a technical vs fundamental conflict like Python', () 
     recommendation.conflict_summary,
     'Technicals lean BUY (3/3 signals) but fundamentals lean SELL (3/3 signals).',
   )
+  // Structured fields let the UI localize the sentence itself instead of
+  // rendering conflict_summary's English text.
+  assert.equal(recommendation.conflict_technical_direction, 'BUY')
+  assert.equal(recommendation.conflict_technical_supporters, 3)
+  assert.equal(recommendation.conflict_technical_total, 3)
+  assert.equal(recommendation.conflict_fundamental_direction, 'SELL')
+  assert.equal(recommendation.conflict_fundamental_supporters, 3)
+  assert.equal(recommendation.conflict_fundamental_total, 3)
 })
 
 test('blended path reports no conflict when technicals and fundamentals align', () => {
