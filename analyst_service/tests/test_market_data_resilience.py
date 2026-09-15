@@ -123,6 +123,9 @@ def test_fetch_ohlcv_prefers_stockdata_when_configured(monkeypatch) -> None:
 
 
 def test_analyze_symbol_returns_without_raising_when_price_history_is_missing(monkeypatch) -> None:
+    # Not testing the technical seam here; disable it so this test does not
+    # depend on Vincent's live engine (on by default) being reachable.
+    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: None)
     monkeypatch.setattr(
         analysis_module,
         "load_service_config",
