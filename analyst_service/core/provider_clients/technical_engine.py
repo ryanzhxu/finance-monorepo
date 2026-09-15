@@ -4,13 +4,13 @@ The verdict can already be pushed in on the request. This module adds the
 symmetric pull: when Ryan's service is asked about a symbol and no verdict was
 supplied, it fetches one from Vincent's engine.
 
-On by default, pointed at Vincent's live engine (``DEFAULT_BASE_URL``) —
-matching how ``provider_clients/finance_query.py`` defaults to a real provider
-rather than requiring opt-in configuration. Set ``TECHNICAL_ENGINE_BASE_URL``
-to point elsewhere, or to an empty string to disable the pull and fall back to
-local technicals. Any network or protocol failure also returns None, so a slow
-or broken engine never takes the analysis down. The returned payload is a raw
-dict; validation and rejection stay in ``technical_provider.verdict_from_external``
+Always pointed at Vincent's live engine (``DEFAULT_BASE_URL``) unless
+``TECHNICAL_ENGINE_BASE_URL`` overrides it; there is no way to disable the pull
+and degrade to local technicals — a hard dependency, not a best-effort one.
+Any network or protocol failure raises ``TechnicalEngineUnavailable`` rather
+than returning None, so a broken engine fails the analysis loudly instead of
+quietly substituting a different opinion. The returned payload is a raw dict;
+validation and rejection stay in ``technical_provider.verdict_from_external``
 so a pulled verdict is trusted no more than a pushed one.
 
 Vincent's live endpoint (``GET /decision/<ticker>`` under the configured base
@@ -40,9 +40,15 @@ from shared.enums import Horizon
 
 logger = logging.getLogger(__name__)
 
+
+class TechnicalEngineUnavailable(RuntimeError):
+    """Vincent's engine could not be reached or would not answer for this symbol."""
+
+
 _ENV_BASE_URL = "TECHNICAL_ENGINE_BASE_URL"
 _ENV_TIMEOUT = "TECHNICAL_ENGINE_TIMEOUT"
 _ENV_RETRIES = "TECHNICAL_ENGINE_RETRIES"
+_ENV_API_KEY = "TECHNICAL_ENGINE_API_KEY"
 
 # Vincent's production Render deployment. See his PR "feat: serve decision.v1
 # over HTTP" (stock-decision-dashboard#1).
@@ -61,17 +67,32 @@ _HORIZON_TO_KEY: dict[Horizon, str] = {
 }
 
 
-def technical_engine_base_url() -> str | None:
-    """The engine base URL, or None when explicitly disabled.
+def technical_engine_base_url() -> str:
+    """The engine base URL. Always resolves to a real URL — there is no opt-out.
 
     Defaults to Vincent's live engine when ``TECHNICAL_ENGINE_BASE_URL`` is
-    unset. Setting it to an empty string is the explicit opt-out.
+    unset or blank; otherwise uses the override.
     """
     raw = os.getenv(_ENV_BASE_URL)
     if raw is None:
         return DEFAULT_BASE_URL
     trimmed = raw.strip().rstrip("/")
-    return trimmed or None
+    return trimmed or DEFAULT_BASE_URL
+
+
+def _auth_headers() -> dict[str, str]:
+    """The bearer header for Vincent's decision endpoints, if a key is set.
+
+    Sending it is forward-compatible with his server enforcing it; not
+    requiring it is intentional until he adds that check on his side (his
+    engine is imported into this repo read-only — enforcement is a change on
+    his own deployment, not something this client can also gate on yet).
+    """
+    key = os.getenv(_ENV_API_KEY)
+    if not key:
+        logger.warning("%s is not set; calling Vincent's engine unauthenticated", _ENV_API_KEY)
+        return {}
+    return {"Authorization": f"Bearer {key}"}
 
 
 def _env_timeout() -> float:
@@ -98,31 +119,29 @@ def _env_retries() -> int:
     return value if value >= 0 else _DEFAULT_RETRIES
 
 
-def _fetch_decision_payload(symbol: str) -> dict[str, Any] | None:
-    """Fetch the raw multi-horizon decision.v1 envelope for ``symbol``.
+def _fetch_decision_payload(symbol: str) -> dict[str, Any]:
+    """Fetch the raw multi-horizon decision.v1 envelope for ``symbol``, or raise.
 
-    Returns None when the pull is off, the symbol is blank, every attempt
-    fails, or the engine responded with a well-formed but unusable payload
-    (a non-object body, or ``{"success": false, ...}`` for a ticker it has no
-    decision for).
+    Raises ``TechnicalEngineUnavailable`` when every attempt fails, or the
+    engine responded with a well-formed but unusable payload (a non-object
+    body, or ``{"success": false, ...}`` for a ticker it has no decision for).
     """
-    base_url = technical_engine_base_url()
-    if base_url is None:
-        return None
-
     normalized_symbol = symbol.strip().upper()
     if not normalized_symbol:
-        return None
+        raise ValueError("symbol is required")
 
+    base_url = technical_engine_base_url()
     url = f"{base_url}/decision/{normalized_symbol}"
     timeout = _env_timeout()
     attempts = _env_retries() + 1
+    last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            response = httpx.get(url, timeout=timeout)
+            response = httpx.get(url, timeout=timeout, headers=_auth_headers())
             response.raise_for_status()
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
+            last_error = exc
             logger.warning(
                 "technical engine request for %s failed (attempt %d/%d): %s",
                 normalized_symbol,
@@ -132,15 +151,17 @@ def _fetch_decision_payload(symbol: str) -> dict[str, Any] | None:
             )
             continue
         if not isinstance(payload, dict):
-            logger.warning("technical engine returned a non-object payload for %s; ignoring", normalized_symbol)
-            return None
-        if payload.get("success") is False:
-            logger.warning(
-                "technical engine declined %s: %s", normalized_symbol, payload.get("error")
+            raise TechnicalEngineUnavailable(
+                f"technical engine returned a non-object payload for {normalized_symbol}"
             )
-            return None
+        if payload.get("success") is False:
+            raise TechnicalEngineUnavailable(
+                f"technical engine declined {normalized_symbol}: {payload.get('error')}"
+            )
         return payload
-    return None
+    raise TechnicalEngineUnavailable(
+        f"technical engine request for {normalized_symbol} failed after {attempts} attempt(s): {last_error}"
+    )
 
 
 def _verdict_for_horizon(payload: dict[str, Any], horizon: Any) -> dict[str, Any] | None:
@@ -170,18 +191,18 @@ def _verdict_for_horizon(payload: dict[str, Any], horizon: Any) -> dict[str, Any
 def fetch_external_technical_verdict(
     symbol: str, horizon: Any | None = None
 ) -> dict[str, Any] | None:
-    """Fetch a decision.v1 verdict for ``symbol`` at ``horizon``, or None.
+    """Fetch a decision.v1 verdict for ``symbol`` at ``horizon``.
 
     Vincent's engine has no counterpart for a horizon outside short/mid/long
-    (e.g. Ryan's ``1D``), so those return None without a network call. Returns
-    None when the pull is off, the symbol is blank, every attempt fails, or
-    the requested horizon is not in the response.
+    (e.g. Ryan's ``1D``); that is a structural gap, not a failure, so it
+    returns None without a network call. A real attempt (the horizon is one
+    his engine covers) that fails raises ``TechnicalEngineUnavailable``
+    instead of returning None, so a broken engine cannot masquerade as "no
+    opinion for this horizon".
     """
     if horizon is not None and horizon not in _HORIZON_TO_KEY:
         return None
     payload = _fetch_decision_payload(symbol)
-    if payload is None:
-        return None
     if horizon is None:
         return payload
     return _verdict_for_horizon(payload, horizon)
@@ -192,12 +213,12 @@ def fetch_external_technical_verdicts(symbol: str, horizons: Iterable[Any]) -> d
 
     Vincent's engine returns all three horizons in a single response, so this
     fetches once and distributes it rather than issuing one request per
-    horizon. A horizon absent from the result means the pull is off, the
-    fetch failed, or that horizon has no counterpart in the response.
+    horizon. Raises ``TechnicalEngineUnavailable`` if the fetch itself fails;
+    a horizon absent from an otherwise-successful response is still omitted
+    from the result rather than fabricated, since that is a content gap in a
+    valid reply, not evidence the engine is down.
     """
     payload = _fetch_decision_payload(symbol)
-    if payload is None:
-        return {}
     results: dict[Any, dict[str, Any]] = {}
     for horizon in horizons:
         verdict = _verdict_for_horizon(payload, horizon)

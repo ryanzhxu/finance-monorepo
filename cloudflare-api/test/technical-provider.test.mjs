@@ -241,30 +241,15 @@ test('the external weight equals the local technical block total', () => {
   assert.equal(EXTERNAL_TECHNICAL_WEIGHT, 7.6)
 })
 
-test('resolve degrades to local with a visible flag on a contract violation', () => {
-  const { verdict, riskFlags } = resolveTechnicalVerdict(payload({ action: 'buy', priceState: 'IN_REDUCE_ZONE' }))
-  assert.equal(verdict, null)
-  assert.deepEqual(riskFlags, ['external_technical_rejected'])
+test('resolve throws rather than degrading to local on a contract violation', () => {
+  assert.throws(
+    () => resolveTechnicalVerdict(payload({ action: 'buy', priceState: 'IN_REDUCE_ZONE' })),
+    TechnicalVerdictError,
+  )
 })
 
-test('resolve returns nothing and no flags when no verdict is supplied', () => {
-  const { verdict, riskFlags } = resolveTechnicalVerdict(null)
-  assert.equal(verdict, null)
-  assert.deepEqual(riskFlags, [])
-})
-
-test('resolve logs a warning on a contract violation, mirroring the Python service', () => {
-  // analyst_service's resolve_technical_verdict calls logger.warning on the same
-  // rejection; the Worker silently swallowing it would leave no trace in
-  // `wrangler tail`/Logpush when Vincent's engine sends a bad payload.
-  const warn = mock.method(console, 'warn', () => {})
-  try {
-    resolveTechnicalVerdict(payload({ action: 'buy', priceState: 'IN_REDUCE_ZONE' }))
-    assert.equal(warn.mock.callCount(), 1)
-    assert.match(warn.mock.calls[0].arguments[0], /Rejected external technical verdict/)
-  } finally {
-    warn.mock.restore()
-  }
+test('resolve throws when no verdict is supplied', () => {
+  assert.throws(() => resolveTechnicalVerdict(null), TechnicalVerdictError)
 })
 
 // --- per-horizon verdicts ----------------------------------------------------

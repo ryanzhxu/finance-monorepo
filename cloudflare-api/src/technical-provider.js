@@ -284,17 +284,11 @@ export function substituteTechnicalSignals(signals, verdict) {
   return { signals: [...retained, synthesizeTechnicalSignal(verdict)], displaced }
 }
 
-// Normalize a supplied verdict, or degrade to local technicals visibly. A bad
-// payload must not take the analysis down, and must not pass unnoticed either.
+// Normalize a supplied verdict, or throw. Mirrors Python's
+// resolve_technical_verdict: a payload that violates the contract must not
+// quietly become a local verdict — TechnicalVerdictError propagates instead
+// of degrading. Callers decide whether a verdict is expected at all (e.g. a
+// horizon with no decision.v1 counterpart) before calling this.
 export function resolveTechnicalVerdict(supplied) {
-  if (supplied == null) return { verdict: null, riskFlags: [] }
-  try {
-    return { verdict: verdictFromExternal(supplied), riskFlags: [] }
-  } catch (error) {
-    if (error instanceof TechnicalVerdictError) {
-      console.warn(`Rejected external technical verdict, using local technicals: ${error.message}`)
-      return { verdict: null, riskFlags: ['external_technical_rejected'] }
-    }
-    throw error
-  }
+  return verdictFromExternal(supplied)
 }

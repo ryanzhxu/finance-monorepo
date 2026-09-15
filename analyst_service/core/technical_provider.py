@@ -225,22 +225,16 @@ def synthesize_technical_signal(verdict: TechnicalVerdict, weight: float | None 
     )
 
 
-def resolve_technical_verdict(
-    supplied: ExternalTechnicalVerdict | dict[str, Any] | None,
-) -> tuple[TechnicalVerdict | None, list[str]]:
-    """Normalize a supplied verdict, or degrade to local technicals visibly.
+def resolve_technical_verdict(supplied: ExternalTechnicalVerdict | dict[str, Any]) -> TechnicalVerdict:
+    """Normalize a supplied verdict, or raise.
 
-    A payload that violates the contract must not take the analysis down, and it
-    must not quietly pass either. Rejection returns no verdict plus a risk flag,
-    so the caller can tell "Vincent's engine was used" from "it was ignored".
+    A payload that violates the contract must not quietly become a local
+    verdict — it raises ``TechnicalVerdictError`` instead, matching the
+    engine-unavailable case: no silent substitution, ever. Callers decide
+    whether a verdict is expected at all (e.g. a horizon with no decision.v1
+    counterpart) before calling this.
     """
-    if supplied is None:
-        return None, []
-    try:
-        return verdict_from_external(supplied), []
-    except TechnicalVerdictError as exc:
-        logger.warning("Rejected external technical verdict, using local technicals: %s", exc)
-        return None, ["external_technical_rejected"]
+    return verdict_from_external(supplied)
 
 
 def resolve_technical_verdicts_by_horizon(

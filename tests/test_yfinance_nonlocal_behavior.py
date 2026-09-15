@@ -208,6 +208,26 @@ def test_analyze_returns_sparse_but_valid_payload_for_nonlocal_yfinance_shape(mo
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
     monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
+    # This test is about sparse fundamentals data, not the technical seam. The
+    # fake httpx.get below patches the shared httpx module (fundamentals_module
+    # and technical_engine both do `import httpx; httpx.get(...)`), so without
+    # this the technical pull would also hit that fake and hard-fail with
+    # TechnicalEngineUnavailable now that the pull cannot silently degrade.
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_external_technical_verdicts",
+        lambda symbol, horizons: {
+            horizon: {
+                "contractVersion": "decision.v1",
+                "producer": "vincent-stock-decision-dashboard",
+                "action": "hold",
+                "confidence": 65,
+                "priceState": "NEUTRAL_ZONE",
+                "reasons": [],
+            }
+            for horizon in horizons
+        },
+    )
     monkeypatch.setattr(data_fetcher_module, "_load_cached_payload", lambda key: None)
     monkeypatch.setattr(data_fetcher_module, "_store_cached_payload", lambda key, payload, ttl: None)
     class FakeResponse:

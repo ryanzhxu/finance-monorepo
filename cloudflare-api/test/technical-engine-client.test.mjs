@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fetchExternalTechnicalVerdict, fetchExternalTechnicalVerdicts } from '../src/technical-engine-client.js'
+import {
+  TechnicalEngineUnavailable,
+  fetchExternalTechnicalVerdict,
+  fetchExternalTechnicalVerdicts,
+} from '../src/technical-engine-client.js'
 import { resolveTechnicalVerdict } from '../src/technical-provider.js'
 
 // These tests mirror analyst_service/tests/test_technical_engine_pull.py. The
@@ -75,7 +79,7 @@ test('blank symbol returns null without a network call', async () => {
   }
 })
 
-test('network failure retries then falls back to null', async () => {
+test('network failure retries then throws', async () => {
   const originalFetch = globalThis.fetch
   let calls = 0
   globalThis.fetch = () => {
@@ -83,19 +87,21 @@ test('network failure retries then falls back to null', async () => {
     return Promise.reject(new Error('boom'))
   }
   try {
-    const result = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
-      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
-      TECHNICAL_ENGINE_RETRIES: '2',
-    })
-    assert.equal(result, null)
-    // 2 retries means 3 attempts total, and no exception escapes.
+    await assert.rejects(
+      fetchExternalTechnicalVerdict('NVDA', '2-4W', {
+        TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+        TECHNICAL_ENGINE_RETRIES: '2',
+      }),
+      TechnicalEngineUnavailable,
+    )
+    // 2 retries means 3 attempts total.
     assert.equal(calls, 3)
   } finally {
     globalThis.fetch = originalFetch
   }
 })
 
-test('non-object payload is ignored without retry', async () => {
+test('non-object payload throws without retry', async () => {
   const originalFetch = globalThis.fetch
   let calls = 0
   globalThis.fetch = () => {
@@ -103,11 +109,13 @@ test('non-object payload is ignored without retry', async () => {
     return Promise.resolve(jsonResponse(['not', 'an', 'object']))
   }
   try {
-    const result = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
-      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
-      TECHNICAL_ENGINE_RETRIES: '2',
-    })
-    assert.equal(result, null)
+    await assert.rejects(
+      fetchExternalTechnicalVerdict('NVDA', '2-4W', {
+        TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+        TECHNICAL_ENGINE_RETRIES: '2',
+      }),
+      TechnicalEngineUnavailable,
+    )
     // A well-formed but wrong-shaped response is a producer bug, not transient.
     assert.equal(calls, 1)
   } finally {
@@ -122,8 +130,7 @@ test('pulled payload flows through the same seam', async () => {
     const pulled = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
       TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
     })
-    const { verdict, riskFlags } = resolveTechnicalVerdict(pulled)
-    assert.deepEqual(riskFlags, [])
+    const verdict = resolveTechnicalVerdict(pulled)
     assert.ok(verdict != null)
     assert.equal(verdict.source, 'external')
     assert.equal(verdict.direction, 'BUY')
@@ -134,7 +141,7 @@ test('pulled payload flows through the same seam', async () => {
   }
 })
 
-test('pulled payload that violates the contract is rejected', async () => {
+test('pulled payload that violates the contract throws', async () => {
   const originalFetch = globalThis.fetch
   // SELL is illegal in an opportunity zone: the seam must reject, not accept.
   globalThis.fetch = () => Promise.resolve(jsonResponse(payload({ action: 'sell' })))
@@ -142,9 +149,7 @@ test('pulled payload that violates the contract is rejected', async () => {
     const pulled = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
       TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
     })
-    const { verdict, riskFlags } = resolveTechnicalVerdict(pulled)
-    assert.equal(verdict, null)
-    assert.deepEqual(riskFlags, ['external_technical_rejected'])
+    assert.throws(() => resolveTechnicalVerdict(pulled))
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -160,11 +165,13 @@ test('a decimal retries value falls back to the default', async () => {
   try {
     // Python's int("3.0") raises ValueError, unlike JS's Number("3.0"), so this
     // must fall back to the default (1 retry) rather than silently using 3.
-    const result = await fetchExternalTechnicalVerdict('NVDA', '2-4W', {
-      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
-      TECHNICAL_ENGINE_RETRIES: '3.0',
-    })
-    assert.equal(result, null)
+    await assert.rejects(
+      fetchExternalTechnicalVerdict('NVDA', '2-4W', {
+        TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+        TECHNICAL_ENGINE_RETRIES: '3.0',
+      }),
+      TechnicalEngineUnavailable,
+    )
     assert.equal(calls, 2)
   } finally {
     globalThis.fetch = originalFetch
@@ -191,7 +198,7 @@ test('fetchExternalTechnicalVerdicts makes one call per horizon', async () => {
   }
 })
 
-test('fetchExternalTechnicalVerdicts omits horizons that fail', async () => {
+test('fetchExternalTechnicalVerdicts throws when one horizon fails', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = (url) => {
     const parsed = url instanceof URL ? url : new URL(String(url))
@@ -202,11 +209,13 @@ test('fetchExternalTechnicalVerdicts omits horizons that fail', async () => {
   }
   try {
     const horizons = ['1W', '2-4W', '3-6M']
-    const result = await fetchExternalTechnicalVerdicts('NVDA', horizons, {
-      TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
-      TECHNICAL_ENGINE_RETRIES: '0',
-    })
-    assert.deepEqual(Object.keys(result).sort(), ['1W', '2-4W'])
+    await assert.rejects(
+      fetchExternalTechnicalVerdicts('NVDA', horizons, {
+        TECHNICAL_ENGINE_BASE_URL: 'https://engine.example',
+        TECHNICAL_ENGINE_RETRIES: '0',
+      }),
+      TechnicalEngineUnavailable,
+    )
   } finally {
     globalThis.fetch = originalFetch
   }
