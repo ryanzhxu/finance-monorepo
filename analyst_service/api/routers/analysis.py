@@ -43,6 +43,7 @@ from analyst_service.core.provider_clients.finance_query import (
     finance_query_base_url,
     search_finance_query_symbols,
 )
+from analyst_service.core.provider_clients.technical_engine import TechnicalEngineUnavailable
 from analyst_service.core.provider_clients.stockdata import search_stockdata_symbols, stockdata_api_key
 from analyst_service.core.cache import backend_name as cache_backend_name, redis_status
 from analyst_service.core.llm_client import llm_available
@@ -415,6 +416,8 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         return await analyze_symbol(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except TechnicalEngineUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post("/batch", response_model=list[AnalyzeResponse])
@@ -457,6 +460,8 @@ async def entry(request: EntryRequest) -> EntryResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except TechnicalEngineUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 def _freshness_value(item: FreshValue[object]) -> Freshness | str:

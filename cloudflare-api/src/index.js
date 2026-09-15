@@ -14,7 +14,11 @@ import {
   resolveTechnicalVerdictsByHorizon,
   substituteTechnicalSignals,
 } from './technical-provider.js'
-import { fetchExternalTechnicalVerdicts, technicalEngineBaseUrl } from './technical-engine-client.js'
+import {
+  TechnicalEngineUnavailable,
+  fetchExternalTechnicalVerdicts,
+  technicalEngineBaseUrl,
+} from './technical-engine-client.js'
 import { consolidatedEnabled, runConsolidated } from './consolidated/pipeline.js'
 import { runIndexHurdle, seriesFromBars } from './consolidated/index-hurdle.js'
 import { loadDailyBars, loadMarketContext } from './consolidated/market-data.js'
@@ -1359,17 +1363,18 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
   const fibonacci = buildFibonacci(snapshot, lookbackDays)
   const confluence = buildConfluence(snapshot, entry, fibonacci)
   const localSignals = buildSignals(snapshot, entry, fundamentals, sentiment, macro)
-  // Vincent's engine owns the technical layer when it supplies a verdict. A
-  // verdict that violates decision.v1 degrades to the local technicals and says
-  // so through a risk flag rather than failing the analysis.
-  // When no verdict was pushed on the request, pull from Vincent's engine if
+  // Vincent's engine owns the technical layer whenever it supplies a verdict.
+  // A verdict PUSHED on the request that violates decision.v1 now fails the
+  // analysis outright — no silent degrade to local technicals.
+  // When no verdict was pushed, pull from Vincent's engine if
   // TECHNICAL_ENGINE_BASE_URL is configured. His engine emits independent
   // short/mid/long verdicts, so the pull fetches all three: '2-4W' drives this
   // analysis (the only horizon the Worker's own recommendation covers today),
-  // the rest are carried through unaveraged as technical_by_horizon. The pull
-  // is off by default and resolves to nothing on any failure, so the analysis
-  // still degrades to local technicals. Every pulled payload goes through the
-  // same seam as a pushed one, so it is trusted no more than a pushed verdict.
+  // the rest are carried through unaveraged as technical_by_horizon. That pull
+  // is a hard dependency once configured: any fetch failure, or a response
+  // missing '2-4W', now throws rather than degrading. Every pulled payload
+  // goes through the same seam as a pushed one, so it is trusted no more than
+  // a pushed verdict.
   let byHorizonPayloads = {}
   let technicalPayload = technical
   let consolidatedDecision = null
@@ -1390,12 +1395,20 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     })
     consolidatedDecision = consolidated.consolidated
     byHorizonPayloads = consolidated.decisionV1ByHorizon
+    // technicalPayload may legitimately end up null here — his in-process
+    // engine already reports that failure through consolidatedDecision.errors,
+    // and buildRecommendation holds and flags technical_engine_unavailable for
+    // it. Do not also throw here: that already-visible, already-tested
+    // degrade is not the silent local-substitution fallback being removed.
     technicalPayload = byHorizonPayloads['2-4W'] ?? null
   } else if (technicalPayload == null && technicalEngineBaseUrl(env) != null) {
     byHorizonPayloads = await fetchExternalTechnicalVerdicts(normalized, SHORT_MID_LONG_HORIZONS, env)
     technicalPayload = byHorizonPayloads['2-4W'] ?? null
+    if (technicalPayload == null) {
+      throw new TechnicalEngineUnavailable(`decision.v1 verdict for ${normalized} at 2-4W was not available`)
+    }
   }
-  const { verdict: technicalVerdict, riskFlags: technicalRiskFlags } = resolveTechnicalVerdict(technicalPayload)
+  const technicalVerdict = technicalPayload != null ? resolveTechnicalVerdict(technicalPayload) : null
   const technicalByHorizon = resolveTechnicalVerdictsByHorizon(byHorizonPayloads)
   // The response reports the signals actually voted on, so summing them
   // reproduces the vote. The displaced local technicals survive as
@@ -1417,9 +1430,6 @@ async function buildAnalyze(symbol, { includeNarrative = false, includeEntry = t
     technicalByHorizon,
     consolidatedDecision,
   )
-  for (const flag of technicalRiskFlags) {
-    if (!recommendation.risk_flags.includes(flag)) recommendation.risk_flags.push(flag)
-  }
   return buildAnalysisResponse({
     symbol: normalized,
     snapshot,

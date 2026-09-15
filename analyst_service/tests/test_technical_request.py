@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from shared.enums import Direction, TechnicalSource
 from shared.models import AnalyzeRequest, ExternalTechnicalVerdict
 
-from analyst_service.core.technical_provider import resolve_technical_verdict
+from analyst_service.core.technical_provider import TechnicalVerdictError, resolve_technical_verdict
 
 
 def _verdict(**overrides: object) -> ExternalTechnicalVerdict:
@@ -41,40 +43,34 @@ def test_analyze_request_without_technical_stays_none() -> None:
     assert request.technical is None
 
 
-def test_resolve_returns_none_and_no_flags_when_absent() -> None:
-    verdict, risk_flags = resolve_technical_verdict(None)
-
-    assert verdict is None
-    assert risk_flags == []
+def test_resolve_raises_when_no_verdict_supplied() -> None:
+    with pytest.raises(TechnicalVerdictError):
+        resolve_technical_verdict(None)
 
 
 def test_resolve_normalizes_a_valid_verdict() -> None:
-    verdict, risk_flags = resolve_technical_verdict(_verdict())
+    verdict = resolve_technical_verdict(_verdict())
 
     assert verdict is not None
     assert verdict.source is TechnicalSource.EXTERNAL
     assert verdict.direction is Direction.BUY
     assert verdict.confidence == 0.7
-    assert risk_flags == []
 
 
-def test_contract_violation_falls_back_to_local_with_a_visible_flag() -> None:
+def test_contract_violation_raises_rather_than_falling_back_to_local() -> None:
     # buy inside a reduce zone is illegal under the decision.v1 legality table.
-    verdict, risk_flags = resolve_technical_verdict(_verdict(action="buy", priceState="IN_REDUCE_ZONE"))
-
-    assert verdict is None, "a rejected verdict must not become a technical opinion"
-    assert "external_technical_rejected" in risk_flags
+    with pytest.raises(TechnicalVerdictError):
+        resolve_technical_verdict(_verdict(action="buy", priceState="IN_REDUCE_ZONE"))
 
 
-def test_rejection_is_never_silent() -> None:
-    # The caller must be able to tell "Vincent's engine was used" from
-    # "Vincent's engine was ignored", otherwise the fallback misleads.
-    _, risk_flags = resolve_technical_verdict(
-        _verdict(
-            action="buy",
-            opportunityRange={"low": 100.0, "high": 150.0},
-            reduceRange={"low": 140.0, "high": 160.0},
+def test_rejection_message_describes_the_violation() -> None:
+    # The caller must be able to tell why a verdict was rejected, otherwise the
+    # failure is as opaque as the fallback it replaced.
+    with pytest.raises(TechnicalVerdictError, match=".+"):
+        resolve_technical_verdict(
+            _verdict(
+                action="buy",
+                opportunityRange={"low": 100.0, "high": 150.0},
+                reduceRange={"low": 140.0, "high": 160.0},
+            )
         )
-    )
-
-    assert risk_flags != []

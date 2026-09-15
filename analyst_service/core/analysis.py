@@ -20,9 +20,9 @@ from analyst_service.core.aggregator import aggregate_recommendation, fetch_anal
 from analyst_service.core.data_fetcher import fetch_ohlcv
 from analyst_service.core.entry_engine import compute_entry
 from analyst_service.core.provider_clients.technical_engine import (
+    TechnicalEngineUnavailable,
     fetch_external_technical_verdict,
     fetch_external_technical_verdicts,
-    technical_engine_base_url,
 )
 from analyst_service.core.fundamentals import normalize_fundamentals
 from analyst_service.core.narrator import synthesize_narrative
@@ -82,25 +82,32 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
     local_signals = generate_signals(
         technicals, fundamentals, sentiment, macro, config["weights"], config["thresholds"]
     )
-    # Vincent's engine owns the technical layer when it supplies a verdict; a
-    # verdict that violates decision.v1 degrades to the local technicals and
-    # says so through a risk flag rather than failing the analysis.
-    # When no verdict was pushed on the request, pull from Vincent's engine if
-    # a base URL is configured. His engine emits independent short/mid/long
+    # Vincent's engine owns the technical layer whenever it can cover the
+    # requested horizon. When no verdict was pushed on the request, this
+    # always pulls from his live engine — there is no way to opt out and
+    # degrade to local technicals. His engine emits independent short/mid/long
     # verdicts, so the pull fetches all three: one drives this analysis (the
     # one matching the requested horizon), the rest are carried through
-    # unaveraged as technical_by_horizon. The pull is off by default and
-    # returns nothing on any failure, so the analysis still degrades to local
-    # technicals. Every pulled payload is validated by the same seam as a
-    # pushed one, so it is trusted no more than a pushed verdict.
+    # unaveraged as technical_by_horizon. Any fetch failure, or a response
+    # missing the requested horizon, raises rather than falling back — the
+    # sole exception is a horizon his engine has no decision.v1 counterpart
+    # for at all (Ryan's day-trade 1D), which is a permanent structural gap,
+    # not a failure, and stays on local technicals. Every pulled payload is
+    # validated by the same seam as a pushed one, so it is trusted no more
+    # than a pushed verdict.
     supplied_technical = request.technical
     by_horizon_payloads: dict[Any, dict[str, Any]] = {}
-    if supplied_technical is None and technical_engine_base_url() is not None:
+    if supplied_technical is None:
         by_horizon_payloads = fetch_external_technical_verdicts(request.symbol, SHORT_MID_LONG_HORIZONS)
         supplied_technical = by_horizon_payloads.get(request.horizon)
-        if supplied_technical is None and request.horizon not in SHORT_MID_LONG_HORIZONS:
-            supplied_technical = fetch_external_technical_verdict(request.symbol, request.horizon)
-    technical_verdict, technical_risk_flags = resolve_technical_verdict(supplied_technical)
+        if supplied_technical is None:
+            if request.horizon not in SHORT_MID_LONG_HORIZONS:
+                supplied_technical = fetch_external_technical_verdict(request.symbol, request.horizon)
+            else:
+                raise TechnicalEngineUnavailable(
+                    f"decision.v1 envelope for {request.symbol} did not include {request.horizon.value}"
+                )
+    technical_verdict = resolve_technical_verdict(supplied_technical) if supplied_technical is not None else None
     technical_by_horizon = resolve_technical_verdicts_by_horizon(by_horizon_payloads)
     # Substitute once here so the response reports the signals actually voted on.
     # The displaced local technicals survive as local_technical_direction rather
@@ -145,9 +152,6 @@ async def analyze_symbol(request: AnalyzeRequest) -> AnalyzeResponse:
         technical_verdict=technical_verdict,
         displaced_local_verdict=displaced_local,
     )
-    for flag in technical_risk_flags:
-        if flag not in recommendation.risk_flags:
-            recommendation.risk_flags.append(flag)
     recommendation.technical_by_horizon = technical_by_horizon
     response = AnalyzeResponse(
         symbol=request.symbol,

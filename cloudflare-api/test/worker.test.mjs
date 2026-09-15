@@ -897,7 +897,7 @@ test('analyze endpoint substitutes an external technical verdict end to end', as
   }
 })
 
-test('analyze endpoint falls back to local technicals when the verdict is illegal', async () => {
+test('analyze endpoint fails rather than falling back to local technicals when the verdict is illegal', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = mockFinanceQueryFetch
   try {
@@ -918,13 +918,9 @@ test('analyze endpoint falls back to local technicals when the verdict is illega
       }),
       { ALPHA_VANTAGE_KEY: 'test-key' },
     )
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 500)
     const payload = await response.json()
-
-    assert.equal(payload.recommendation.technical_source, 'local')
-    assert.ok(payload.recommendation.risk_flags.includes('external_technical_rejected'))
-    // The local technicals must still be doing the work.
-    assert.ok(payload.signals.some((signal) => signal.dimension === 'RSI_14'))
+    assert.match(payload.detail, /not legal for IN_REDUCE_ZONE/)
   } finally {
     globalThis.fetch = originalFetch
   }

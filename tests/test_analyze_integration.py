@@ -166,9 +166,24 @@ def test_analyze_returns_stage_f_blocks_and_signals(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
     # This test is about the fundamentals/sentiment/macro layers, not the
     # technical seam, and every other provider above is a deterministic fake.
-    # Disable the (on-by-default) pull to Vincent's live engine so local
-    # technicals stay in signals below rather than depending on his uptime.
-    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: None)
+    # The pull to Vincent's engine is a hard dependency now (no opt-out), so
+    # fake a deterministic hold verdict for every horizon rather than
+    # depending on his uptime.
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_external_technical_verdicts",
+        lambda symbol, horizons: {
+            horizon: {
+                "contractVersion": "decision.v1",
+                "producer": "vincent-stock-decision-dashboard",
+                "action": "hold",
+                "confidence": 65,
+                "priceState": "NEUTRAL_ZONE",
+                "reasons": [],
+            }
+            for horizon in horizons
+        },
+    )
 
     client = TestClient(app)
     response = client.post(
@@ -188,7 +203,12 @@ def test_analyze_returns_stage_f_blocks_and_signals(monkeypatch, tmp_path) -> No
     assert payload["sentiment"] is not None
     assert payload["macro"] is not None
     assert payload["data_quality_score"] >= 70
-    assert len(payload["signals"]) >= 12
+    # Vincent's engine now always substitutes the technical dimensions with one
+    # "Technical (external)" signal, so the count is lower than the pre-cutover
+    # (local-technicals-only) baseline of >= 12.
+    assert len(payload["signals"]) >= 8
+    assert any(signal["dimension"] == "Technical (external)" for signal in payload["signals"])
+    assert not any(signal["dimension"] == "RSI(14)" for signal in payload["signals"])
     assert payload["sentiment"]["news_sentiment_score"] is not None
     assert payload["sentiment"]["news_headline_count"] == 4
     assert payload["sentiment"]["news_sentiment_source"] == "marketaux"

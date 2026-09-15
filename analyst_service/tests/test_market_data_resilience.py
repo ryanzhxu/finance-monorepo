@@ -123,9 +123,14 @@ def test_fetch_ohlcv_prefers_stockdata_when_configured(monkeypatch) -> None:
 
 
 def test_analyze_symbol_returns_without_raising_when_price_history_is_missing(monkeypatch) -> None:
-    # Not testing the technical seam here; disable it so this test does not
-    # depend on Vincent's live engine (on by default) being reachable.
-    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: None)
+    # Not testing the technical seam here; the pull is a hard dependency now,
+    # so fake a deterministic verdict instead of depending on Vincent's live
+    # engine being reachable.
+    monkeypatch.setattr(
+        analysis_module,
+        "fetch_external_technical_verdicts",
+        lambda symbol, horizons: {h: _decision_payload("hold") for h in horizons},
+    )
     monkeypatch.setattr(
         analysis_module,
         "load_service_config",
@@ -244,7 +249,6 @@ def test_analyze_symbol_pulls_all_three_horizons_and_reuses_the_requested_one(mo
         ),
     )
     monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
-    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: "https://engine.example")
 
     calls: list[str] = []
 
@@ -328,7 +332,6 @@ def test_analyze_symbol_pulls_a_dedicated_verdict_for_a_horizon_outside_the_thre
 
     monkeypatch.setattr(analysis_module, "aggregate_recommendation", fake_aggregate)
     monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
-    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: "https://engine.example")
 
     calls: list[str] = []
 
