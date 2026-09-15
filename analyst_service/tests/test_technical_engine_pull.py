@@ -60,11 +60,28 @@ class _FakeResponse:
         return self._payload
 
 
-def test_off_by_default_returns_none_without_calling_out(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unset_env_var_defaults_to_vincents_live_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(BASE_URL_ENV, raising=False)
+    assert technical_engine.technical_engine_base_url() == technical_engine.DEFAULT_BASE_URL
+
+    captured: dict[str, object] = {}
+
+    def fake_get(url: str, timeout: float) -> _FakeResponse:
+        captured["url"] = url
+        return _FakeResponse(_envelope())
+
+    monkeypatch.setattr(technical_engine.httpx, "get", fake_get)
+    result = technical_engine.fetch_external_technical_verdict("NVDA", Horizon.TWO_TO_FOUR_WEEKS)
+
+    assert result is not None
+    assert captured["url"] == f"{technical_engine.DEFAULT_BASE_URL}/decision/NVDA"
+
+
+def test_empty_string_env_var_explicitly_disables_the_pull(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(BASE_URL_ENV, "")
 
     def forbidden(*args: object, **kwargs: object) -> object:
-        raise AssertionError("pull must not touch the network when off")
+        raise AssertionError("pull must not touch the network when explicitly disabled")
 
     monkeypatch.setattr(technical_engine.httpx, "get", forbidden)
     assert technical_engine.fetch_external_technical_verdict("NVDA", Horizon.TWO_TO_FOUR_WEEKS) is None

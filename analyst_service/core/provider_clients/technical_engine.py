@@ -2,14 +2,16 @@
 
 The verdict can already be pushed in on the request. This module adds the
 symmetric pull: when Ryan's service is asked about a symbol and no verdict was
-supplied, it can fetch one from Vincent's engine at a configured base URL.
+supplied, it fetches one from Vincent's engine.
 
-Off by default. Without ``TECHNICAL_ENGINE_BASE_URL`` set, every call returns
-None and the analysis degrades to the local technicals exactly as before. Any
-network or protocol failure also returns None, so a slow or broken engine never
-takes the analysis down. The returned payload is a raw dict; validation and
-rejection stay in ``technical_provider.verdict_from_external`` so a pulled
-verdict is trusted no more than a pushed one.
+On by default, pointed at Vincent's live engine (``DEFAULT_BASE_URL``) —
+matching how ``provider_clients/finance_query.py`` defaults to a real provider
+rather than requiring opt-in configuration. Set ``TECHNICAL_ENGINE_BASE_URL``
+to point elsewhere, or to an empty string to disable the pull and fall back to
+local technicals. Any network or protocol failure also returns None, so a slow
+or broken engine never takes the analysis down. The returned payload is a raw
+dict; validation and rejection stay in ``technical_provider.verdict_from_external``
+so a pulled verdict is trusted no more than a pushed one.
 
 Vincent's live endpoint (``GET /decision/<ticker>`` under the configured base
 URL, see his PR "feat: serve decision.v1 over HTTP") always returns all three
@@ -42,6 +44,10 @@ _ENV_BASE_URL = "TECHNICAL_ENGINE_BASE_URL"
 _ENV_TIMEOUT = "TECHNICAL_ENGINE_TIMEOUT"
 _ENV_RETRIES = "TECHNICAL_ENGINE_RETRIES"
 
+# Vincent's production Render deployment. See his PR "feat: serve decision.v1
+# over HTTP" (stock-decision-dashboard#1).
+DEFAULT_BASE_URL = "https://stock-decision-dashboard.onrender.com/api"
+
 _DEFAULT_TIMEOUT = 5.0
 # One retry: a single transient hiccup is common, a persistent outage should not
 # stall the analysis behind a long retry chain.
@@ -56,10 +62,14 @@ _HORIZON_TO_KEY: dict[Horizon, str] = {
 
 
 def technical_engine_base_url() -> str | None:
-    """The configured engine base URL, or None when the pull is off."""
+    """The engine base URL, or None when explicitly disabled.
+
+    Defaults to Vincent's live engine when ``TECHNICAL_ENGINE_BASE_URL`` is
+    unset. Setting it to an empty string is the explicit opt-out.
+    """
     raw = os.getenv(_ENV_BASE_URL)
     if raw is None:
-        return None
+        return DEFAULT_BASE_URL
     trimmed = raw.strip().rstrip("/")
     return trimmed or None
 

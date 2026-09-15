@@ -164,6 +164,11 @@ def test_analyze_returns_stage_f_blocks_and_signals(monkeypatch, tmp_path) -> No
     monkeypatch.delenv("REDDIT_CLIENT_ID", raising=False)
     monkeypatch.delenv("REDDIT_CLIENT_SECRET", raising=False)
     monkeypatch.setattr(analysis_module, "append_recommendation", lambda response: None)
+    # This test is about the fundamentals/sentiment/macro layers, not the
+    # technical seam, and every other provider above is a deterministic fake.
+    # Disable the (on-by-default) pull to Vincent's live engine so local
+    # technicals stay in signals below rather than depending on his uptime.
+    monkeypatch.setattr(analysis_module, "technical_engine_base_url", lambda: None)
 
     client = TestClient(app)
     response = client.post(
