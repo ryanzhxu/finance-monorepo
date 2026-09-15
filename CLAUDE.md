@@ -76,7 +76,7 @@ cd web_ui && npm run dev
 ```bash
 # Python
 UV_CACHE_DIR=/private/tmp/uv-cache uv run --no-sync pytest -q
-# Expected: 271 passed
+# Expected: 295 passed
 
 # Vincent's engine
 node --test technical_engine/tests/*.test.js
@@ -110,6 +110,14 @@ git add openapi/ postman/
 - **Technical layer ownership (decided 2026-08-28):** Vincent's engine supplies
   technicals; every other layer stays here. An external decision.v1 verdict
   *replaces* the local technical vote — never average the two
+- `analyst_service/core/provider_clients/technical_engine.py` pulls decision.v1
+  from Vincent's live engine **by default** — `TECHNICAL_ENGINE_BASE_URL`
+  defaults to `https://stock-decision-dashboard.onrender.com/api`; set it to an
+  empty string to opt out and fall back to local technicals. It fetches the
+  full short/mid/long envelope in **one call**: his endpoint ignores any
+  `horizon` query param and always returns all three horizons nested under
+  `horizons`, with `producer` stated once at the top level rather than
+  repeated per horizon
 - cloudflare-api/src/technical-provider.js mirrors
   analyst_service/core/technical_provider.py. Change one, change both: the action
   map, legality table and confidence rescale must stay identical
@@ -134,8 +142,15 @@ the Worker matches.
 - Never hand-edit `openapi/*.json`, `postman/*.json`, caches, `backtesting/recommendations.jsonl`, `.venv/`, `web_ui/node_modules/`, or `web_ui/dist/`.
 - A dirty shared checkout may contain unrelated provider or forecast WIP. Use a new worktree from current `origin/main` for independent work and preserve all unrelated changes.
 
-## Current state (as of 2026-09-08)
+## Current state (as of 2026-09-15)
 Completed:
+- Vincent shipped `GET /decision/<ticker>` and `GET /decisions?tickers=...` on his
+  own repo (`stock-decision-dashboard#1`), serving decision.v1 over HTTP for real.
+  `analyst_service`'s pull client was fixed to match the real shape (previously
+  written against a guessed one-call-per-horizon transport that always failed
+  validation) and now defaults on against his live engine — see the invariants
+  above. The Worker's `technical-engine-client.js` has the same pre-existing
+  shape mismatch and is not yet fixed; treat it as a known gap, not fixed by this.
 - Composite engine Phase 1: external technical provider seam. `/analyze` accepts an
   optional `technical` block (decision.v1); it replaces the local technical vote and
   reports `technical_agreement` — whether both engines reached the same direction.
