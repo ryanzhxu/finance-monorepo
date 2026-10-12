@@ -1,0 +1,100 @@
+name: Deploy
+
+# GitHub Flow: main is always deployable. Every merge runs the full test
+# suite and, if it passes, deploys straight to production. There is no QA
+# environment and no release-branch promotion step — those added a manual
+# approval gate that sat unactioned for a month (release/20260915) without
+# ever being reviewed, so it provided no real safety, only latency. If this
+# project reaches a point where a short outage or bad deploy would actually
+# hurt (paying users, an SLA), reintroduce a staging gate then — not before.
+# Use a feature flag for anything you want to de-risk instead of holding it
+# behind a branch.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  # Queue deploys rather than cancelling. A cancelled deploy can strand an
+  # older build as the live one.
+  cancel-in-progress: false
+
+env:
+  PROD_API_BASE_URL: https://finance-api.rxlab.workers.dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Python tests
+        run: uv run pytest -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Technical engine tests (Vincent)
+        run: node --test technical_engine/tests/*.test.js
+
+      - name: Worker tests
+        working-directory: cloudflare-api
+        run: npm test
+
+      - name: Frontend install
+        working-directory: web_ui
+        run: npm ci
+
+      - name: Frontend locale checks
+        working-directory: web_ui
+        run: npm test
+
+      # Vite reads web_ui/.env.production automatically in production mode,
+      # so the bundle points at the deployed Worker rather than localhost.
+      - name: Frontend build
+        working-directory: web_ui
+        run: npm run build
+
+      - name: Deploy Worker
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: cloudflare-api
+        run: npx --yes wrangler@4 deploy
+
+      - name: Deploy Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: web_ui
+        run: npx --yes wrangler@4 pages deploy dist --project-name=finance-web-ui --branch=main
+
+      - name: Skip deploy (no token configured)
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: |
+          echo "::warning title=Deploy skipped::CLOUDFLARE_API_TOKEN is not set in repository secrets."
+
+      - name: Smoke check production
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          set -euo pipefail
+          curl -fsS "$PROD_API_BASE_URL/health" >/dev/null
+          curl -fsS -o /dev/null https://stock.ryanxu.dev/ || echo "::warning title=Prod domain::stock.ryanxu.dev did not answer yet"
