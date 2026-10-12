@@ -1,0 +1,37 @@
+nasdaq_trader:
+  listed_url: https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt
+  other_listed_url: https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt
+  eligible_exchange_codes: [A, N, P, V, Z]
+  required_security_name_terms:
+    - common stock
+    - common shares
+    - ordinary shares
+  excluded_security_name_terms:
+    - acquisition corp
+    - preferred stock
+    - warrant
+    - rights
+    - units
+    - depositary shares
+    - notes
+    - bond
+    - fund
+    - etf
+    - etn
+download:
+  default_max_symbols: 500
+  default_sample_seed: free-price-v1
+  throttle_seconds: 0.2
+  initial_workers: 6
+  minimum_workers: 3
+  maximum_workers: 12
+  batch_size: 250
+  retry_attempts: 4
+  retry_backoff_seconds: 2
+  request_timeout_seconds: 30
+  cooldown_seconds: 60
+  adaptive_window_size: 100
+  maximum_failure_rate: 0.05
+  stale_coverage_days: 7
+  minimum_history_sessions: 200
+  r2_storage_limit_bytes: 8589934592

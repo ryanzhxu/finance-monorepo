@@ -1,0 +1,28 @@
+evidence_quality:
+  company_filing: 100
+  earnings_call: 90
+  company_release: 75
+  market_data: 80
+  macro_data: 80
+  third_party_research: 55
+
+weights:
+  evidence_quality: 0.45
+  evidence_breadth: 0.20
+  source_diversity: 0.15
+  evidence_recency: 0.20
+
+thresholds:
+  target_evidence_count: 4
+  target_source_domains: 3
+  fresh_within_days: 90
+  stale_after_days: 365
+  missing_publication_date_score: 35
+
+penalties:
+  unsupported_claim: 12
+  missing_evidence: 1
+  unresolved_unknown: 2
+  needs_more_evidence_verdict: 8
+  reject_verdict: 20
+  maximum_total: 35

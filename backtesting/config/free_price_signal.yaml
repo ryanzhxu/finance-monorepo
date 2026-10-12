@@ -1,0 +1,11 @@
+minimum_history_sessions: 200
+signal_score:
+  base: 50
+  price_above_ma20: 15
+  ma20_above_ma50: 15
+  ma50_above_ma200: 15
+  positive_macd_histogram: 10
+  above_average_volume: 5
+  extreme_rsi_penalty: 10
+entry_timing:
+  pullback_pct: 0.03

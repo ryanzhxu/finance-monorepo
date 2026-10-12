@@ -1,0 +1,27 @@
+schema_version: continuous_regime_v1
+benchmark_symbols:
+  spy: SPY
+  qqq: QQQ
+  vix: ^VIX
+moving_average_sessions: [20, 50, 200]
+return_sessions: [21, 63, 126, 252]
+volatility_sessions: [21, 63]
+volume_ratio_sessions: 90
+drawdown_sessions: 252
+market_regime:
+  risk_off_vix_level: 25
+  risk_on_vix_level: 22
+  risk_off_ma200_gap_percent: -3
+  risk_on_ma200_gap_percent: 3
+logistic_regression:
+  regularization_candidates: [0.001, 0.01, 0.03, 0.1, 1.0, 10.0]
+  minimum_training_observations: 1000
+  max_iterations: 1000
+probability_shrinkage:
+  feature_model_weights: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
+  prior_sources: [global_flat, regime_flat]
+feature_selection:
+  excluded_features: [regime_neutral, regime_risk_off, regime_risk_on]
+target_calibration:
+  upside_temperature_candidates: [0.75, 0.9, 1.0, 1.1, 1.25, 1.5]
+  downside_regime_blending: true

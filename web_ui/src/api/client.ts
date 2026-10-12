@@ -177,12 +177,13 @@ export async function fetchAnalystHealth(): Promise<AnalystHealthResponse> {
 
 export async function fetchSymbolSearch(
   q: string,
+  signal?: AbortSignal,
 ): Promise<Array<{ symbol: string; name: string; exchange: string; type: string }>> {
   if (!q || q.length < 1) return []
   try {
     const resp = await analystClient.get<
       Array<{ symbol: string; name: string; exchange: string; type: string }>
-    >('/search', { params: { q, limit: 6 } })
+    >('/search', { params: { q, limit: 6 }, signal })
     return resp.data
   } catch {
     return []

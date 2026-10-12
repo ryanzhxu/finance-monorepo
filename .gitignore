@@ -20,6 +20,7 @@ dist/
 build/
 .DS_Store
 backtesting/recommendations.jsonl
+backtesting/cache/
 screener_service/cache/**/*.json
 screener_service/cache/**/*.jsonl
 analyst_service/cache/

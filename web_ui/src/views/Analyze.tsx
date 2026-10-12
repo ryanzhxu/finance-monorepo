@@ -781,21 +781,35 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
       activeSymbol: normalized,
     })
 
+    let backgroundSearchStarted = false
     try {
-      const [bundle, searchResults] = await Promise.all([
-        fetchAnalyzeBundle(normalized, controller.signal),
-        fetchSymbolSearch(normalized),
-      ])
+      const bundle = await fetchAnalyzeBundle(normalized, controller.signal)
       if (abortedRef.current || fetchIdRef.current !== fetchId) {
         return
       }
-      rememberSuggestionNames(searchResults)
       setViewState({
         phase: 'ready',
         bundle,
         error: null,
         activeSymbol: normalized,
       })
+
+      backgroundSearchStarted = true
+      void fetchSymbolSearch(normalized, controller.signal)
+        .then((searchResults) => {
+          if (abortedRef.current || fetchIdRef.current !== fetchId) {
+            return
+          }
+          rememberSuggestionNames(searchResults)
+        })
+        .catch(() => {
+          // Search is optional enrichment and must not invalidate a ready analysis.
+        })
+        .finally(() => {
+          if (fetchIdRef.current === fetchId && controllerRef.current === controller) {
+            controllerRef.current = null
+          }
+        })
     } catch (error) {
       if (abortedRef.current || fetchIdRef.current !== fetchId) {
         return
@@ -816,7 +830,7 @@ function Analyze({ requestedSymbol, onAddToWatchlist, watchlistSymbols }: Analyz
         activeSymbol: normalized,
       })
     } finally {
-      if (fetchIdRef.current === fetchId) {
+      if (!backgroundSearchStarted && fetchIdRef.current === fetchId && controllerRef.current === controller) {
         controllerRef.current = null
       }
     }

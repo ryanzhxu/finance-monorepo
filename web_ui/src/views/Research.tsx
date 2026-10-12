@@ -16,6 +16,45 @@ const researchUniverses = [
   { label: 'Russell 2000 constituents', value: 'Russell 2000 constituents' },
   { label: 'Dow Jones Industrial Average constituents', value: 'Dow Jones Industrial Average constituents' },
 ]
+const researchPresets: Array<{
+  label: string
+  description: string
+  request: ResearchJobRequest
+}> = [
+  {
+    label: 'Research This Holding',
+    description: 'Review an existing holding for thesis durability and follow-up work.',
+    request: {
+      question: 'Review NVDA as an existing holding. Explain what would strengthen or weaken the thesis, what deserves immediate follow-up, and what the user should verify next. No trade instructions.',
+      mode: 'downside_risk_scan',
+      universe: 'US-listed common stocks',
+      max_candidates: 1,
+      risk_profile: 'Existing holding review triggered by the portfolio advisor.',
+    },
+  },
+  {
+    label: 'Risk Scan',
+    description: 'Check whether a holding now carries a material downside or concentration concern.',
+    request: {
+      question: 'Risk-scan MU as an existing holding. Focus on thesis-break risk, demand deterioration, execution risk, and reasons the user should reduce conviction or investigate further. No trade instructions.',
+      mode: 'downside_risk_scan',
+      universe: 'US-listed common stocks',
+      max_candidates: 1,
+      risk_profile: 'Downside review requested after a concentration or drawdown alert.',
+    },
+  },
+  {
+    label: 'Find Alternatives',
+    description: 'Look for adjacent candidates when the user wants comparable exposure without repeating the same bet.',
+    request: {
+      question: 'Find up to three US-listed alternatives to an existing AI infrastructure holding. Favor less-obvious names when evidence quality is comparable, explain why each may fit, and include reasons to avoid. No trade instructions.',
+      mode: 'upside_discovery',
+      universe: 'US-listed common stocks',
+      max_candidates: 3,
+      risk_profile: 'Portfolio advisor requested alternatives to an existing concentrated theme.',
+    },
+  },
+]
 
 function PointList({ title, points }: { title: string; points: ResearchPoint[] }) {
   return (
@@ -166,6 +205,14 @@ function Research() {
     })
   }
 
+  function applyPreset(request: ResearchJobRequest) {
+    setQuestion(request.question)
+    setMode(request.mode)
+    setUniverse(request.universe)
+    setMaxCandidates(request.max_candidates)
+    setRiskProfile(request.risk_profile ?? '')
+  }
+
   const job = jobQuery.data
   const isActive = Boolean(job && !terminalStatuses.has(job.status))
 
@@ -182,6 +229,20 @@ function Research() {
           <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
             Ask for ranked candidates, catalysts, risks, entry conditions, reasons to avoid, and evidence-backed follow-up work. Research output is decision support, not guaranteed returns or personalized allocation advice.
           </p>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          {researchPresets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => applyPreset(preset.request)}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-400 hover:bg-white dark:border-slate-800 dark:bg-[#11151d] dark:hover:border-slate-600"
+            >
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{preset.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{preset.description}</p>
+            </button>
+          ))}
         </div>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
