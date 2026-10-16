@@ -1595,6 +1595,29 @@ function buildScreenResult(snapshot, marketRegime, screenType, rank) {
 // first symbol and ~7-9 for each later one even with market data cached, so a
 // batch of 6 could exceed the Free plan's 50-fetch cap and fail the later rows.
 const DECISIONS_MAX_SYMBOLS = 3
+
+// Remaps one consolidated_decision.horizons object to Position Lens's
+// PortfolioDecisionItem shape (portfolio-decision.v1, provisional). Only
+// final_action crosses; technical.action (Vincent's pre-adjustment call) and
+// current_price/data_quality/technical_details never do.
+function toPortfolioDecisionHorizons(horizons) {
+  const pick = (key) => toPortfolioDecisionHorizon(horizons?.[key])
+  return { short: pick('short'), mid: pick('mid'), long: pick('long') }
+}
+
+function toPortfolioDecisionHorizon(horizon) {
+  if (!horizon?.final_action) return null
+  const technical = horizon.technical ?? null
+  const adjustmentReasons = (horizon.adjustments ?? []).map((adjustment) => adjustment.detail).filter(Boolean)
+  return {
+    finalAction: horizon.final_action,
+    confidence: technical?.confidence ?? 0,
+    reasons: [...(technical?.reasons ?? []), ...adjustmentReasons],
+    ...(technical?.invalidation != null ? { invalidation: technical.invalidation } : {}),
+    ...(technical?.opportunity_range ? { opportunityRange: { low: technical.opportunity_range.low, high: technical.opportunity_range.high } } : {}),
+    ...(technical?.reduce_range ? { reduceRange: { low: technical.reduce_range.low, high: technical.reduce_range.high } } : {}),
+  }
+}
 const SCREENER_HURDLE_LIMIT = 10
 const SCREENER_HURDLE_NOT_EVALUATED = {
   status: 'not_evaluated',
@@ -2057,6 +2080,28 @@ async function handleAnalyzeRoute(pathname, request, env = {}) {
       }
     })
     return jsonCors({ results, max_symbols: DECISIONS_MAX_SYMBOLS })
+  }
+  // Position Lens-facing contract (portfolio-decision.v1, provisional). Remaps
+  // consolidated_decision to Position Lens's PortfolioDecisionItem/HorizonDecision
+  // shape: only final_action crosses, never Vincent's pre-adjustment technical.action.
+  if (pathname === '/api/portfolio-decisions' && request.method === 'POST') {
+    if (!consolidatedEnabled(env)) {
+      return jsonCors({ detail: 'consolidated decision is not enabled' }, 404)
+    }
+    const body = await readJson(request)
+    const symbols = Array.isArray(body?.symbols) ? body.symbols.map(normalizeSymbol).filter(Boolean) : []
+    if (!symbols.length) return badRequest('symbols is required')
+    const limited = symbols.slice(0, DECISIONS_MAX_SYMBOLS)
+    const generatedAt = new Date().toISOString()
+    const decisions = await runWithConcurrency(limited, 2, async (symbol) => {
+      try {
+        const response = await buildAnalyze(symbol, { includeNarrative: false, includeEntry: true, env })
+        return { symbol, horizons: toPortfolioDecisionHorizons(response.consolidated_decision?.horizons) }
+      } catch (error) {
+        return { symbol, horizons: { short: null, mid: null, long: null } }
+      }
+    })
+    return jsonCors({ generatedAt, decisions })
   }
   if (pathname === '/entry' && request.method === 'POST') {
     const body = await readJson(request)
@@ -2608,6 +2653,7 @@ export default {
         pathname === '/analyze' ||
         pathname === '/batch' ||
         pathname === '/decisions' ||
+        pathname === '/api/portfolio-decisions' ||
         pathname === '/entry' ||
         pathname === '/entry/confluence' ||
         pathname.startsWith('/entry/confluence/')

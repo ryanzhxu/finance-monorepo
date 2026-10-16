@@ -257,3 +257,75 @@ test('/decisions surfaces a short, no-stack reason when the technical engine fai
     globalThis.fetch = originalFetch
   }
 })
+
+// Position Lens-facing contract (portfolio-decision.v1, provisional).
+test('/api/portfolio-decisions 404s when CONSOLIDATED_DECISION is not on', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.com/api/portfolio-decisions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ symbols: ['NVDA'] }),
+    }),
+    {},
+  )
+  assert.equal(response.status, 404)
+})
+
+test('/api/portfolio-decisions remaps to Position Lens camelCase and never exposes the pre-adjustment technical vote', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockCombinedFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/api/portfolio-decisions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbols: ['NVDA'] }),
+      }),
+      CONSOLIDATED_ENV,
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    assert.equal(typeof payload.generatedAt, 'string')
+    assert.equal(payload.decisions.length, 1)
+
+    const [nvda] = payload.decisions
+    assert.equal(nvda.symbol, 'NVDA')
+    for (const key of ['short', 'mid', 'long']) {
+      const horizon = nvda.horizons[key]
+      if (horizon === null) continue
+      assert.ok(LEGAL_ACTIONS.includes(horizon.finalAction))
+      assert.equal(typeof horizon.confidence, 'number')
+      assert.ok(Array.isArray(horizon.reasons))
+    }
+
+    const serialized = JSON.stringify(payload)
+    assert.equal(serialized.includes('final_action'), false, 'only camelCase finalAction crosses')
+    assert.equal(serialized.includes('technical_details'), false)
+    assert.equal(serialized.includes('current_price'), false)
+    assert.equal(serialized.includes('company_name'), false)
+    assert.equal(serialized.includes('"action"'), false, 'the pre-adjustment technical.action field never crosses')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('/api/portfolio-decisions returns null horizons for a symbol instead of failing the whole batch', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockCombinedFetch
+  try {
+    const response = await worker.fetch(
+      new Request('https://example.com/api/portfolio-decisions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbols: ['NVDA', 'FAIL'] }),
+      }),
+      CONSOLIDATED_ENV,
+    )
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    const fail = payload.decisions.find((entry) => entry.symbol === 'FAIL')
+    assert.deepEqual(fail.horizons, { short: null, mid: null, long: null })
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
